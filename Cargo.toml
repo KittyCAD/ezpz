@@ -17,3 +17,6 @@ criterion = "0.7.0"
 [[bench]]
 name = "equations"
 harness = false
+
+[profile.dev.package]
+faer = { opt-level = 3 }
