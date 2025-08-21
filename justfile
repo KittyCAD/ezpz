@@ -4,7 +4,8 @@ lint:
     cargo clippy {{clippy-flags}} -- -D warnings
 
 check-wasm:
-    cargo check -p kittycad-modeling-cmds --target wasm32-unknown-unknown
+    cargo check -p ezpz-wasm --target wasm32-unknown-unknown
+    cd ezpz-wasm; wasm-pack build --target web --dev; cd -
 
 check-typos:
     typos
