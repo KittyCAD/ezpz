@@ -1,0 +1,104 @@
+on:
+    workflow_dispatch:
+    pull_request:
+      paths:
+        - '**.rs'
+        - .github/workflows/ci.yml
+        - Cargo.lock
+        - Cargo.toml
+        - '**/Cargo.toml'
+        - rust-toolchain.toml
+permissions: read-all
+name: Rust CI
+jobs:
+    cargo-test:
+      name: cargo test
+      runs-on: ubuntu-latest-8-cores
+      steps:
+        - uses: actions/checkout@v4
+        - name: Install Rust
+          uses: dtolnay/rust-toolchain@stable
+        - uses: taiki-e/install-action@cargo-llvm-cov
+        - uses: taiki-e/install-action@nextest
+        - uses: Swatinem/rust-cache@v2.8.0
+        - uses: taiki-e/install-action@just
+
+        - name: cargo test
+          shell: bash
+          run: |
+            just test-with-coverage
+          env:
+            RUST_BACKTRACE: 1
+  
+        - name: Upload to codecov.io
+          uses: codecov/codecov-action@v5
+          with:
+            token: ${{secrets.CODECOV_TOKEN}}
+            slug: KittyCAD/ezpz
+            fail_ci_if_error: true
+            flags: unittests
+            verbose: true
+            files: lcov.info
+  
+    check-lint:
+      name: Check lints
+      runs-on: ubuntu-latest-8-cores
+      steps:
+        - uses: actions/checkout@v4
+        - uses: taiki-e/install-action@just
+        - name: Install Rust
+          uses: dtolnay/rust-toolchain@stable
+          with:
+            components: clippy
+        - uses: Swatinem/rust-cache@v2.8.0
+
+        - name: Check lints
+          run: just lint
+
+    check-wasm:
+      name: Check wasm
+      runs-on: ubuntu-latest-8-cores
+      steps:
+        - uses: actions/checkout@v4
+        - uses: taiki-e/install-action@just
+        - name: Install Rust
+          uses: dtolnay/rust-toolchain@stable
+          with:
+            targets: wasm32-unknown-unknown
+        - uses: Swatinem/rust-cache@v2.8.0
+
+        - name: Check lints
+          run: just check-wasm
+ 
+    cargo-fmt:
+        name: cargo fmt
+        runs-on: ubuntu-latest-8-cores
+        steps:
+          - uses: actions/checkout@v4
+          - name: Install Rust
+            uses: dtolnay/rust-toolchain@stable
+            with:
+                components: rustfmt
+  
+          - name: cargo fmt
+            run: cargo fmt
+
+    check-typos:
+      runs-on: ubuntu-latest
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v4
+        - name: Run codespell
+          uses: crate-ci/typos@v1.35.4
+
+    cargo-toml-sorted:
+      name: Check Cargo.toml is sorted
+      runs-on: ubuntu-latest
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v4
+        - name: Install cargo-sort
+          run: cargo install cargo-sort
+        - name: Run check
+          run: cargo sort --workspace --check
+

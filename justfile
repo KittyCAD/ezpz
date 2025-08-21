@@ -1,14 +1,26 @@
-cnr := "cargo nextest run --no-fail-fast"
-cita := "cargo insta test --accept"
+clippy-flags := "--workspace --tests --benches --examples"
 
-# Run the same lint checks we run in CI.
 lint:
-    cargo clippy --workspace --all-targets --all-features -- -D warnings
-    # Ensure we can build without extra feature flags.
-    cargo clippy -p kcl-lib --all-targets -- -D warnings
+    cargo clippy {{clippy-flags}} -- -D warnings
 
-lint-fix:
-    cargo clippy --workspace --all-targets --all-features --fix
+check-wasm:
+    cargo check -p kittycad-modeling-cmds --target wasm32-unknown-unknown
+
+check-typos:
+    typos
 
 test:
-    cnr
+    cargo nextest run --all-features
+    cargo test --doc
+
+# Run unit tests, output coverage to `lcov.info`.
+test-with-coverage:
+    cargo llvm-cov nextest --all-features --workspace --lcov --output-path lcov.info
+
+# Flamegraph our benchmarks
+flamegraph:
+    cargo flamegraph -p --root --bench equations
+
+bench:
+    cargo criterion -p --bench equations
+

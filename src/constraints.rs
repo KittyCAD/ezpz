@@ -1,8 +1,6 @@
 use kittycad_modeling_cmds::shared::Angle;
 
-use crate::{NonLinearSystemError, datatypes::*, id::Id, solver::Layout};
-
-const EPSILON: f64 = 0.00000001;
+use crate::{EPSILON, NonLinearSystemError, datatypes::*, id::Id, solver::Layout};
 
 /// Each geometric constraint we support.
 #[derive(Clone, Copy)]
@@ -14,9 +12,16 @@ pub enum Constraint {
     /// These two points have the same X value.
     Horizontal(LineSegment),
     /// These lines meet at this angle.
-    LinesAtAngle(LineSegment, LineSegment, Angle),
+    LinesAtAngle(LineSegment, LineSegment, AngleKind),
     /// Some scalar value is fixed.
     Fixed(Id, f64),
+}
+
+#[derive(Clone, Copy)]
+pub enum AngleKind {
+    Parallel,
+    Perpendicular,
+    Other(Angle),
 }
 
 /// Given a list of all IDs in the system, find the target ID's index in that list.
@@ -73,26 +78,28 @@ impl IntoIterator for JacobianRow {
 
 impl Constraint {
     /// Constrain these lines to be parallel.
-    /// This is a constructor for the special case of the more general LinesAtAngle constraint.
     pub fn lines_parallel([l0, l1]: [LineSegment; 2]) -> Self {
-        Self::LinesAtAngle(l0, l1, Angle::from_degrees(0.0))
+        Self::LinesAtAngle(l0, l1, AngleKind::Parallel)
     }
 
     /// Constrain these lines to be perpendicular.
-    /// This is a constructor for the special case of the more general LinesAtAngle constraint.
     pub fn lines_perpendicular([l0, l1]: [LineSegment; 2]) -> Self {
-        Self::LinesAtAngle(l0, l1, Angle::from_degrees(90.0))
+        Self::LinesAtAngle(l0, l1, AngleKind::Perpendicular)
     }
 
     /// How close is this constraint to being satisfied?
-    pub fn residual(&self, layout: &Layout, current_assignments: &[f64]) -> Result<Vec<f64>, NonLinearSystemError> {
+    pub fn residual(
+        &self,
+        layout: &Layout,
+        current_assignments: &[f64],
+    ) -> Result<Vec<f64>, NonLinearSystemError> {
         match self {
             Constraint::Distance(p0, p1, expected_distance) => {
                 let p0_x = current_assignments[layout.index_of(p0.id_x())?];
                 let p0_y = current_assignments[layout.index_of(p0.id_y())?];
                 let p1_x = current_assignments[layout.index_of(p1.id_x())?];
                 let p1_y = current_assignments[layout.index_of(p1.id_y())?];
-                let actual_distance = euclidian_distance((p0_x, p0_y), (p1_x, p1_y));
+                let actual_distance = euclidean_distance((p0_x, p0_y), (p1_x, p1_y));
                 Ok(vec![actual_distance - expected_distance])
             }
             Constraint::Vertical(line) => {
@@ -122,30 +129,41 @@ impl Constraint {
                 let p1_y_l1 = current_assignments[layout.index_of(line1.p1.id_y())?];
                 let l1 = ((p0_x_l1, p0_y_l1), (p1_x_l1, p1_y_l1));
 
-                let v0 = (p0_x_l0 - p1_x_l0, p0_y_l0 - p1_y_l0);
-                let v1 = (p0_x_l1 - p1_x_l1, p0_y_l1 - p1_y_l1);
+                let v0 = (p1_x_l0 - p0_x_l0, p1_y_l0 - p0_y_l0);
+                let v1 = (p1_x_l1 - p0_x_l1, p1_y_l1 - p0_y_l1);
 
-                // Calculate magnitudes.
-                let mag0 = euclidian_distance_line(l0);
-                let mag1 = euclidian_distance_line(l1);
+                match expected_angle {
+                    AngleKind::Parallel => {
+                        // return nb.np.array([v1[0] * v2[1] - v1[1] * v2[0]])
+                        Ok(vec![v0.0 * v1.1 - v0.1 * v1.0])
+                    }
+                    AngleKind::Perpendicular => {
+                        let dot = v0.0 * v1.0 + v0.1 * v1.1;
+                        Ok(vec![dot])
+                    }
+                    AngleKind::Other(expected_angle) => {
+                        // Calculate magnitudes.
+                        let mag0 = euclidean_distance_line(l0);
+                        let mag1 = euclidean_distance_line(l1);
 
-                // Check for zero-length lines.
-                let is_invalid = (mag0 < EPSILON) || (mag1 < EPSILON);
-                if is_invalid {
-                    return Ok(vec![0.0]);
+                        // Check for zero-length lines.
+                        let is_invalid = (mag0 < EPSILON) || (mag1 < EPSILON);
+                        if is_invalid {
+                            return Ok(vec![0.0]);
+                        }
+
+                        // 2D cross product and dot product.
+                        let cross_2d = cross(v0, v1);
+                        let dot_product = dot(v0, v1);
+
+                        // Current angle using atan2.
+                        let current_angle_radians = libm::atan2(cross_2d, dot_product);
+
+                        // Compute angle difference.
+                        let angle_residual = current_angle_radians - expected_angle.to_radians();
+                        Ok(vec![angle_residual])
+                    }
                 }
-
-                // 2D cross product and dot product.
-                let cross_2d = cross(v0, v1);
-                let dot_product = dot(v0, v1);
-
-                // Current angle using atan2.
-                let current_angle_radians = libm::atan2(cross_2d, dot_product);
-
-                // Compute angle difference.
-                let angle_residual = current_angle_radians - expected_angle.to_radians();
-
-                Ok(vec![angle_residual])
             }
         }
     }
@@ -187,7 +205,7 @@ impl Constraint {
 
                 // TODO: Handle zero-length vecs gracefully.
 
-                let dist = euclidian_distance((x0, y0), (x1, y1));
+                let dist = euclidean_distance((x0, y0), (x1, y1));
                 let dr_dx0 = (x0 - x1) / dist;
                 let dr_dy0 = (y0 - y1) / dist;
                 let dr_dx1 = (-x0 + x1) / dist;
@@ -272,7 +290,7 @@ impl Constraint {
                     partial_derivative: 1.0,
                 }],
             }]),
-            Constraint::LinesAtAngle(line0, line1, _expected_angle) => {
+            Constraint::LinesAtAngle(line0, line1, expected_angle) => {
                 // Residual: R = atan2(v1×v2, v1·v2) - α
                 // ∂R/∂x1 = (y1 - y2)/(x1**2 - 2*x1*x2 + x2**2 + y1**2 - 2*y1*y2 + y2**2)
                 // ∂R/∂y1 = (-x1 + x2)/(x1**2 - 2*x1*x2 + x2**2 + y1**2 - 2*y1*y2 + y2**2)
@@ -294,68 +312,96 @@ impl Constraint {
                 let y3 = current_assignments[layout.index_of(line1.p1.id_y())?];
                 let l1 = ((x2, y2), (x3, y3));
 
-                // Calculate magnitudes.
-                let mag0 = euclidian_distance_line(l0);
-                let mag1 = euclidian_distance_line(l1);
+                // Calculate partial derivatives
+                let pds = match expected_angle {
+                    AngleKind::Parallel => PartialDerivatives4Points {
+                        dr_dx0: y2 - y3,
+                        dr_dy0: -x2 + x3,
+                        dr_dx1: -y2 + y3,
+                        dr_dy1: x2 - x3,
+                        dr_dx2: -y0 + y1,
+                        dr_dy2: x0 - x1,
+                        dr_dx3: y0 - y1,
+                        dr_dy3: -x0 + x1,
+                    },
+                    AngleKind::Perpendicular => PartialDerivatives4Points {
+                        dr_dx0: x2 - x3,
+                        dr_dy0: y2 - y3,
+                        dr_dx1: -x2 + x3,
+                        dr_dy1: -y2 + y3,
+                        dr_dx2: x0 - x1,
+                        dr_dy2: y0 - y1,
+                        dr_dx3: -x0 + x1,
+                        dr_dy3: -y0 + y1,
+                    },
+                    AngleKind::Other(_expected_angle) => {
+                        // Expected angle isn't used because its derivative is zero.
+                        // Calculate magnitudes.
+                        let mag0 = euclidean_distance_line(l0);
+                        let mag1 = euclidean_distance_line(l1);
 
-                // Check for zero-length lines.
-                let is_invalid = (mag0 < EPSILON) || (mag1 < EPSILON);
-                if is_invalid {
-                    // All zeroes
-                    return Ok(Default::default());
-                }
+                        // Check for zero-length lines.
+                        let is_invalid = (mag0 < EPSILON) || (mag1 < EPSILON);
+                        if is_invalid {
+                            // All zeroes
+                            return Ok(Default::default());
+                        }
 
-                // Calculate derivatives.
+                        // Calculate derivatives.
 
-                // Note that our denominator terms for the partial derivatives above are
-                // the squared magnitudes of the vectors, i.e.:
-                // x1**2 - 2*x1*x2 + x2**2 + y1**2 - 2*y1*y2 + y2**2 == (x1 - x2)²  + (y1 - y2)²
-                // x3**2 - 2*x3*x4 + x4**2 + y3**2 - 2*y3*y4 + y4**2 == (x3 - x4)²  + (y3 - y4)²
-                let mag0_squared = mag0.powi(2);
-                let mag1_squared = mag1.powi(2);
+                        // Note that our denominator terms for the partial derivatives above are
+                        // the squared magnitudes of the vectors, i.e.:
+                        // x1**2 - 2*x1*x2 + x2**2 + y1**2 - 2*y1*y2 + y2**2 == (x1 - x2)²  + (y1 - y2)²
+                        // x3**2 - 2*x3*x4 + x4**2 + y3**2 - 2*y3*y4 + y4**2 == (x3 - x4)²  + (y3 - y4)²
+                        let mag0_squared = mag0.powi(2);
+                        let mag1_squared = mag1.powi(2);
 
-                let dr_dx0 = (y0 - y1) / mag0_squared;
-                let dr_dy0 = (-x0 + x1) / mag0_squared;
-                let dr_dx1 = (-y0 + y1) / mag0_squared;
-                let dr_dy1 = (x0 - x1) / mag0_squared;
-                let dr_dx2 = (-y2 + y3) / mag1_squared;
-                let dr_dy2 = (x2 - x3) / mag1_squared;
-                let dr_dx3 = (y2 - y3) / mag1_squared;
-                let dr_dy3 = (-x2 + x3) / mag1_squared;
+                        PartialDerivatives4Points {
+                            dr_dx0: (y0 - y1) / mag0_squared,
+                            dr_dy0: (-x0 + x1) / mag0_squared,
+                            dr_dx1: (-y0 + y1) / mag0_squared,
+                            dr_dy1: (x0 - x1) / mag0_squared,
+                            dr_dx2: (-y2 + y3) / mag1_squared,
+                            dr_dy2: (x2 - x3) / mag1_squared,
+                            dr_dx3: (y2 - y3) / mag1_squared,
+                            dr_dy3: (-x2 + x3) / mag1_squared,
+                        }
+                    }
+                };
 
                 Ok(vec![JacobianRow {
                     nonzero_columns: vec![
                         JacobianVar {
                             id: line0.p0.id_x(),
-                            partial_derivative: dr_dx0,
+                            partial_derivative: pds.dr_dx0,
                         },
                         JacobianVar {
                             id: line0.p0.id_y(),
-                            partial_derivative: dr_dy0,
+                            partial_derivative: pds.dr_dy0,
                         },
                         JacobianVar {
                             id: line0.p1.id_x(),
-                            partial_derivative: dr_dx1,
+                            partial_derivative: pds.dr_dx1,
                         },
                         JacobianVar {
                             id: line0.p1.id_y(),
-                            partial_derivative: dr_dy1,
+                            partial_derivative: pds.dr_dy1,
                         },
                         JacobianVar {
                             id: line1.p0.id_x(),
-                            partial_derivative: dr_dx2,
+                            partial_derivative: pds.dr_dx2,
                         },
                         JacobianVar {
                             id: line1.p0.id_y(),
-                            partial_derivative: dr_dy2,
+                            partial_derivative: pds.dr_dy2,
                         },
                         JacobianVar {
                             id: line1.p1.id_x(),
-                            partial_derivative: dr_dx3,
+                            partial_derivative: pds.dr_dx3,
                         },
                         JacobianVar {
                             id: line1.p1.id_y(),
-                            partial_derivative: dr_dy3,
+                            partial_derivative: pds.dr_dy3,
                         },
                     ],
                 }])
@@ -375,16 +421,16 @@ impl Constraint {
     }
 }
 
-/// Euclidian distance between two points.
-fn euclidian_distance(p0: (f64, f64), p1: (f64, f64)) -> f64 {
+/// Euclidean distance between two points.
+fn euclidean_distance(p0: (f64, f64), p1: (f64, f64)) -> f64 {
     let dx = p0.0 - p1.0;
     let dy = p0.1 - p1.1;
     (dx.powf(2.0) + dy.powf(2.0)).sqrt()
 }
 
-/// Euclidian distance of a line.
-fn euclidian_distance_line(line: ((f64, f64), (f64, f64))) -> f64 {
-    euclidian_distance(line.0, line.1)
+/// Euclidean distance of a line.
+fn euclidean_distance_line(line: ((f64, f64), (f64, f64))) -> f64 {
+    euclidean_distance(line.0, line.1)
 }
 
 fn cross(p0: (f64, f64), p1: (f64, f64)) -> f64 {
@@ -400,13 +446,24 @@ fn dot_line((p0, p1): ((f64, f64), (f64, f64))) -> f64 {
     dot(p0, p1)
 }
 
+struct PartialDerivatives4Points {
+    dr_dx0: f64,
+    dr_dy0: f64,
+    dr_dx1: f64,
+    dr_dy1: f64,
+    dr_dx2: f64,
+    dr_dy2: f64,
+    dr_dx3: f64,
+    dr_dy3: f64,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_geometry() {
-        assert_eq!(euclidian_distance((-1.0, 0.0), (2.0, 4.0)), 5.0);
+        assert_eq!(euclidean_distance((-1.0, 0.0), (2.0, 4.0)), 5.0);
         assert_eq!(dot_line(((1.0, 2.0), (4.0, -5.0))), 4.0 - 10.0);
         assert_eq!(cross((1.0, 0.0), (0.0, 1.0)), 1.0);
         assert_eq!(cross((0.0, 1.0), (1.0, 0.0)), -1.0);
