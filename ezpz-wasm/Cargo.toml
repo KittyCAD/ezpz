@@ -3,12 +3,11 @@ name = "ezpz-wasm"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+crate-type = ["cdylib"]
+bench = false
+
 [dependencies]
 kcl-ezpz = { path = "../kcl-ezpz" }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4.50"
-
-
-[lib]
-crate-type = ["cdylib"]
-bench = false
