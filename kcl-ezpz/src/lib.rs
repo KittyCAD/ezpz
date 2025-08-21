@@ -1,3 +1,5 @@
+use faer::sparse::FaerError;
+
 pub use crate::constraints::Constraint;
 // Only public for now so that I can benchmark it.
 // TODO: Replace this with an end-to-end benchmark,
@@ -22,22 +24,19 @@ const EPSILON: f64 = 0.00000001;
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("{0}")]
-    NonLinearSystemError(NonLinearSystemError),
+    NonLinearSystemError(#[from] NonLinearSystemError),
     #[error("Solver error {0}")]
     Solver(Box<dyn std::error::Error>),
+    #[error("System is overconstrained, try removing some constraints")]
+    Overconstrained,
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum NonLinearSystemError {
     #[error("ID {0} not found")]
     NotFound(Id),
-}
-
-#[derive(Debug)]
-pub struct SolveOutcome {
-    pub final_values: Vec<f64>,
-    pub iterations: usize,
-    pub lints: Vec<Lint>,
+    #[error("Could not determine under/overconstrained: {0}")]
+    ValidityCheck(FaerError),
 }
 
 #[derive(Debug)]
@@ -46,27 +45,48 @@ pub struct Lint {
     pub content: String,
 }
 
+#[derive(Debug)]
+pub struct SolveOutcome {
+    pub final_values: Vec<f64>,
+    pub iterations: usize,
+    pub is_underconstrained: bool,
+    pub lints: Vec<Lint>,
+}
+
 /// Given some initial guesses, constrain them.
 /// Returns the same variables in the same order, but constrained.
 pub fn solve(
     constraints: Vec<Constraint>,
     initial_guesses: Vec<(Id, f64)>,
 ) -> Result<SolveOutcome, Error> {
-    let (all_variables, mut final_values): (Vec<Id>, Vec<f64>) =
-        initial_guesses.into_iter().unzip();
     let lints = lint(&constraints);
-
-    let mut model = Model::new(constraints, all_variables);
+    let mut model = Model::new(constraints, initial_guesses.clone());
+    let mut final_values: Vec<_> = initial_guesses
+        .into_iter()
+        .map(|(_var, value)| value)
+        .collect();
+    let is_underconstrained = model.is_underconstrained()?;
+    if is_underconstrained {
+        // TODO: Tikhonov regularization, or as a first alternative,
+        // just add more fixed constraints.
+        return Ok(SolveOutcome {
+            final_values: Vec::new(),
+            iterations: 0,
+            is_underconstrained: true,
+            lints: Default::default(),
+        });
+    }
+    // let is_underconstrained = false;
     let iterations = newton_faer::solve(
         &mut model,
         &mut final_values,
         newton_faer::NewtonCfg::sparse().with_adaptive(true),
     )
     .map_err(|errs| Error::Solver(Box::new(errs.into_error())))?;
-
     Ok(SolveOutcome {
         final_values,
         iterations,
+        is_underconstrained,
         lints,
     })
 }

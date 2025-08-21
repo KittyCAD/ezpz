@@ -297,3 +297,42 @@ replot
 "
     )
 }
+
+#[test]
+fn underconstrained() {
+    let mut id_generator = IdGenerator::default();
+    let id0 = id_generator.next_id();
+    let id1 = id_generator.next_id();
+
+    struct Test {
+        constraints: Vec<Constraint>,
+        initial_guesses: Vec<(Id, f64)>,
+        expected_is_underconstrained: bool,
+    }
+
+    let tests = [
+        Test {
+            // No constraints, so obviously it must be underconstrained.
+            constraints: Vec::new(),
+            initial_guesses: vec![(id0, 0.0)],
+            expected_is_underconstrained: true,
+        },
+        Test {
+            // Two variables, one fixed, the other isn't mentioned anywhere.
+            // so it could be anything, so the system is underconstrained.
+            constraints: vec![Constraint::Fixed(id1, 4.0), Constraint::Fixed(id1, 4.0)],
+            initial_guesses: vec![(id0, 0.0), (id1, 0.0)],
+            expected_is_underconstrained: true,
+        },
+    ];
+
+    for (test_num, test) in tests.into_iter().enumerate() {
+        let outcome = solve(test.constraints, test.initial_guesses).unwrap();
+        let expected = test.expected_is_underconstrained;
+        let actual = outcome.is_underconstrained;
+        assert_eq!(
+            expected, actual,
+            "failed test {test_num}: expected underconstrained={expected} but was {actual}",
+        );
+    }
+}

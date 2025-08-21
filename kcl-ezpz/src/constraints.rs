@@ -60,7 +60,7 @@ pub struct JacobianRow {
 
 impl JacobianRow {
     /// Iterate over columns.
-    pub fn iter(&mut self) -> impl Iterator<Item = &JacobianVar> {
+    pub fn iter(&self) -> impl Iterator<Item = &JacobianVar> {
         self.nonzero_columns.iter()
     }
 }
