@@ -8,7 +8,7 @@ description = "A constraint solver for KCL and Zoo Design Studio"
 faer = "0.22.6"
 kittycad-modeling-cmds = "0.2.131"
 libm = "0.2.15"
-newton_faer = { git = "https://github.com/adamchalmers/newton-faer", branch="achalmers/fallible" }
+newton_faer = { git = "https://github.com/adamchalmers/newton-faer", branch = "achalmers/fallible" }
 thiserror = "2.0.14"
 
 [dev-dependencies]
