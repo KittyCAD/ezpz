@@ -20,8 +20,8 @@ test-with-coverage:
 
 # Flamegraph our benchmarks
 flamegraph:
-    cargo flamegraph -p --root --bench equations
+    cargo flamegraph -p --root --bench solver_bench
 
 bench:
-    cargo criterion -p --bench equations
+    cargo criterion -p --bench solver_bench
 
