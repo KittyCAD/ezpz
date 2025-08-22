@@ -1,5 +1,5 @@
 [workspace]
-members = ['kcl-ezpz']
+members = ['ezpz-wasm', 'kcl-ezpz']
 resolver = "3"
 
 [profile.dev.package]
