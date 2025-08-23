@@ -1,86 +1,32 @@
 use super::*;
-use crate::datatypes::{DatumPoint, LineSegment};
+use crate::{
+    datatypes::{DatumPoint, LineSegment},
+    textual::{Point, Problem},
+};
 
 #[test]
 fn simple() {
-    let mut id_generator = IdGenerator::default();
-    // We want to constrain two points.
-    let p = DatumPoint::new(&mut id_generator);
-    let q = DatumPoint::new(&mut id_generator);
+    let problem = Problem::parse(
+        &mut "\
+    # constraints
+    point p
+    point q
+    p.x = 0
+    p.y = 0
+    q.y = 0
+    vertical(p, q)
 
-    // Start p at the origin, and q at (0.01,9)
-    let initial_guesses = vec![
-        // px and py
-        (p.id_x(), 0.0),
-        (p.id_y(), 0.0),
-        // qx and qy
-        (q.id_x(), 0.01),
-        (q.id_y(), 9.0),
-    ];
-
-    // Now constrain the points to be vertical.
-    let actual = solve(
-        vec![
-            Constraint::Vertical(LineSegment::new(p, q)),
-            Constraint::Fixed(p.id_x(), 0.0),
-            Constraint::Fixed(p.id_y(), 0.0),
-            Constraint::Fixed(q.id_y(), 9.0),
-        ],
-        initial_guesses,
+    # guesses
+    p roughly (3, 4)
+    q roughly (5, 6)
+    ",
     )
     .unwrap();
-
-    // The new actual variables are the same order as we supplied the initial guess variables,
-    // i.e. px, py, qx, qy
-    eprintln!("{}", actual.iterations);
-    let actual_px = actual.final_values[0];
-    let actual_py = actual.final_values[1];
-    let actual_qx = actual.final_values[2];
-    let actual_qy = actual.final_values[3];
-    // if the constraint was solved, P and Q should have equal X components.
-    assert_eq!(actual_px, actual_qx);
-    // and the Y components didn't matter in the end, so they should stay the same.
-    assert_eq!(actual_py, 0.0);
-    assert!(actual_qy > 0.0);
-    assert!(actual.iterations <= 2);
-}
-
-#[test]
-fn dead_simple() {
-    let mut id_generator = IdGenerator::default();
-
-    // We want to constrain this point.
-    let p = DatumPoint::new(&mut id_generator);
-
-    // Start p at some initial guess.
-    let initial_guesses = vec![
-        // px and py
-        (p.id_x(), 0.1),
-        (p.id_y(), 0.1),
-    ];
-
-    // Now add constraints.
-    // Two very simple constraints.
-    let actual = solve(
-        vec![
-            // p.x == 0
-            Constraint::Fixed(p.id_x(), 0.0),
-            // p.y == 0
-            Constraint::Fixed(p.id_y(), 0.0),
-        ],
-        initial_guesses,
-    )
-    .unwrap();
-
-    // The new actual variables are the same order as we supplied the initial guess variables,
-    // i.e. px, py, qx, qy
-    let actual_px = actual.final_values[0];
-    let actual_py = actual.final_values[1];
-
-    // if the constraint was solved, P and Q should have equal X components.
-    assert_eq!(actual_px, 0.0);
-    assert_eq!(actual_py, 0.0);
-    assert!(actual.iterations < 3)
+    assert_eq!(problem.instructions.len(), 6);
+    assert_eq!(problem.points(), vec!["p", "q"]);
+    let solved = problem.solve().unwrap();
+    assert_eq!(solved.get_point("p").unwrap(), Point { x: 0.0, y: 0.0 });
+    assert_eq!(solved.get_point("q").unwrap(), Point { x: 0.0, y: 0.0 });
 }
 
 #[test]

@@ -19,8 +19,8 @@ impl DatumDistance {
 /// 2D point.
 #[derive(Clone, Copy)]
 pub struct DatumPoint {
-    x_id: Id,
-    y_id: Id,
+    pub(crate) x_id: Id,
+    pub(crate) y_id: Id,
 }
 
 impl DatumPoint {

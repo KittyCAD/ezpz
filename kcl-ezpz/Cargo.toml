@@ -14,6 +14,7 @@ thiserror = "2.0.14"
 
 [dev-dependencies]
 criterion = "0.7.0"
+winnow = "0.7.13"
 
 [[bench]]
 name = "solver_bench"
