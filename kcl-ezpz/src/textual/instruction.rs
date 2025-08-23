@@ -6,6 +6,13 @@ pub enum Instruction {
     FixPointComponent(FixPointComponent),
     Vertical(Vertical),
     Horizontal(Horizontal),
+    Distance(Distance),
+}
+
+#[derive(Debug)]
+pub struct Distance {
+    pub label: (Label, Label),
+    pub distance: f64,
 }
 
 #[derive(Debug)]

@@ -1,3 +1,5 @@
+use crate::textual::instruction::Distance;
+
 use super::{
     Component, Label, Point, PointGuess, Problem,
     instruction::{DeclarePoint, FixPointComponent, Horizontal, Instruction, Vertical},
@@ -96,6 +98,29 @@ impl Vertical {
     }
 }
 
+impl Distance {
+    pub fn parse(i: &mut &str) -> WResult<Self> {
+        let _ = "distance".parse_next(i)?;
+        ignore_ws(i);
+        let _ = '('.parse_next(i)?;
+        ignore_ws(i);
+        let p0 = Label::parse(i)?;
+        let _ = ','.parse_next(i)?;
+        ignore_ws(i);
+        let p1 = Label::parse(i)?;
+        ignore_ws(i);
+        let _ = ','.parse_next(i)?;
+        ignore_ws(i);
+        let distance = parse_number(i)?;
+        ignore_ws(i);
+        let _ = ')'.parse_next(i)?;
+        Ok(Self {
+            label: (p0, p1),
+            distance,
+        })
+    }
+}
+
 impl Instruction {
     fn parse(i: &mut &str) -> WResult<Self> {
         ignore_ws(i);
@@ -104,6 +129,7 @@ impl Instruction {
             FixPointComponent::parse.map(Instruction::FixPointComponent),
             Horizontal::parse.map(Instruction::Horizontal),
             Vertical::parse.map(Instruction::Vertical),
+            Distance::parse.map(Instruction::Distance),
         ))
         .parse_next(i)
     }

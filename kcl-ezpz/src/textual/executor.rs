@@ -10,6 +10,7 @@ use crate::datatypes::LineSegment;
 use crate::textual::Component;
 use crate::textual::Label;
 use crate::textual::Point;
+use crate::textual::instruction::Distance;
 use crate::textual::instruction::FixPointComponent;
 use crate::textual::instruction::Horizontal;
 use crate::textual::instruction::Vertical;
@@ -87,6 +88,11 @@ impl Problem {
                     let p0 = datum_point_for_label(&label.0)?;
                     let p1 = datum_point_for_label(&label.1)?;
                     constraints.push(Constraint::Horizontal(LineSegment { p0, p1 }));
+                }
+                Instruction::Distance(Distance { label, distance }) => {
+                    let p0 = datum_point_for_label(&label.0)?;
+                    let p1 = datum_point_for_label(&label.1)?;
+                    constraints.push(Constraint::Distance(p0, p1, *distance));
                 }
             }
         }

@@ -31,101 +31,55 @@ fn simple() {
 
 #[test]
 fn rectangle() {
-    let mut id_generator = IdGenerator::default();
-    // First square (lower case IDs)
-    let p0 = DatumPoint::new(&mut id_generator);
-    let p1 = DatumPoint::new(&mut id_generator);
-    let p2 = DatumPoint::new(&mut id_generator);
-    let p3 = DatumPoint::new(&mut id_generator);
-    let line0_bottom = LineSegment::new(p0, p1);
-    let line0_right = LineSegment::new(p1, p2);
-    let line0_top = LineSegment::new(p2, p3);
-    let line0_left = LineSegment::new(p3, p0);
-    let constraints0 = vec![
-        Constraint::Fixed(p0.id_x(), 1.0),
-        Constraint::Fixed(p0.id_y(), 1.0),
-        Constraint::Horizontal(line0_bottom),
-        Constraint::Horizontal(line0_top),
-        Constraint::Vertical(line0_left),
-        Constraint::Vertical(line0_right),
-        Constraint::Distance(p0, p1, 4.0),
-        Constraint::Distance(p0, p3, 3.0),
-    ];
+    let mut txt = "\
+    # constraints
+    point p0
+    point p1
+    point p2
+    point p3
+    p0.x = 1
+    p0.y = 1
+    horizontal(p0, p1)
+    horizontal(p2, p3)
+    vertical(p1, p2)
+    vertical(p3, p0)
+    distance(p0, p1, 4)
+    distance(p0, p3, 3)
+    point p4
+    point p5
+    point p6
+    point p7
+    p4.x = 2
+    p4.y = 2
+    horizontal(p4, p5)
+    horizontal(p6, p7)
+    vertical(p5, p6)
+    vertical(p7, p4)
+    distance(p4, p5, 4)
+    distance(p4, p7, 4)
 
-    // Second square (upper case IDs)
-    let p4 = DatumPoint::new(&mut id_generator);
-    let p5 = DatumPoint::new(&mut id_generator);
-    let p6 = DatumPoint::new(&mut id_generator);
-    let p7 = DatumPoint::new(&mut id_generator);
-    let line1_bottom = LineSegment::new(p4, p5);
-    let line1_right = LineSegment::new(p5, p6);
-    let line1_top = LineSegment::new(p6, p7);
-    let line1_left = LineSegment::new(p7, p4);
-
-    // Start p at the origin, and q at (1,9)
-    let initial_guesses = vec![
-        // First square.
-        (p0.id_x(), 1.0),
-        (p0.id_y(), 1.0),
-        (p1.id_x(), 4.5),
-        (p1.id_y(), 1.5),
-        (p2.id_x(), 4.0),
-        (p2.id_y(), 3.5),
-        (p3.id_x(), 1.5),
-        (p3.id_y(), 3.0),
-        // Second square.
-        (p4.id_x(), 2.0),
-        (p4.id_y(), 2.0),
-        (p5.id_x(), 5.5),
-        (p5.id_y(), 3.5),
-        (p6.id_x(), 5.0),
-        (p6.id_y(), 4.5),
-        (p7.id_x(), 2.5),
-        (p7.id_y(), 4.0),
-    ];
-
-    let constraints1 = vec![
-        Constraint::Fixed(p4.id_x(), 2.0),
-        Constraint::Fixed(p4.id_y(), 2.0),
-        Constraint::Horizontal(line1_bottom),
-        Constraint::Horizontal(line1_top),
-        Constraint::Vertical(line1_left),
-        Constraint::Vertical(line1_right),
-        Constraint::Distance(p4, p5, 4.0),
-        Constraint::Distance(p4, p7, 4.0),
-    ];
-
-    let mut constraints = constraints0;
-    constraints.extend(constraints1);
-    let actual = solve(constraints, initial_guesses).unwrap();
+    # guesses
+    p0 roughly (1,1)
+    p1 roughly (4.5,1.5)
+    p2 roughly (4.0,3.5)
+    p3 roughly (1.5,3.0)
+    p4 roughly (2,2)
+    p5 roughly (5.5,3.5)
+    p6 roughly (5,4.5)
+    p7 roughly (2.5,4)
+    ";
+    let problem = Problem::parse(&mut txt).unwrap();
+    let solved = problem.solve().unwrap();
     // This forms two rectangles.
-    assert_eq!(
-        actual.final_values,
-        vec![
-            1.0, 1.0, 5.0, 1.0, 5.0, 4.0, 1.0, 4.0, 2.0, 2.0, 6.0, 2.0, 6.0, 6.0, 2.0, 6.0
-        ]
-    );
-    assert!(actual.iterations <= 10)
-    // Uncomment this to print out the points nicely.
-    // for (point_num, (i, j)) in [
-    //     // first square
-    //     (0, 1),
-    //     (2, 3),
-    //     (4, 5),
-    //     (6, 7),
-    //     // second square
-    //     (8, 9),
-    //     (10, 11),
-    //     (12, 13),
-    //     (14, 15),
-    // ]
-    // .into_iter()
-    // .enumerate()
-    // {
-    //     let x = actual.final_values[i];
-    //     let y = actual.final_values[j];
-    //     eprintln!("p{point_num}: ({x},{y})");
-    // }
+    assert_eq!(solved.get_point("p0").unwrap(), Point { x: 1.0, y: 1.0 });
+    assert_eq!(solved.get_point("p1").unwrap(), Point { x: 5.0, y: 1.0 });
+    assert_eq!(solved.get_point("p2").unwrap(), Point { x: 5.0, y: 4.0 });
+    assert_eq!(solved.get_point("p3").unwrap(), Point { x: 1.0, y: 4.0 });
+    // Second rectangle
+    assert_eq!(solved.get_point("p4").unwrap(), Point { x: 2.0, y: 2.0 });
+    assert_eq!(solved.get_point("p5").unwrap(), Point { x: 6.0, y: 2.0 });
+    assert_eq!(solved.get_point("p6").unwrap(), Point { x: 6.0, y: 6.0 });
+    assert_eq!(solved.get_point("p7").unwrap(), Point { x: 2.0, y: 6.0 });
 }
 
 #[test]
