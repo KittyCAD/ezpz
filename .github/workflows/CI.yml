@@ -17,7 +17,9 @@ jobs:
       steps:
         - uses: actions/checkout@v4
         - name: Install Rust
-          uses: dtolnay/rust-toolchain@stable
+          uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b
+          with:
+            toolchain: stable
         - uses: taiki-e/install-action@cargo-llvm-cov
         - uses: taiki-e/install-action@nextest
         - uses: Swatinem/rust-cache@v2.8.0
@@ -47,8 +49,9 @@ jobs:
         - uses: actions/checkout@v4
         - uses: taiki-e/install-action@just
         - name: Install Rust
-          uses: dtolnay/rust-toolchain@stable
+          uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b
           with:
+            toolchain: stable
             components: clippy
         - uses: Swatinem/rust-cache@v2.8.0
 
@@ -62,8 +65,9 @@ jobs:
         - uses: actions/checkout@v4
         - uses: taiki-e/install-action@just
         - name: Install Rust
-          uses: dtolnay/rust-toolchain@stable
+          uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b
           with:
+            toolchain: stable
             targets: wasm32-unknown-unknown
         - uses: Swatinem/rust-cache@v2.8.0
         - uses: jetli/wasm-pack-action@v0.4.0
@@ -77,8 +81,9 @@ jobs:
         steps:
           - uses: actions/checkout@v4
           - name: Install Rust
-            uses: dtolnay/rust-toolchain@stable
+            uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b
             with:
+                toolchain: stable
                 components: rustfmt
   
           - name: cargo fmt
