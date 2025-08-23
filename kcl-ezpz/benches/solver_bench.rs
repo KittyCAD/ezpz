@@ -21,11 +21,7 @@ fn solve_easy(c: &mut Criterion) {
         (q.id_x(), 0.01),
         (q.id_y(), 9.0),
     ];
-    let line = LineSegment {
-        p0: p,
-        p1: q,
-        id: id_generator.next_id(),
-    };
+    let line = LineSegment { p0: p, p1: q };
     let constraints = vec![
         Constraint::Vertical(line),
         Constraint::Fixed(p.id_x(), 0.0),
@@ -47,19 +43,19 @@ fn solve_two_rectangles(c: &mut Criterion) {
     let p1 = DatumPoint::new(&mut id_generator);
     let p2 = DatumPoint::new(&mut id_generator);
     let p3 = DatumPoint::new(&mut id_generator);
-    let line0_bottom = LineSegment::new(p0, p1, &mut id_generator);
-    let line0_right = LineSegment::new(p1, p2, &mut id_generator);
-    let line0_top = LineSegment::new(p2, p3, &mut id_generator);
-    let line0_left = LineSegment::new(p3, p0, &mut id_generator);
+    let line0_bottom = LineSegment::new(p0, p1);
+    let line0_right = LineSegment::new(p1, p2);
+    let line0_top = LineSegment::new(p2, p3);
+    let line0_left = LineSegment::new(p3, p0);
     // Second square (upper case IDs)
     let p4 = DatumPoint::new(&mut id_generator);
     let p5 = DatumPoint::new(&mut id_generator);
     let p6 = DatumPoint::new(&mut id_generator);
     let p7 = DatumPoint::new(&mut id_generator);
-    let line1_bottom = LineSegment::new(p4, p5, &mut id_generator);
-    let line1_right = LineSegment::new(p5, p6, &mut id_generator);
-    let line1_top = LineSegment::new(p6, p7, &mut id_generator);
-    let line1_left = LineSegment::new(p7, p4, &mut id_generator);
+    let line1_bottom = LineSegment::new(p4, p5);
+    let line1_right = LineSegment::new(p5, p6);
+    let line1_top = LineSegment::new(p6, p7);
+    let line1_left = LineSegment::new(p7, p4);
     // First square (lower case IDs)
     let constraints0 = vec![
         Constraint::Fixed(p0.id_x(), 1.0),
@@ -123,18 +119,18 @@ fn solve_two_rectangles_dependent(c: &mut Criterion) {
     let p1 = DatumPoint::new(&mut id_generator);
     let p2 = DatumPoint::new(&mut id_generator);
     let p3 = DatumPoint::new(&mut id_generator);
-    let line0_bottom = LineSegment::new(p0, p1, &mut id_generator);
-    let line0_right = LineSegment::new(p1, p2, &mut id_generator);
-    let line0_top = LineSegment::new(p2, p3, &mut id_generator);
-    let line0_left = LineSegment::new(p3, p0, &mut id_generator);
+    let line0_bottom = LineSegment::new(p0, p1);
+    let line0_right = LineSegment::new(p1, p2);
+    let line0_top = LineSegment::new(p2, p3);
+    let line0_left = LineSegment::new(p3, p0);
     // Second square (upper case IDs)
     let p5 = DatumPoint::new(&mut id_generator);
     let p6 = DatumPoint::new(&mut id_generator);
     let p7 = DatumPoint::new(&mut id_generator);
-    let line1_bottom = LineSegment::new(p2, p5, &mut id_generator);
-    let line1_right = LineSegment::new(p5, p6, &mut id_generator);
-    let line1_top = LineSegment::new(p6, p7, &mut id_generator);
-    let line1_left = LineSegment::new(p7, p2, &mut id_generator);
+    let line1_bottom = LineSegment::new(p2, p5);
+    let line1_right = LineSegment::new(p5, p6);
+    let line1_top = LineSegment::new(p6, p7);
+    let line1_left = LineSegment::new(p7, p2);
     // First square (lower case IDs)
     let constraints0 = vec![
         Constraint::Fixed(p0.id_x(), 1.0),
@@ -191,8 +187,8 @@ fn solve_angled_lines(c: &mut Criterion) {
     let p0 = DatumPoint::new(&mut id_generator);
     let p1 = DatumPoint::new(&mut id_generator);
     let p2 = DatumPoint::new(&mut id_generator);
-    let line0 = LineSegment::new(p0, p1, &mut id_generator);
-    let line1 = LineSegment::new(p1, p2, &mut id_generator);
+    let line0 = LineSegment::new(p0, p1);
+    let line1 = LineSegment::new(p1, p2);
     let constraints = vec![
         // p0 is the origin
         Constraint::Fixed(p0.id_x(), 0.0),

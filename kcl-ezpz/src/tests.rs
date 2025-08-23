@@ -21,7 +21,7 @@ fn simple() {
     // Now constrain the points to be vertical.
     let actual = solve(
         vec![
-            Constraint::Vertical(LineSegment::new(p, q, &mut id_generator)),
+            Constraint::Vertical(LineSegment::new(p, q)),
             Constraint::Fixed(p.id_x(), 0.0),
             Constraint::Fixed(p.id_y(), 0.0),
             Constraint::Fixed(q.id_y(), 9.0),
@@ -91,10 +91,10 @@ fn rectangle() {
     let p1 = DatumPoint::new(&mut id_generator);
     let p2 = DatumPoint::new(&mut id_generator);
     let p3 = DatumPoint::new(&mut id_generator);
-    let line0_bottom = LineSegment::new(p0, p1, &mut id_generator);
-    let line0_right = LineSegment::new(p1, p2, &mut id_generator);
-    let line0_top = LineSegment::new(p2, p3, &mut id_generator);
-    let line0_left = LineSegment::new(p3, p0, &mut id_generator);
+    let line0_bottom = LineSegment::new(p0, p1);
+    let line0_right = LineSegment::new(p1, p2);
+    let line0_top = LineSegment::new(p2, p3);
+    let line0_left = LineSegment::new(p3, p0);
     let constraints0 = vec![
         Constraint::Fixed(p0.id_x(), 1.0),
         Constraint::Fixed(p0.id_y(), 1.0),
@@ -111,10 +111,10 @@ fn rectangle() {
     let p5 = DatumPoint::new(&mut id_generator);
     let p6 = DatumPoint::new(&mut id_generator);
     let p7 = DatumPoint::new(&mut id_generator);
-    let line1_bottom = LineSegment::new(p4, p5, &mut id_generator);
-    let line1_right = LineSegment::new(p5, p6, &mut id_generator);
-    let line1_top = LineSegment::new(p6, p7, &mut id_generator);
-    let line1_left = LineSegment::new(p7, p4, &mut id_generator);
+    let line1_bottom = LineSegment::new(p4, p5);
+    let line1_right = LineSegment::new(p5, p6);
+    let line1_top = LineSegment::new(p6, p7);
+    let line1_left = LineSegment::new(p7, p4);
 
     // Start p at the origin, and q at (1,9)
     let initial_guesses = vec![
@@ -189,8 +189,8 @@ fn angle_constraints() {
     let p0 = DatumPoint::new(&mut id_generator);
     let p1 = DatumPoint::new(&mut id_generator);
     let p2 = DatumPoint::new(&mut id_generator);
-    let line0 = LineSegment::new(p0, p1, &mut id_generator);
-    let line1 = LineSegment::new(p1, p2, &mut id_generator);
+    let line0 = LineSegment::new(p0, p1);
+    let line1 = LineSegment::new(p1, p2);
     let constraints = vec![
         // p0 is the origin
         Constraint::Fixed(p0.id_x(), 0.0),

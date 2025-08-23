@@ -19,7 +19,6 @@ impl DatumDistance {
 /// 2D point.
 #[derive(Clone, Copy)]
 pub struct DatumPoint {
-    id: Id,
     x_id: Id,
     y_id: Id,
 }
@@ -27,7 +26,6 @@ pub struct DatumPoint {
 impl DatumPoint {
     pub fn new(id_generator: &mut IdGenerator) -> Self {
         Self {
-            id: id_generator.next_id(),
             x_id: id_generator.next_id(),
             y_id: id_generator.next_id(),
         }
@@ -35,11 +33,6 @@ impl DatumPoint {
 }
 
 impl DatumPoint {
-    /// Id for this.
-    pub fn id(&self) -> Id {
-        self.id
-    }
-
     /// Id for the X component of the point.
     pub fn id_x(&self) -> Id {
         self.x_id
@@ -54,8 +47,6 @@ impl DatumPoint {
 /// Line of infinite length.
 #[derive(Clone, Copy)]
 pub struct DatumLine {
-    #[allow(dead_code)]
-    id: Id,
     // Unusual representation of a line using two parameters, theta and A
     theta: Angle,
     a: f64,
@@ -80,25 +71,19 @@ impl DatumLine {
 /// Finite segment of a line.
 #[derive(Clone, Copy)]
 pub struct LineSegment {
-    pub id: Id,
     pub p0: DatumPoint,
     pub p1: DatumPoint,
 }
 
 impl LineSegment {
-    pub fn new(p0: DatumPoint, p1: DatumPoint, id_generator: &mut IdGenerator) -> Self {
-        Self {
-            p0,
-            p1,
-            id: id_generator.next_id(),
-        }
+    pub fn new(p0: DatumPoint, p1: DatumPoint) -> Self {
+        Self { p0, p1 }
     }
 }
 
 /// A circle.
 #[allow(dead_code)]
 pub struct Circle {
-    id: Id,
     pub center: DatumPoint,
     pub radius: DatumDistance,
 }
@@ -106,7 +91,6 @@ pub struct Circle {
 /// Arc on the perimeter of a circle.
 #[allow(dead_code)]
 pub struct CircularArc {
-    id: Id,
     /// Center of the circle
     pub center: DatumPoint,
     /// Lies on the arc.

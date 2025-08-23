@@ -31,18 +31,18 @@ pub fn benchmark() -> Vec<f64> {
     let p1 = DatumPoint::new(&mut id_generator);
     let p2 = DatumPoint::new(&mut id_generator);
     let p3 = DatumPoint::new(&mut id_generator);
-    let line0_bottom = LineSegment::new(p0, p1, &mut id_generator);
-    let line0_right = LineSegment::new(p1, p2, &mut id_generator);
-    let line0_top = LineSegment::new(p2, p3, &mut id_generator);
-    let line0_left = LineSegment::new(p3, p0, &mut id_generator);
+    let line0_bottom = LineSegment::new(p0, p1);
+    let line0_right = LineSegment::new(p1, p2);
+    let line0_top = LineSegment::new(p2, p3);
+    let line0_left = LineSegment::new(p3, p0);
     // Second square (upper case IDs)
     let p5 = DatumPoint::new(&mut id_generator);
     let p6 = DatumPoint::new(&mut id_generator);
     let p7 = DatumPoint::new(&mut id_generator);
-    let line1_bottom = LineSegment::new(p2, p5, &mut id_generator);
-    let line1_right = LineSegment::new(p5, p6, &mut id_generator);
-    let line1_top = LineSegment::new(p6, p7, &mut id_generator);
-    let line1_left = LineSegment::new(p7, p2, &mut id_generator);
+    let line1_bottom = LineSegment::new(p2, p5);
+    let line1_right = LineSegment::new(p5, p6);
+    let line1_top = LineSegment::new(p6, p7);
+    let line1_left = LineSegment::new(p7, p2);
     // First square (lower case IDs)
     let constraints0 = vec![
         Constraint::Fixed(p0.id_x(), 1.0),
