@@ -2,6 +2,7 @@ mod executor;
 mod instruction;
 mod parser;
 
+pub use executor::Outcome;
 use instruction::Instruction;
 
 #[derive(Debug, PartialEq)]

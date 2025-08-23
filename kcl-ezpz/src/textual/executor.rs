@@ -19,7 +19,7 @@ use super::Instruction;
 use super::Problem;
 
 impl Problem {
-    pub fn solve(self) -> Result<Outcome, Error> {
+    pub fn solve(&self) -> Result<Outcome, Error> {
         // First, construct the list of initial guesses,
         // and assign them to solver variables.
         let num_points = self.inner_points.len();
@@ -28,8 +28,8 @@ impl Problem {
         let mut guessmap = HashMap::new();
         guessmap.extend(
             self.point_guesses
-                .into_iter()
-                .map(|pg| (pg.point.0, pg.guess)),
+                .iter()
+                .map(|pg| (pg.point.0.clone(), pg.guess)),
         );
         for point in &self.inner_points {
             let Some(guess) = guessmap.remove(&point.0) else {
@@ -59,7 +59,7 @@ impl Problem {
             Ok(DatumPoint { x_id, y_id })
         };
 
-        for instr in self.instructions {
+        for instr in &self.instructions {
             match instr {
                 Instruction::DeclarePoint(_) => {}
                 Instruction::FixPointComponent(FixPointComponent {
@@ -67,17 +67,17 @@ impl Problem {
                     component,
                     value,
                 }) => {
-                    let point_id = self
-                        .inner_points
-                        .iter()
-                        .position(|p| p == &point)
-                        .ok_or(Error::UndefinedPoint { label: point.0 })?;
+                    let point_id = self.inner_points.iter().position(|p| p == point).ok_or(
+                        Error::UndefinedPoint {
+                            label: point.0.clone(),
+                        },
+                    )?;
                     let index = match component {
                         Component::X => 2 * point_id,
                         Component::Y => 2 * point_id + 1,
                     };
                     let id = initial_guesses[index].0;
-                    constraints.push(Constraint::Fixed(id, value));
+                    constraints.push(Constraint::Fixed(id, *value));
                 }
                 Instruction::Vertical(Vertical { label }) => {
                     let p0 = datum_point_for_label(&label.0)?;
@@ -106,17 +106,16 @@ impl Problem {
             lints,
             final_values,
         } = crate::solve(constraints, initial_guesses)?;
-        eprintln!("{final_values:?}");
 
         let mut final_points = HashMap::with_capacity(num_points);
-        for (i, point) in self.inner_points.into_iter().enumerate() {
+        for (i, point) in self.inner_points.iter().enumerate() {
             let x_id = 2 * i;
             let y_id = 2 * i + 1;
             let p = Point {
                 x: final_values[x_id],
                 y: final_values[y_id],
             };
-            final_points.insert(point.0, p);
+            final_points.insert(point.0.clone(), p);
         }
         Ok(Outcome {
             iterations,

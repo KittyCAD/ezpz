@@ -565,6 +565,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ezpz-cli"
+version = "0.1.0"
+dependencies = [
+ "kcl-ezpz",
+]
+
+[[package]]
 name = "ezpz-wasm"
 version = "0.1.0"
 dependencies = [

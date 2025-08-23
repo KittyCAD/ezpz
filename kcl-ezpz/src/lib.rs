@@ -17,8 +17,7 @@ mod solver;
 #[cfg(test)]
 mod tests;
 /// Parser for textual representation of these problems.
-#[cfg(test)]
-mod textual;
+pub mod textual;
 
 const EPSILON: f64 = 0.00000001;
 
