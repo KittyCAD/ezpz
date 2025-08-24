@@ -16,7 +16,7 @@ impl Problem {
         constraint_header.parse_next(i)?;
         let instructions: Vec<_> = separated(1.., Instruction::parse, newline).parse_next(i)?;
         let mut inner_points = Vec::new();
-        for instr in &instructions {
+        for instr in instructions.iter().flatten() {
             if let Instruction::DeclarePoint(dp) = instr {
                 inner_points.push(dp.label.clone());
             }
@@ -30,7 +30,7 @@ impl Problem {
         ignore_ws(i);
         eof.parse_next(i)?;
         Ok(Self {
-            instructions,
+            instructions: instructions.into_iter().flatten().collect(),
             inner_points,
             point_guesses,
         })
@@ -148,16 +148,23 @@ impl Parallel {
     }
 }
 
+fn sv<T>(t: T) -> Vec<T> {
+    vec![t]
+}
+
 impl Instruction {
-    fn parse(i: &mut &str) -> WResult<Self> {
+    fn parse(i: &mut &str) -> WResult<Vec<Self>> {
         ignore_ws(i);
         alt((
-            DeclarePoint::parse.map(Instruction::DeclarePoint),
-            FixPointComponent::parse.map(Instruction::FixPointComponent),
-            Horizontal::parse.map(Instruction::Horizontal),
-            Vertical::parse.map(Instruction::Vertical),
-            Distance::parse.map(Instruction::Distance),
-            Parallel::parse.map(Instruction::Parallel),
+            DeclarePoint::parse.map(Instruction::DeclarePoint).map(sv),
+            FixPointComponent::parse
+                .map(Instruction::FixPointComponent)
+                .map(sv),
+            assign_point,
+            Horizontal::parse.map(Instruction::Horizontal).map(sv),
+            Vertical::parse.map(Instruction::Vertical).map(sv),
+            Distance::parse.map(Instruction::Distance).map(sv),
+            Parallel::parse.map(Instruction::Parallel).map(sv),
         ))
         .parse_next(i)
     }
@@ -169,6 +176,27 @@ fn ws(i: &mut &str) -> WResult<()> {
 
 fn ignore_ws(i: &mut &str) {
     let _ = ws.parse_next(i);
+}
+
+fn assign_point(i: &mut &str) -> WResult<Vec<Instruction>> {
+    // p0 = (0, 0)
+    let label = Label::parse(i)?;
+    ignore_ws(i);
+    '='.parse_next(i)?;
+    ignore_ws(i);
+    let pt = Point::parse(i)?;
+    Ok(vec![
+        Instruction::FixPointComponent(FixPointComponent {
+            point: label.clone(),
+            component: Component::X,
+            value: pt.x,
+        }),
+        Instruction::FixPointComponent(FixPointComponent {
+            point: label.clone(),
+            component: Component::Y,
+            value: pt.y,
+        }),
+    ])
 }
 
 impl Component {
