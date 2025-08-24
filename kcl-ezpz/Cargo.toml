@@ -16,7 +16,6 @@ winnow = { version = "0.7.13" }
 [dev-dependencies]
 criterion = "0.7.0"
 
-
 [[bench]]
 name = "solver_bench"
 harness = false
