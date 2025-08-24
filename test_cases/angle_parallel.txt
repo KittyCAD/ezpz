@@ -1,0 +1,15 @@
+# constraints
+point p0
+point p1
+point p2
+p0.x = 0
+p0.y = 0
+parallel(p0, p1, p1, p2)
+distance(p0, p1, sqrt(32))
+distance(p1, p2, sqrt(32))
+p1.x = 4
+
+# guesses
+p0 roughly (0,0)
+p1 roughly (3,3)
+p2 roughly (6,6)
