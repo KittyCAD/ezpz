@@ -1,22 +1,120 @@
 use std::{
     hint::black_box,
     io::{self, Read},
+    path::PathBuf,
     time::Duration,
 };
 
-use kcl_ezpz::textual::{Outcome, Problem};
+use clap::Parser;
+use kcl_ezpz::textual::{Outcome, Point, Problem};
+
+#[derive(Parser)]
+#[command(name="ezpz", version, about, long_about = None)]
+struct Cli {
+    /// Path to the problem file.
+    /// Use '-' for stdin.
+    #[arg(short = 'f', long)]
+    filepath: PathBuf,
+
+    /// Open the results in gnuplot if solve was successful.
+    #[arg(long, default_value_t = false)]
+    gnuplot: bool,
+}
 
 const NUM_ITERS_BENCHMARK: u32 = 100;
 
 fn main() {
-    if let Err(e) = main_inner().map(print_output) {
-        eprintln!("Error: {e}");
-        std::process::exit(1);
+    let cli = Cli::parse();
+    let soln = match main_inner(&cli) {
+        Ok(soln) => soln,
+        Err(e) => {
+            eprintln!("Error: {e}");
+            std::process::exit(1);
+        }
+    };
+    print_output(&soln);
+    if cli.gnuplot {
+        pop_gnuplot_window(&cli, &soln.0);
     }
 }
 
-fn main_inner() -> Result<(Outcome, Duration), String> {
-    let constraint_txt = read_problem()?;
+/// Open a `gnuplot` window displaying these points in a 2D scatter plot.
+fn pop_gnuplot_window(cli: &Cli, soln: &Outcome) {
+    let chart_name = cli.filepath.display().to_string();
+    let chart_name = if chart_name == "-" {
+        "EZPZ".to_owned()
+    } else {
+        chart_name
+    };
+    let points = soln
+        .points
+        .iter()
+        .map(|(label, pt)| ((pt.x, pt.y), label.as_str()))
+        .collect();
+    let gnuplot_program = gnuplot(&chart_name, points);
+    let mut child = std::process::Command::new("gnuplot")
+        .args(["-persist", "-"])
+        .stdin(std::process::Stdio::piped())
+        .spawn()
+        .expect("failed to start gnuplot");
+
+    {
+        let stdin = child.stdin.as_mut().expect("failed to open stdin");
+        use std::io::Write;
+        stdin
+            .write_all(gnuplot_program.as_bytes())
+            .expect("failed to write to stdin");
+    }
+    let _ = child.wait();
+}
+
+/// Write a gnuplot program to show these points in a 2D scatter plot.
+fn gnuplot(chart_name: &str, points: Vec<((f64, f64), &str)>) -> String {
+    let all_points = points
+        .iter()
+        .map(|((x, y), _label)| format!("{x:.2} {y:.2}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let all_labels = points
+        .iter()
+        .map(|((x, y), label)| {
+            format!("set label \"{label} ({x:.2}, {y:.2})\" at {x:.2},{y:.2} offset 1,1")
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    let components = points
+        .into_iter()
+        .flat_map(|((x, y), _label)| [x, y])
+        .collect::<Vec<_>>();
+    let min = components.iter().cloned().fold(f64::NAN, f64::min) - 1.0;
+    let max = components.iter().cloned().fold(f64::NAN, f64::max) + 1.0;
+    format!(
+        "\
+set term qt font \"Verdana\"
+set title \"{chart_name}\"
+set xlabel \"X\"
+set ylabel \"Y\"
+set grid
+
+set xrange [{min}:{max}]
+set yrange [{min}:{max}]
+
+# Plot the points
+plot \"-\" with points pointtype 7 pointsize 2 title \"Points\"
+{all_points}
+e
+
+# Add labels for each point
+{all_labels}
+
+# Refresh plot to show labels
+replot
+"
+    )
+}
+
+fn main_inner(cli: &Cli) -> Result<(Outcome, Duration), String> {
+    let constraint_txt = read_problem(cli)?;
     let parsed = Problem::parse(&mut constraint_txt.as_str()).map_err(|e| e.to_string())?;
 
     // Ensure problem can be solved
@@ -33,7 +131,7 @@ fn main_inner() -> Result<(Outcome, Duration), String> {
 }
 
 /// Prints the output nicely to stdout.
-fn print_output((outcome, duration): (Outcome, Duration)) {
+fn print_output((outcome, duration): &(Outcome, Duration)) {
     let Outcome {
         iterations,
         lints,
@@ -50,31 +148,28 @@ fn print_output((outcome, duration): (Outcome, Duration)) {
     println!("Problem size: {num_eqs} rows, {num_vars} vars");
     println!("Iterations needed: {iterations}");
     println!(
-        "Solved in {}us (mean over {NUM_ITERS_BENCHMARK} iterations)",
+        "Solved in {}μs (mean over {NUM_ITERS_BENCHMARK} iterations)",
         duration.as_micros()
     );
     println!("Points:");
-    for point in points {
-        println!("\t{}: ({}, {})", point.0, point.1.x, point.1.y);
+    for (label, Point { x, y }) in points {
+        println!("\t{label}: ({x:.2}, {y:.2})",);
     }
 }
 
 /// Read the EZPZ problem text from a file or stdin, depending on user args.
 /// They pass a filename, or '-' for stdin, as the first CLI arg.
-fn read_problem() -> Result<String, String> {
-    let mut args = std::env::args();
-    let _this_program = args.next().unwrap();
-    let dst = args
-        .next()
-        .ok_or("usage: first arg must be a path to an EZPZ problem text file, or '-' for stdin.")?;
-    if dst == "-" {
-        let mut constraint_txt = String::with_capacity(100);
-        let mut stdin = io::stdin();
-        stdin
-            .read_to_string(&mut constraint_txt)
-            .map_err(|e| e.to_string())?;
-        Ok(constraint_txt)
-    } else {
-        std::fs::read_to_string(dst).map_err(|e| e.to_string())
+fn read_problem(cli: &Cli) -> Result<String, String> {
+    // Read from file
+    if cli.filepath != PathBuf::from("-") {
+        return std::fs::read_to_string(&cli.filepath).map_err(|e| e.to_string());
     }
+
+    // Read from stdin
+    let mut constraint_txt = String::with_capacity(100);
+    let mut stdin = io::stdin();
+    stdin
+        .read_to_string(&mut constraint_txt)
+        .map_err(|e| e.to_string())?;
+    Ok(constraint_txt)
 }
