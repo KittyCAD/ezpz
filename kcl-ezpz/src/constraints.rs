@@ -3,7 +3,7 @@ use kittycad_modeling_cmds::shared::Angle;
 use crate::{EPSILON, NonLinearSystemError, datatypes::*, id::Id, solver::Layout};
 
 /// Each geometric constraint we support.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum Constraint {
     /// These two points should be a given distance apart.
     Distance(DatumPoint, DatumPoint, Distance),
@@ -17,7 +17,7 @@ pub enum Constraint {
     Fixed(Id, f64),
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum AngleKind {
     Parallel,
     Perpendicular,
@@ -422,7 +422,7 @@ impl Constraint {
 }
 
 /// Euclidean distance between two points.
-fn euclidean_distance(p0: (f64, f64), p1: (f64, f64)) -> f64 {
+pub(crate) fn euclidean_distance(p0: (f64, f64), p1: (f64, f64)) -> f64 {
     let dx = p0.0 - p1.0;
     let dy = p0.1 - p1.1;
     (dx.powf(2.0) + dy.powf(2.0)).sqrt()
