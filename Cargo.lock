@@ -565,6 +565,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ezpz-cli"
+version = "0.1.0"
+dependencies = [
+ "kcl-ezpz",
+]
+
+[[package]]
 name = "ezpz-wasm"
 version = "0.1.0"
 dependencies = [
@@ -1283,6 +1290,7 @@ dependencies = [
  "libm",
  "newton_faer",
  "thiserror 2.0.16",
+ "winnow",
 ]
 
 [[package]]
@@ -2991,6 +2999,15 @@ name = "windows_x86_64_msvc"
 version = "0.53.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "271414315aff87387382ec3d271b52d7ae78726f5d44ac98b4f4030c91880486"
+
+[[package]]
+name = "winnow"
+version = "0.7.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "21a0236b59786fed61e2a80582dd500fe61f18b5dca67a4a067d0bc9039339cf"
+dependencies = [
+ "memchr",
+]
 
 [[package]]
 name = "wit-bindgen-rt"

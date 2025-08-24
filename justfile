@@ -3,6 +3,9 @@ clippy-flags := "--workspace --tests --benches --examples"
 lint:
     cargo clippy {{clippy-flags}} -- -D warnings
 
+lint-fix:
+    cargo clippy {{clippy-flags}} --fix -- -D warnings
+
 check-wasm:
     cargo check -p ezpz-wasm --target wasm32-unknown-unknown
     cd ezpz-wasm; wasm-pack build --target web --dev; cd -

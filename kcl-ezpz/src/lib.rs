@@ -16,6 +16,8 @@ mod solver;
 /// Unit tests
 #[cfg(test)]
 mod tests;
+/// Parser for textual representation of these problems.
+pub mod textual;
 
 const EPSILON: f64 = 0.00000001;
 
@@ -25,6 +27,12 @@ pub enum Error {
     NonLinearSystemError(NonLinearSystemError),
     #[error("Solver error {0}")]
     Solver(Box<dyn std::error::Error>),
+    #[error("No guess was given for point {label}")]
+    MissingGuess { label: String },
+    #[error("You gave a guess for points which weren't defined: {labels:?}")]
+    UnusedGuesses { labels: Vec<String> },
+    #[error("You referred to the point {label} but it was never defined")]
+    UndefinedPoint { label: String },
 }
 
 #[derive(thiserror::Error, Debug)]

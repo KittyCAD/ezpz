@@ -11,6 +11,7 @@ kittycad-modeling-cmds = "0.2.131"
 libm = "0.2.15"
 newton_faer = { git = "https://github.com/adamchalmers/newton-faer", branch = "achalmers/fallible" }
 thiserror = "2.0.14"
+winnow = { version = "0.7.13" }
 
 [dev-dependencies]
 criterion = "0.7.0"
