@@ -24,6 +24,19 @@ pub struct Point {
     pub y: f64,
 }
 
+impl std::fmt::Display for Point {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({},{})", self.x, self.y)
+    }
+}
+
+impl Point {
+    #[allow(dead_code)]
+    pub(crate) fn euclidean_distance(&self, r: Point) -> f64 {
+        crate::constraints::euclidean_distance((self.x, self.y), (r.x, r.y))
+    }
+}
+
 #[derive(Debug)]
 pub enum Component {
     X,

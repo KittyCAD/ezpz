@@ -13,6 +13,7 @@ use crate::textual::Point;
 use crate::textual::instruction::Distance;
 use crate::textual::instruction::FixPointComponent;
 use crate::textual::instruction::Horizontal;
+use crate::textual::instruction::Parallel;
 use crate::textual::instruction::Vertical;
 
 use super::Instruction;
@@ -94,8 +95,20 @@ impl Problem {
                     let p1 = datum_point_for_label(&label.1)?;
                     constraints.push(Constraint::Distance(p0, p1, *distance));
                 }
+                Instruction::Parallel(Parallel { line0, line1 }) => {
+                    let p0 = datum_point_for_label(&line0.0)?;
+                    let p1 = datum_point_for_label(&line0.1)?;
+                    let p2 = datum_point_for_label(&line1.0)?;
+                    let p3 = datum_point_for_label(&line1.1)?;
+                    constraints.push(Constraint::lines_parallel([
+                        LineSegment { p0, p1 },
+                        LineSegment { p0: p2, p1: p3 },
+                    ]));
+                }
             }
         }
+
+        dbg!(&constraints);
 
         let num_vars = initial_guesses.len();
         let num_eqs = constraints.iter().map(|c| c.residual_dim()).sum();
