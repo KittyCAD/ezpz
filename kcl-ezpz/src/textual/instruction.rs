@@ -1,3 +1,5 @@
+use kittycad_modeling_cmds::shared::Angle;
+
 use super::{Component, Label};
 
 #[derive(Debug)]
@@ -8,6 +10,7 @@ pub enum Instruction {
     Horizontal(Horizontal),
     Distance(Distance),
     Parallel(Parallel),
+    AngleLine(AngleLine),
 }
 
 #[derive(Debug)]
@@ -20,6 +23,13 @@ pub struct Distance {
 pub struct Parallel {
     pub line0: (Label, Label),
     pub line1: (Label, Label),
+}
+
+#[derive(Debug)]
+pub struct AngleLine {
+    pub line0: (Label, Label),
+    pub line1: (Label, Label),
+    pub angle: Angle,
 }
 
 #[derive(Debug)]

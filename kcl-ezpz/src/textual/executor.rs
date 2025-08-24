@@ -5,11 +5,13 @@ use crate::Error;
 use crate::IdGenerator;
 use crate::Lint;
 use crate::SolveOutcome;
+use crate::constraints::AngleKind;
 use crate::datatypes::DatumPoint;
 use crate::datatypes::LineSegment;
 use crate::textual::Component;
 use crate::textual::Label;
 use crate::textual::Point;
+use crate::textual::instruction::AngleLine;
 use crate::textual::instruction::Distance;
 use crate::textual::instruction::FixPointComponent;
 use crate::textual::instruction::Horizontal;
@@ -104,6 +106,21 @@ impl Problem {
                         LineSegment { p0, p1 },
                         LineSegment { p0: p2, p1: p3 },
                     ]));
+                }
+                Instruction::AngleLine(AngleLine {
+                    line0,
+                    line1,
+                    angle,
+                }) => {
+                    let p0 = datum_point_for_label(&line0.0)?;
+                    let p1 = datum_point_for_label(&line0.1)?;
+                    let p2 = datum_point_for_label(&line1.0)?;
+                    let p3 = datum_point_for_label(&line1.1)?;
+                    constraints.push(Constraint::LinesAtAngle(
+                        LineSegment { p0, p1 },
+                        LineSegment { p0: p2, p1: p3 },
+                        AngleKind::Other(*angle),
+                    ));
                 }
             }
         }
