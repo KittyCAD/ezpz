@@ -8,8 +8,7 @@ fn simple() {
     # constraints
     point p
     point q
-    p.x = 0
-    p.y = 0
+    p = (0, 0)
     q.y = 0
     vertical(p, q)
 
@@ -34,8 +33,7 @@ fn rectangle() {
     point p1
     point p2
     point p3
-    p0.x = 1
-    p0.y = 1
+    p0 = (1,1)
     horizontal(p0, p1)
     horizontal(p2, p3)
     vertical(p1, p2)
@@ -46,8 +44,7 @@ fn rectangle() {
     point p5
     point p6
     point p7
-    p4.x = 2
-    p4.y = 2
+    p4 = (2, 2)
     horizontal(p4, p5)
     horizontal(p6, p7)
     vertical(p5, p6)
@@ -86,8 +83,7 @@ fn angle_constraints() {
     point p0
     point p1
     point p2
-    p0.x = 0
-    p0.y = 0
+    p0 = (0, 0)
     parallel(p0, p1, p1, p2)
     distance(p0, p1, sqrt(32))
     distance(p1, p2, sqrt(32))
