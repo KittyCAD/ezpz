@@ -78,13 +78,18 @@ fn rectangle() {
 
 #[test]
 fn angle_constraints() {
-    let mut txt = "\
+    for angle_constraint in [
+        "lines_at_angle(p0, p1, p1, p2, 0deg)",
+        "parallel(p0, p1, p1, p2)",
+    ] {
+        let txt = format!(
+            "\
     # constraints
     point p0
     point p1
     point p2
     p0 = (0, 0)
-    parallel(p0, p1, p1, p2)
+    {angle_constraint}
     distance(p0, p1, sqrt(32))
     distance(p1, p2, sqrt(32))
     p1.x = 4
@@ -93,13 +98,14 @@ fn angle_constraints() {
     p0 roughly (0,0)
     p1 roughly (3,3)
     p2 roughly (6,6)
-    ";
-
-    let problem = Problem::parse(&mut txt).unwrap();
-    let solved = problem.solve().unwrap();
-    assert_points_eq(solved.get_point("p0").unwrap(), Point { x: 0.0, y: 0.0 });
-    assert_points_eq(solved.get_point("p1").unwrap(), Point { x: 4.0, y: 4.0 });
-    assert_points_eq(solved.get_point("p2").unwrap(), Point { x: 8.0, y: 8.0 });
+    "
+        );
+        let problem = Problem::parse(&mut txt.as_str()).unwrap();
+        let solved = problem.solve().unwrap();
+        assert_points_eq(solved.get_point("p0").unwrap(), Point { x: 0.0, y: 0.0 });
+        assert_points_eq(solved.get_point("p1").unwrap(), Point { x: 4.0, y: 4.0 });
+        assert_points_eq(solved.get_point("p2").unwrap(), Point { x: 8.0, y: 8.0 });
+    }
 }
 
 #[track_caller]

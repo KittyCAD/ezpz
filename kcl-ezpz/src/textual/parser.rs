@@ -1,9 +1,10 @@
-use crate::textual::instruction::{Distance, Parallel};
+use crate::textual::instruction::{AngleLine, Distance, Parallel};
 
 use super::{
     Component, Label, Point, PointGuess, Problem,
     instruction::{DeclarePoint, FixPointComponent, Horizontal, Instruction, Vertical},
 };
+use kittycad_modeling_cmds::shared::Angle;
 use winnow::{
     Result as WResult,
     ascii::{alphanumeric1, digit1, newline, space0},
@@ -127,6 +128,43 @@ pub fn commasep(i: &mut &str) -> WResult<()> {
     Ok(())
 }
 
+impl AngleLine {
+    pub fn parse(i: &mut &str) -> WResult<Self> {
+        let _ = "lines_at_angle".parse_next(i)?;
+        ignore_ws(i);
+        let _ = '('.parse_next(i)?;
+        ignore_ws(i);
+        let p0 = Label::parse(i)?;
+        commasep(i)?;
+        let p1 = Label::parse(i)?;
+        commasep(i)?;
+        let p2 = Label::parse(i)?;
+        commasep(i)?;
+        let p3 = Label::parse(i)?;
+        commasep(i)?;
+        let angle = parse_angle(i)?;
+        ignore_ws(i);
+        let _ = ')'.parse_next(i)?;
+        let line0 = (p0, p1);
+        let line1 = (p2, p3);
+        Ok(Self {
+            line0,
+            line1,
+            angle,
+        })
+    }
+}
+
+pub fn parse_angle(i: &mut &str) -> WResult<Angle> {
+    let value = parse_number(i)?;
+    let is_degrees = alt(("deg".map(|_| true), "rad".map(|_| false))).parse_next(i)?;
+    Ok(if is_degrees {
+        Angle::from_degrees(value)
+    } else {
+        Angle::from_radians(value)
+    })
+}
+
 impl Parallel {
     pub fn parse(i: &mut &str) -> WResult<Self> {
         let _ = "parallel".parse_next(i)?;
@@ -165,6 +203,7 @@ impl Instruction {
             Vertical::parse.map(Instruction::Vertical).map(sv),
             Distance::parse.map(Instruction::Distance).map(sv),
             Parallel::parse.map(Instruction::Parallel).map(sv),
+            AngleLine::parse.map(Instruction::AngleLine).map(sv),
         ))
         .parse_next(i)
     }
