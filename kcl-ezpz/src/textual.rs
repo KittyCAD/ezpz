@@ -75,3 +75,15 @@ impl Problem {
         &self.inner_points
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_label() {
+        let l = Label("x".to_owned());
+        assert_eq!(l, "x");
+        assert_eq!(l, "x".to_owned());
+    }
+}
