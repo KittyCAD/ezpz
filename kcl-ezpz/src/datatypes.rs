@@ -17,7 +17,7 @@ impl DatumDistance {
 }
 
 /// 2D point.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct DatumPoint {
     pub(crate) x_id: Id,
     pub(crate) y_id: Id,
@@ -45,7 +45,7 @@ impl DatumPoint {
 }
 
 /// Line of infinite length.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct DatumLine {
     // Unusual representation of a line using two parameters, theta and A
     theta: Angle,
@@ -69,7 +69,7 @@ impl DatumLine {
 }
 
 /// Finite segment of a line.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct LineSegment {
     pub p0: DatumPoint,
     pub p1: DatumPoint,

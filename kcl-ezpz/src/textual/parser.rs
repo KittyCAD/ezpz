@@ -1,4 +1,4 @@
-use crate::textual::instruction::Distance;
+use crate::textual::instruction::{Distance, Parallel};
 
 use super::{
     Component, Label, Point, PointGuess, Problem,
@@ -111,13 +111,40 @@ impl Distance {
         ignore_ws(i);
         let _ = ','.parse_next(i)?;
         ignore_ws(i);
-        let distance = parse_number(i)?;
+        let distance = parse_number_expr(i)?;
         ignore_ws(i);
         let _ = ')'.parse_next(i)?;
         Ok(Self {
             label: (p0, p1),
             distance,
         })
+    }
+}
+pub fn commasep(i: &mut &str) -> WResult<()> {
+    ignore_ws(i);
+    ','.parse_next(i)?;
+    ignore_ws(i);
+    Ok(())
+}
+
+impl Parallel {
+    pub fn parse(i: &mut &str) -> WResult<Self> {
+        let _ = "parallel".parse_next(i)?;
+        ignore_ws(i);
+        let _ = '('.parse_next(i)?;
+        ignore_ws(i);
+        let p0 = Label::parse(i)?;
+        commasep(i)?;
+        let p1 = Label::parse(i)?;
+        commasep(i)?;
+        let p2 = Label::parse(i)?;
+        commasep(i)?;
+        let p3 = Label::parse(i)?;
+        ignore_ws(i);
+        let _ = ')'.parse_next(i)?;
+        let line0 = (p0, p1);
+        let line1 = (p2, p3);
+        Ok(Self { line0, line1 })
     }
 }
 
@@ -130,6 +157,7 @@ impl Instruction {
             Horizontal::parse.map(Instruction::Horizontal),
             Vertical::parse.map(Instruction::Vertical),
             Distance::parse.map(Instruction::Distance),
+            Parallel::parse.map(Instruction::Parallel),
         ))
         .parse_next(i)
     }
@@ -199,4 +227,12 @@ fn parse_number(i: &mut &str) -> WResult<f64> {
         winnow::ascii::float.parse_next(i)
     }
     alt((myfloat, myint)).parse_next(i)
+}
+
+fn parse_number_expr(i: &mut &str) -> WResult<f64> {
+    alt((
+        parse_number,
+        ("sqrt(", parse_number_expr, ')').map(|(_, num, _)| num.sqrt()),
+    ))
+    .parse_next(i)
 }
