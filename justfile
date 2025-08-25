@@ -1,5 +1,12 @@
 clippy-flags := "--workspace --tests --benches --examples"
 
+check-most:
+    just lint
+    just check-wasm
+    just check-typos
+    just test
+    just fmt-check
+
 lint:
     cargo clippy {{clippy-flags}} -- -D warnings
 
@@ -28,3 +35,7 @@ flamegraph:
 bench:
     cargo criterion -p --bench solver_bench
 
+fmt-check:
+    cargo fmt --check
+    cargo sort --check
+    typos

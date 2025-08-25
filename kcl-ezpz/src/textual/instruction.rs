@@ -10,6 +10,7 @@ pub enum Instruction {
     Horizontal(Horizontal),
     Distance(Distance),
     Parallel(Parallel),
+    Perpendicular(Perpendicular),
     AngleLine(AngleLine),
 }
 
@@ -21,6 +22,12 @@ pub struct Distance {
 
 #[derive(Debug)]
 pub struct Parallel {
+    pub line0: (Label, Label),
+    pub line1: (Label, Label),
+}
+
+#[derive(Debug)]
+pub struct Perpendicular {
     pub line0: (Label, Label),
     pub line1: (Label, Label),
 }

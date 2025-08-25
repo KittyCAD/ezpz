@@ -120,7 +120,8 @@ impl Model {
 
         // Generate the matrix.
         let pairs = gen_pairs(num_cols, num_rows);
-        let (sym, _) = SymbolicSparseColMat::try_new_from_indices(num_rows, num_cols, &pairs).unwrap();
+        let (sym, _) =
+            SymbolicSparseColMat::try_new_from_indices(num_rows, num_cols, &pairs).unwrap();
         let num_cells = sym.col_ptr()[sym.ncols()];
         debug_assert_eq!(num_cells, num_cols * num_rows);
 
@@ -161,7 +162,11 @@ impl NonlinearSystem for Model {
     }
 
     /// Compute the residual F, figuring out how close the problem is to being solved.
-    fn residual(&self, current_assignments: &[Self::Real], out: &mut [Self::Real]) -> Result<(), Self::Error> {
+    fn residual(
+        &self,
+        current_assignments: &[Self::Real],
+        out: &mut [Self::Real],
+    ) -> Result<(), Self::Error> {
         // Each row of `out` corresponds to one row of the matrix, i.e. one equation.
         // Each item of `current_assignments` corresponds to one column of the matrix, i.e. one variable.
         let mut row_num = 0;

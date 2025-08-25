@@ -108,6 +108,17 @@ fn angle_constraints() {
     }
 }
 
+#[test]
+fn perpendiculars() {
+    let mut txt = include_str!("../../test_cases/perpendicular.txt");
+    let problem = Problem::parse(&mut txt).unwrap();
+    let solved = problem.solve().unwrap();
+    assert_points_eq(solved.get_point("p0").unwrap(), Point { x: 0.0, y: 0.0 });
+    assert_points_eq(solved.get_point("p1").unwrap(), Point { x: 0.0, y: 4.0 });
+    assert_points_eq(solved.get_point("p2").unwrap(), Point { x: 0.0, y: 0.0 });
+    assert_points_eq(solved.get_point("p3").unwrap(), Point { x: 4.0, y: 0.0 });
+}
+
 #[track_caller]
 fn assert_points_eq(l: Point, r: Point) {
     let dist = l.euclidean_distance(r);
