@@ -4,3 +4,6 @@ resolver = "3"
 
 [profile.dev.package]
 faer = { opt-level = 3 }
+
+[profile.bench]
+debug = true
