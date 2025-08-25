@@ -2,6 +2,9 @@
 name = "ezpz"
 version = "0.1.0"
 edition = "2024"
+repository = "https://github.com/KittyCAD/ezpz"
+description = "CLI for using the ezpz constraint solver"
+license = "MIT"
 
 [dependencies]
 clap = { version = "4.5.45", features = ["derive"] }

@@ -3,6 +3,8 @@ name = "kcl-ezpz"
 version = "0.1.0"
 edition = "2024"
 description = "A constraint solver for KCL and Zoo Design Studio"
+repository = "https://github.com/KittyCAD/ezpz"
+license = "MIT"
 
 [dependencies]
 faer = "0.22.6"
