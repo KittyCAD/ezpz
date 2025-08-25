@@ -1,4 +1,4 @@
-use crate::textual::instruction::{AngleLine, Distance, Parallel};
+use crate::textual::instruction::{AngleLine, Distance, Parallel, Perpendicular};
 
 use super::{
     Component, Label, Point, PointGuess, Problem,
@@ -186,6 +186,27 @@ impl Parallel {
     }
 }
 
+impl Perpendicular {
+    pub fn parse(i: &mut &str) -> WResult<Self> {
+        let _ = "perpendicular".parse_next(i)?;
+        ignore_ws(i);
+        let _ = '('.parse_next(i)?;
+        ignore_ws(i);
+        let p0 = Label::parse(i)?;
+        commasep(i)?;
+        let p1 = Label::parse(i)?;
+        commasep(i)?;
+        let p2 = Label::parse(i)?;
+        commasep(i)?;
+        let p3 = Label::parse(i)?;
+        ignore_ws(i);
+        let _ = ')'.parse_next(i)?;
+        let line0 = (p0, p1);
+        let line1 = (p2, p3);
+        Ok(Self { line0, line1 })
+    }
+}
+
 fn sv<T>(t: T) -> Vec<T> {
     vec![t]
 }
@@ -203,6 +224,7 @@ impl Instruction {
             Vertical::parse.map(Instruction::Vertical).map(sv),
             Distance::parse.map(Instruction::Distance).map(sv),
             Parallel::parse.map(Instruction::Parallel).map(sv),
+            Perpendicular::parse.map(Instruction::Perpendicular).map(sv),
             AngleLine::parse.map(Instruction::AngleLine).map(sv),
         ))
         .parse_next(i)

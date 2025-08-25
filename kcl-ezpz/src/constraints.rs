@@ -53,7 +53,7 @@ pub struct JacobianVar {
 /// I.e. describes a single equation in the system of equations being solved.
 /// Specifically, it gives the partial derivatives of every variable in the equation.
 /// If a variable isn't given, assume its partial derivative is 0.
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct JacobianRow {
     nonzero_columns: Vec<JacobianVar>,
 }
@@ -206,6 +206,9 @@ impl Constraint {
                 // TODO: Handle zero-length vecs gracefully.
 
                 let dist = euclidean_distance((x0, y0), (x1, y1));
+                if dist < EPSILON {
+                    return Ok(vec![Default::default()]);
+                }
                 let dr_dx0 = (x0 - x1) / dist;
                 let dr_dy0 = (y0 - y1) / dist;
                 let dr_dx1 = (-x0 + x1) / dist;
@@ -315,6 +318,7 @@ impl Constraint {
                 // Calculate partial derivatives
                 let pds = match expected_angle {
                     AngleKind::Parallel => PartialDerivatives4Points {
+                        // Residual: R = (x1-x0)*(y3-y2) - (y1-y0)*(x3-x2)
                         dr_dx0: y2 - y3,
                         dr_dy0: -x2 + x3,
                         dr_dx1: -y2 + y3,
@@ -325,6 +329,7 @@ impl Constraint {
                         dr_dy3: -x0 + x1,
                     },
                     AngleKind::Perpendicular => PartialDerivatives4Points {
+                        // Residual: R = (x1-x0)*(x3-x2) + (y1-y0)*(y3-y2)
                         dr_dx0: x2 - x3,
                         dr_dy0: y2 - y3,
                         dr_dx1: -x2 + x3,
@@ -344,7 +349,7 @@ impl Constraint {
                         let is_invalid = (mag0 < EPSILON) || (mag1 < EPSILON);
                         if is_invalid {
                             // All zeroes
-                            return Ok(Default::default());
+                            return Ok(vec![JacobianRow::default()]);
                         }
 
                         // Calculate derivatives.
@@ -446,6 +451,7 @@ fn dot_line((p0, p1): ((f64, f64), (f64, f64))) -> f64 {
     dot(p0, p1)
 }
 
+#[derive(Debug)]
 struct PartialDerivatives4Points {
     dr_dx0: f64,
     dr_dy0: f64,
