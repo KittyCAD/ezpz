@@ -19,6 +19,20 @@ struct Cli {
     /// Open the results in gnuplot if solve was successful.
     #[arg(long, default_value_t = false)]
     gnuplot: bool,
+
+    /// Save results as a PNG if solve was successful.
+    #[arg(short = 'o')]
+    gnuplot_png_path: Option<PathBuf>,
+}
+
+impl Cli {
+    fn chart_name(&self) -> String {
+        if self.filepath.display().to_string() == "-" {
+            "EZPZ".to_owned()
+        } else {
+            self.filepath.display().to_string()
+        }
+    }
 }
 
 const NUM_ITERS_BENCHMARK: u32 = 100;
@@ -33,25 +47,29 @@ fn main() {
         }
     };
     print_output(&soln);
+    if let Some(ref p) = cli.gnuplot_png_path {
+        let output_path = p.display().to_string();
+        save_gnuplot_png(&cli, &soln.0, output_path);
+    }
     if cli.gnuplot {
         pop_gnuplot_window(&cli, &soln.0);
     }
 }
 
-/// Open a `gnuplot` window displaying these points in a 2D scatter plot.
-fn pop_gnuplot_window(cli: &Cli, soln: &Outcome) {
-    let chart_name = cli.filepath.display().to_string();
-    let chart_name = if chart_name == "-" {
-        "EZPZ".to_owned()
-    } else {
-        chart_name
-    };
+fn save_gnuplot_png(cli: &Cli, soln: &Outcome, output_path: String) {
+    let mut gnuplot_program = String::new();
+    let chart_name = cli.chart_name();
     let points = soln
         .points
         .iter()
         .map(|(label, pt)| ((pt.x, pt.y), label.as_str()))
         .collect();
-    let gnuplot_program = gnuplot(&chart_name, points);
+    gnuplot_program.push_str(&gnuplot(
+        &chart_name,
+        points,
+        GnuplotMode::WriteFile(output_path),
+    ));
+    gnuplot_program.push_str("unset output"); // closes file
     let mut child = std::process::Command::new("gnuplot")
         .args(["-persist", "-"])
         .stdin(std::process::Stdio::piped())
@@ -68,8 +86,38 @@ fn pop_gnuplot_window(cli: &Cli, soln: &Outcome) {
     let _ = child.wait();
 }
 
+/// Open a `gnuplot` window displaying these points in a 2D scatter plot.
+fn pop_gnuplot_window(cli: &Cli, soln: &Outcome) {
+    let chart_name = cli.chart_name();
+    let points = soln
+        .points
+        .iter()
+        .map(|(label, pt)| ((pt.x, pt.y), label.as_str()))
+        .collect();
+    let gnuplot_program = gnuplot(&chart_name, points, GnuplotMode::PopWindow);
+    let mut child = std::process::Command::new("gnuplot")
+        .args(["-persist", "-"])
+        .stdin(std::process::Stdio::piped())
+        .spawn()
+        .expect("failed to start gnuplot");
+
+    {
+        let stdin = child.stdin.as_mut().expect("failed to open stdin");
+        use std::io::Write;
+        stdin
+            .write_all(gnuplot_program.as_bytes())
+            .expect("failed to write to stdin");
+    }
+    let _ = child.wait();
+}
+
+enum GnuplotMode {
+    PopWindow,
+    WriteFile(String),
+}
+
 /// Write a gnuplot program to show these points in a 2D scatter plot.
-fn gnuplot(chart_name: &str, points: Vec<((f64, f64), &str)>) -> String {
+fn gnuplot(chart_name: &str, points: Vec<((f64, f64), &str)>, mode: GnuplotMode) -> String {
     let all_points = points
         .iter()
         .map(|((x, y), _label)| format!("{x:.2} {y:.2}"))
@@ -88,13 +136,21 @@ fn gnuplot(chart_name: &str, points: Vec<((f64, f64), &str)>) -> String {
         .collect::<Vec<_>>();
     let min = components.iter().cloned().fold(f64::NAN, f64::min) - 1.0;
     let max = components.iter().cloned().fold(f64::NAN, f64::max) + 1.0;
+    let display = match mode {
+        GnuplotMode::PopWindow => "set term qt font \"Verdana\"\n".to_owned(),
+        GnuplotMode::WriteFile(output_path) => format!(
+            "set terminal pngcairo size 600,600 enhanced font 'Verdana,12'\nset output \"{output_path}\"\n"
+        ),
+    };
     format!(
         "\
-set term qt font \"Verdana\"
-set title \"{chart_name}\"
+{display}
+# `noenhance` stops _ in path names being interpreted as subscript
+set title \"{chart_name}\" noenhance 
 set xlabel \"X\"
 set ylabel \"Y\"
 set grid
+unset key
 
 set xrange [{min}:{max}]
 set yrange [{min}:{max}]
