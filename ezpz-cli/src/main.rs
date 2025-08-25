@@ -23,6 +23,10 @@ struct Cli {
     /// Save results as a PNG if solve was successful.
     #[arg(short = 'o')]
     gnuplot_png_path: Option<PathBuf>,
+
+    /// Show the final values assigned to each point.
+    #[arg(long = "show-points")]
+    show_points: bool,
 }
 
 impl Cli {
@@ -46,7 +50,7 @@ fn main() {
             std::process::exit(1);
         }
     };
-    print_output(&soln);
+    print_output(&soln, cli.show_points);
     if let Some(ref p) = cli.gnuplot_png_path {
         let output_path = p.display().to_string();
         save_gnuplot_png(&cli, &soln.0, output_path);
@@ -187,7 +191,7 @@ fn main_inner(cli: &Cli) -> Result<(Outcome, Duration), String> {
 }
 
 /// Prints the output nicely to stdout.
-fn print_output((outcome, duration): &(Outcome, Duration)) {
+fn print_output((outcome, duration): &(Outcome, Duration), show_points: bool) {
     use colored::Colorize;
     let Outcome {
         iterations,
@@ -219,9 +223,11 @@ fn print_output((outcome, duration): &(Outcome, Duration)) {
         solves_per_second.to_string().normal()
     };
     println!("i.e. {solves_per_second} solves per second");
-    println!("Points:");
-    for (label, Point { x, y }) in points {
-        println!("\t{label}: ({x:.2}, {y:.2})",);
+    if show_points {
+        println!("Points:");
+        for (label, Point { x, y }) in points {
+            println!("\t{label}: ({x:.2}, {y:.2})",);
+        }
     }
 }
 
