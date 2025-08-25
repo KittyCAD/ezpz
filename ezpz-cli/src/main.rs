@@ -188,6 +188,7 @@ fn main_inner(cli: &Cli) -> Result<(Outcome, Duration), String> {
 
 /// Prints the output nicely to stdout.
 fn print_output((outcome, duration): &(Outcome, Duration)) {
+    use colored::Colorize;
     let Outcome {
         iterations,
         lints,
@@ -201,7 +202,13 @@ fn print_output((outcome, duration): &(Outcome, Duration)) {
             println!("\t{}", lint.content);
         }
     }
-    println!("Problem size: {num_eqs} rows, {num_vars} vars");
+    print!("Problem size: ");
+    if num_vars != num_eqs {
+        let l = format!("{num_eqs} rows, {num_vars} vars");
+        println!("{}", l.yellow());
+    } else {
+        println!("{num_eqs} rows, {num_vars} vars");
+    }
     println!("Iterations needed: {iterations}");
     println!(
         "Solved in {}μs (mean over {NUM_ITERS_BENCHMARK} iterations)",
