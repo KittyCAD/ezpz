@@ -5,6 +5,7 @@ use kcl_ezpz::{
     Constraint, IdGenerator,
     datatypes::{DatumPoint, LineSegment},
     solve,
+    textual::Problem,
 };
 use newton_faer::init_global_parallelism;
 
@@ -217,11 +218,22 @@ fn solve_angled_lines(c: &mut Criterion) {
     });
 }
 
+fn solve_massive(c: &mut Criterion) {
+    let mut txt = include_str!("../../test_cases/massive_parallel_system/problem.txt");
+    let problem = Problem::parse(&mut txt).unwrap();
+    c.bench_function("solve massive_parallel_system", |b| {
+        b.iter(|| {
+            let _actual = black_box(problem.solve().unwrap());
+        })
+    });
+}
+
 criterion_group!(
     benches,
     solve_easy,
     solve_two_rectangles,
     solve_two_rectangles_dependent,
     solve_angled_lines,
+    solve_massive,
 );
 criterion_main!(benches);

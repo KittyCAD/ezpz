@@ -210,10 +210,15 @@ fn print_output((outcome, duration): &(Outcome, Duration)) {
         println!("{num_eqs} rows, {num_vars} vars");
     }
     println!("Iterations needed: {iterations}");
-    println!(
-        "Solved in {}μs (mean over {NUM_ITERS_BENCHMARK} iterations)",
-        duration.as_micros()
-    );
+    let time = format!("{}μs", duration.as_micros());
+    println!("Solved in {time} (mean over {NUM_ITERS_BENCHMARK} iterations)");
+    let solves_per_second = Duration::from_secs(1).as_micros() / duration.as_micros();
+    let solves_per_second = if solves_per_second <= 60 {
+        solves_per_second.to_string().red()
+    } else {
+        solves_per_second.to_string().normal()
+    };
+    println!("i.e. {solves_per_second} solves per second");
     println!("Points:");
     for (label, Point { x, y }) in points {
         println!("\t{label}: ({x:.2}, {y:.2})",);

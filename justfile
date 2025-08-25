@@ -39,3 +39,6 @@ fmt-check:
     cargo fmt --check
     cargo sort --check
     typos
+
+regen-massive-test:
+    python3 test_cases/massive_parallel_system/gen_big_problem.py > test_cases/massive_parallel_system/problem.txt
