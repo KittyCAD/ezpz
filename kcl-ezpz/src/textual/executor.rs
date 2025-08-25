@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use indexmap::IndexMap;
+
 use crate::Constraint;
 use crate::Error;
 use crate::IdGenerator;
@@ -146,7 +148,7 @@ impl Problem {
             final_values,
         } = crate::solve(constraints, initial_guesses)?;
 
-        let mut final_points = HashMap::with_capacity(num_points);
+        let mut final_points = IndexMap::with_capacity(num_points);
         for (i, point) in self.inner_points.iter().enumerate() {
             let x_id = 2 * i;
             let y_id = 2 * i + 1;
@@ -170,7 +172,7 @@ impl Problem {
 pub struct Outcome {
     pub iterations: usize,
     pub lints: Vec<Lint>,
-    pub points: HashMap<String, Point>,
+    pub points: IndexMap<String, Point>,
     pub num_vars: usize,
     pub num_eqs: usize,
 }
