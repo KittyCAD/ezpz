@@ -133,10 +133,7 @@ impl Constraint {
                 let v1 = (p1_x_l1 - p0_x_l1, p1_y_l1 - p0_y_l1);
 
                 match expected_angle {
-                    AngleKind::Parallel => {
-                        // return nb.np.array([v1[0] * v2[1] - v1[1] * v2[0]])
-                        Ok(vec![v0.0 * v1.1 - v0.1 * v1.0])
-                    }
+                    AngleKind::Parallel => Ok(vec![v0.0 * v1.1 - v0.1 * v1.0]),
                     AngleKind::Perpendicular => {
                         let dot = v0.0 * v1.0 + v0.1 * v1.1;
                         Ok(vec![dot])

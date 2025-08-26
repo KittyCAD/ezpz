@@ -1,6 +1,7 @@
 // Big thanks to Matt Keeter for inspiring this approach,
 // see https://www.mattkeeter.com/projects/constraints/
 use indexmap::IndexMap;
+use libm::{cos, sin};
 
 use crate::Error;
 
@@ -122,6 +123,54 @@ impl std::ops::Sub for Equation {
 
     fn sub(self, rhs: Self) -> Self::Output {
         self + (-rhs)
+    }
+}
+
+impl Equation {
+    /// Assumes radians.
+    pub fn sin(self) -> Self {
+        #[cfg(test)]
+        let debug_repr = format!("sin({})", self.debug_repr);
+        let eval = move |vars: &Vars| {
+            let Eval {
+                value,
+                mut derivatives,
+            } = self.evaluate(vars)?;
+            eprintln!("{derivatives:?}");
+            derivatives.values_mut().for_each(|d| *d *= cos(value));
+            Ok(Eval {
+                value: sin(value),
+                derivatives,
+            })
+        };
+        Self {
+            eval: Box::new(eval),
+            #[cfg(test)]
+            debug_repr,
+        }
+    }
+
+    /// Assumes radians.
+    pub fn cos(self) -> Self {
+        #[cfg(test)]
+        let debug_repr = format!("cos({})", self.debug_repr);
+        let eval = move |vars: &Vars| {
+            let Eval {
+                value,
+                mut derivatives,
+            } = self.evaluate(vars)?;
+            eprintln!("{derivatives:?}");
+            derivatives.values_mut().for_each(|d| *d *= sin(value));
+            Ok(Eval {
+                value: cos(value),
+                derivatives,
+            })
+        };
+        Self {
+            eval: Box::new(eval),
+            #[cfg(test)]
+            debug_repr,
+        }
     }
 }
 
@@ -247,6 +296,8 @@ fn union_with<K: std::hash::Hash + Eq, V: Copy>(
 
 #[cfg(test)]
 mod tests {
+    use std::f64::consts::PI;
+
     use super::*;
 
     impl From<&str> for Equation {
@@ -285,7 +336,7 @@ mod tests {
             value: 14.0,
             derivatives: vars("a=1"),
         };
-        assert_eq!(actual, expected,);
+        assert_eq!(actual, expected);
     }
 
     #[test]
@@ -357,4 +408,37 @@ mod tests {
         assert_eq!(actual0, expected);
         assert_eq!(actual1, expected);
     }
+
+    #[test]
+    fn eval_sin() {
+        // f(x) = sin(2x)
+        // so its derivative d/dx f(x) = cos(2x)
+        let eq0 = (f(2.0) * f("x")).sin();
+
+        // Let's evaluate it when:
+        let x = 0.75 * PI;
+        let expected_fx = sin(2.0 * x);
+        // Remember: d/dx sin(kx) === k.cos(kx)
+        let expected_pdx = 2.0 * cos(x * 2.0);
+        // That should be 0, but due to imperfect representation of pi it'll actually be some tiny tiny number.
+        assert!(expected_pdx < 0.00000000000001);
+
+        let expected = Eval {
+            value: expected_fx,
+            derivatives: vars(&format!("x={expected_pdx}")),
+        };
+        let actual = eq0.evaluate(&vars(&format!("x={x}"))).unwrap();
+        assert_nearly(actual.value, expected.value);
+        assert_nearly(actual.derivatives["x"], expected.derivatives["x"]);
+    }
+
+    #[track_caller]
+    fn assert_nearly(lhs: f64, rhs: f64) {
+        let difference = (lhs - rhs).abs();
+        assert!(
+            difference < EPSILON,
+            "LHS was {lhs}, RHS was {rhs}, difference was {difference}"
+        );
+    }
+    const EPSILON: f64 = 0.0001;
 }
