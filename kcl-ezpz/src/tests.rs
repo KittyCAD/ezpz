@@ -7,7 +7,7 @@ fn simple() {
     let problem = Problem::parse(&mut txt).unwrap();
     assert_eq!(problem.instructions.len(), 6);
     assert_eq!(problem.points(), vec!["p", "q"]);
-    let solved = problem.solve().unwrap();
+    let solved = problem.to_constraint_system().unwrap().solve().unwrap();
     assert_eq!(solved.get_point("p").unwrap(), Point { x: 0.0, y: 0.0 });
     assert_eq!(solved.get_point("q").unwrap(), Point { x: 0.0, y: 0.0 });
 }
@@ -16,7 +16,7 @@ fn simple() {
 fn rectangle() {
     let mut txt = include_str!("../../test_cases/rectangle/problem.txt");
     let problem = Problem::parse(&mut txt).unwrap();
-    let solved = problem.solve().unwrap();
+    let solved = problem.to_constraint_system().unwrap().solve().unwrap();
     // This forms two rectangles.
     assert_eq!(solved.get_point("p0").unwrap(), Point { x: 1.0, y: 1.0 });
     assert_eq!(solved.get_point("p1").unwrap(), Point { x: 5.0, y: 1.0 });
@@ -36,7 +36,7 @@ fn angle_constraints() {
         include_str!("../../test_cases/angle_parallel_manual/problem.txt"),
     ] {
         let problem = Problem::parse(&mut file).unwrap();
-        let solved = problem.solve().unwrap();
+        let solved = problem.to_constraint_system().unwrap().solve().unwrap();
         assert_points_eq(solved.get_point("p0").unwrap(), Point { x: 0.0, y: 0.0 });
         assert_points_eq(solved.get_point("p1").unwrap(), Point { x: 4.0, y: 4.0 });
         assert_points_eq(solved.get_point("p2").unwrap(), Point { x: 8.0, y: 8.0 });
@@ -47,7 +47,7 @@ fn angle_constraints() {
 fn perpendiculars() {
     let mut txt = include_str!("../../test_cases/perpendicular/problem.txt");
     let problem = Problem::parse(&mut txt).unwrap();
-    let solved = problem.solve().unwrap();
+    let solved = problem.to_constraint_system().unwrap().solve().unwrap();
     assert_points_eq(solved.get_point("p0").unwrap(), Point { x: 0.0, y: 0.0 });
     assert_points_eq(solved.get_point("p1").unwrap(), Point { x: 0.0, y: 4.0 });
     assert_points_eq(solved.get_point("p2").unwrap(), Point { x: 0.0, y: 0.0 });

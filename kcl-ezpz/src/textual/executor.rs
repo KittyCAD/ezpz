@@ -4,6 +4,7 @@ use indexmap::IndexMap;
 
 use crate::Constraint;
 use crate::Error;
+use crate::Id;
 use crate::IdGenerator;
 use crate::Lint;
 use crate::SolveOutcome;
@@ -25,10 +26,9 @@ use super::Instruction;
 use super::Problem;
 
 impl Problem {
-    pub fn solve(&self) -> Result<Outcome, Error> {
+    pub fn to_constraint_system(&self) -> Result<ConstraintSystem<'_>, Error> {
         // First, construct the list of initial guesses,
         // and assign them to solver variables.
-        let num_points = self.inner_points.len();
         let mut id_generator = IdGenerator::default();
         let mut initial_guesses: Vec<_> = Vec::with_capacity(self.inner_points.len() * 2);
         let mut guessmap = HashMap::new();
@@ -138,15 +138,31 @@ impl Problem {
             }
         }
 
-        let num_vars = initial_guesses.len();
-        let num_eqs = constraints.iter().map(|c| c.residual_dim()).sum();
+        Ok(ConstraintSystem {
+            constraints,
+            initial_guesses,
+            inner_points: &self.inner_points,
+        })
+    }
+}
 
+pub struct ConstraintSystem<'a> {
+    constraints: Vec<Constraint>,
+    initial_guesses: Vec<(Id, f64)>,
+    inner_points: &'a [Label],
+}
+
+impl ConstraintSystem<'_> {
+    pub fn solve(self) -> Result<Outcome, crate::Error> {
+        let num_vars = self.initial_guesses.len();
+        let num_eqs = self.constraints.iter().map(|c| c.residual_dim()).sum();
         // Pass into the solver.
         let SolveOutcome {
             iterations,
             lints,
             final_values,
-        } = crate::solve(constraints, initial_guesses)?;
+        } = crate::solve(self.constraints, self.initial_guesses)?;
+        let num_points = final_values.len();
 
         let mut final_points = IndexMap::with_capacity(num_points);
         for (i, point) in self.inner_points.iter().enumerate() {
