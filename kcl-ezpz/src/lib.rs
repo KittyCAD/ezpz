@@ -9,6 +9,8 @@ use crate::solver::Model;
 mod constraints;
 /// Geometric data (lines, points, etc).
 pub mod datatypes;
+/// Symbolic representation of equations.
+pub mod equations;
 /// IDs of various entities, points, scalars etc.
 mod id;
 /// Numeric solver using sparse matrices.
@@ -39,6 +41,8 @@ pub enum Error {
 pub enum NonLinearSystemError {
     #[error("ID {0} not found")]
     NotFound(Id),
+    #[error("ID {0} not found")]
+    SymbolNotFound(String),
 }
 
 #[derive(Debug)]
