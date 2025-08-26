@@ -19,9 +19,9 @@ pub struct Eval {
 }
 
 /// This is basically a newtype for
-/// `FnOnce(&Vars) -> Result<Eval>`.
-trait Evaluate: FnOnce(&Vars) -> Result<Eval, Error> {}
-impl<F> Evaluate for F where F: FnOnce(&Vars) -> Result<Eval, Error> {}
+/// `Fn(&Vars) -> Result<Eval>`.
+trait Evaluate: Fn(&Vars) -> Result<Eval, Error> {}
+impl<F> Evaluate for F where F: Fn(&Vars) -> Result<Eval, Error> {}
 
 /// Symbolic equation that can be evaluated.
 pub struct Equation {
@@ -59,15 +59,16 @@ impl Equation {
     pub fn single_variable(label: Label) -> Self {
         #[cfg(test)]
         let debug_repr = label.clone();
+        let label2 = label.clone();
         let eval = move |vars: &Vars| {
-            let Some(var_value) = vars.get(&label).copied() else {
+            let Some(var_value) = vars.get(&label2).copied() else {
                 return Err(Error::NonLinearSystemError(
-                    crate::NonLinearSystemError::SymbolNotFound(label),
+                    crate::NonLinearSystemError::SymbolNotFound(label2.to_owned()),
                 ));
             };
 
             let mut derivatives = Vars::with_capacity(1);
-            derivatives.insert(label, 1.0);
+            derivatives.insert(label2.clone(), 1.0);
 
             Ok(Eval {
                 value: var_value,
@@ -81,7 +82,7 @@ impl Equation {
         }
     }
 
-    pub fn evaluate(self, vars: &Vars) -> Result<Eval, Error> {
+    pub fn evaluate(&self, vars: &Vars) -> Result<Eval, Error> {
         (self.eval)(vars)
     }
 }
@@ -93,17 +94,15 @@ impl std::ops::Add for Equation {
         #[cfg(test)]
         let debug_repr = format!("({} + {})", self.debug_repr, rhs.debug_repr);
 
-        let eval = |vars: &Vars| {
-            let a = self;
-            let b = rhs;
+        let eval = move |vars: &Vars| {
             let Eval {
                 value: va,
                 derivatives: das,
-            } = a.evaluate(vars)?;
+            } = self.evaluate(vars)?;
             let Eval {
                 value: vb,
                 derivatives: dbs,
-            } = b.evaluate(vars)?;
+            } = rhs.evaluate(vars)?;
             let derivatives = union_with(das, dbs, |a, b| a + b);
             Ok(Eval {
                 value: va + vb,
@@ -132,17 +131,15 @@ impl std::ops::Mul for Equation {
     fn mul(self, rhs: Self) -> Self::Output {
         #[cfg(test)]
         let debug_repr = format!("({} * {})", self.debug_repr, rhs.debug_repr);
-        let eval = |vars: &Vars| {
-            let a = self;
-            let b = rhs;
+        let eval = move |vars: &Vars| {
             let Eval {
                 value: va,
                 derivatives: mut das,
-            } = a.evaluate(vars)?;
+            } = self.evaluate(vars)?;
             let Eval {
                 value: vb,
                 derivatives: mut dbs,
-            } = b.evaluate(vars)?;
+            } = rhs.evaluate(vars)?;
             // Product rule. Reuse storage for derivatives of A and B
             // so we don't have to reallocate. This saves 30% of time
             // when evaluating on our benchmarks, compared to
@@ -170,17 +167,15 @@ impl std::ops::Div for Equation {
     fn div(self, rhs: Self) -> Self::Output {
         #[cfg(test)]
         let debug_repr = format!("({} / {})", self.debug_repr, rhs.debug_repr);
-        let eval = |vars: &Vars| {
-            let a = self;
-            let b = rhs;
+        let eval = move |vars: &Vars| {
             let Eval {
                 value: va,
                 derivatives: mut das,
-            } = a.evaluate(vars)?;
+            } = self.evaluate(vars)?;
             let Eval {
                 value: vb,
                 derivatives: mut dbs,
-            } = b.evaluate(vars)?;
+            } = rhs.evaluate(vars)?;
             // Quotient rule. Reuse storage for derivatives of A and B
             // so we don't have to reallocate. This saves 30% of time
             // when evaluating on our benchmarks, compared to
@@ -209,12 +204,11 @@ impl std::ops::Neg for Equation {
     fn neg(self) -> Self::Output {
         #[cfg(test)]
         let debug_repr = format!("-{}", self.debug_repr);
-        let eval = |vars: &Vars| {
-            let a = self;
+        let eval = move |vars: &Vars| {
             let Eval {
                 value: r,
                 mut derivatives,
-            } = a.evaluate(vars)?;
+            } = self.evaluate(vars)?;
             derivatives.values_mut().for_each(|d| *d = d.neg());
             Ok(Eval {
                 value: -r,
