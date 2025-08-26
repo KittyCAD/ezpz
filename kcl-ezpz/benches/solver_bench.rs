@@ -223,7 +223,7 @@ fn solve_massive(c: &mut Criterion) {
     let problem = Problem::parse(&mut txt).unwrap();
     c.bench_function("solve massive_parallel_system", |b| {
         b.iter(|| {
-            let _actual = black_box(problem.solve().unwrap());
+            let _actual = problem.to_constraint_system().unwrap().solve().unwrap();
         })
     });
 }

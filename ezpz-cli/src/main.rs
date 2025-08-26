@@ -179,11 +179,13 @@ fn main_inner(cli: &Cli) -> Result<(Outcome, Duration), String> {
 
     // Ensure problem can be solved
     let now = std::time::Instant::now();
-    let solved = parsed.solve().map_err(|e| e.to_string())?;
+    let constraint_system = parsed.to_constraint_system().map_err(|e| e.to_string())?;
+    let solved = constraint_system.solve().map_err(|e| e.to_string())?;
 
     // It succeeded. Benchmark its perf
     for _ in 0..NUM_ITERS_BENCHMARK {
-        let _ = black_box(parsed.solve());
+        let constraint_system = parsed.to_constraint_system().map_err(|e| e.to_string())?;
+        let _ = black_box(constraint_system.solve().map_err(|e| e.to_string()))?;
     }
     let elapsed = now.elapsed();
     let duration_per_iter = elapsed / NUM_ITERS_BENCHMARK;
