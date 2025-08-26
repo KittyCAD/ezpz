@@ -1,6 +1,6 @@
 use std::hint::black_box;
 
-use criterion::{Criterion, criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use kcl_ezpz::{
     Constraint, IdGenerator,
     datatypes::{DatumPoint, LineSegment},
@@ -219,13 +219,28 @@ fn solve_angled_lines(c: &mut Criterion) {
 }
 
 fn solve_massive(c: &mut Criterion) {
-    let mut txt = include_str!("../../test_cases/massive_parallel_system/problem.txt");
-    let problem = Problem::parse(&mut txt).unwrap();
-    c.bench_function("solve massive_parallel_system", |b| {
-        b.iter(|| {
-            let _actual = problem.to_constraint_system().unwrap().solve().unwrap();
-        })
-    });
+    let mut group = c.benchmark_group("massively_parallel");
+    for size in [0, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500].iter() {
+        std::process::Command::new("just")
+            .args(["regen-massive-test", &size.to_string()])
+            .spawn()
+            .unwrap()
+            .wait()
+            .unwrap();
+        // The base program is a system with 6 constraints, and every extra parallel line you add
+        // yields 2 extra variables. So total number of variables in system is 6+(2*size).
+        group.throughput(Throughput::Elements(6 + size * 2));
+        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, _size| {
+            let txt =
+                std::fs::read_to_string("test_cases/massive_parallel_system/problem.txt").unwrap();
+            let mut t = txt.as_str();
+            let problem = Problem::parse(&mut t).unwrap();
+            b.iter(|| {
+                let _actual = problem.to_constraint_system().unwrap().solve().unwrap();
+            });
+        });
+    }
+    group.finish();
 }
 
 criterion_group!(
