@@ -220,7 +220,7 @@ fn solve_angled_lines(c: &mut Criterion) {
 
 fn solve_massive(c: &mut Criterion) {
     let mut group = c.benchmark_group("massively_parallel");
-    for size in [0, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500].iter() {
+    for size in [1, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500].iter() {
         std::process::Command::new("just")
             .args(["regen-massive-test", &size.to_string()])
             .spawn()
