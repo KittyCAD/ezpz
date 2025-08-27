@@ -220,17 +220,18 @@ fn solve_angled_lines(c: &mut Criterion) {
 
 fn solve_massive(c: &mut Criterion) {
     let mut group = c.benchmark_group("massively_parallel");
-    for size in [0, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500].iter() {
+    for num_lines in [1, 50, 100, 150, 200].iter() {
+        // Each line has 2 points, each point has two variables (x and y)
+        // So each line is 4 variables, and that is the relvant throughput metric.
+        let size = num_lines * 4;
         std::process::Command::new("just")
             .args(["regen-massive-test", &size.to_string()])
             .spawn()
             .unwrap()
             .wait()
             .unwrap();
-        // The base program is a system with 6 constraints, and every extra parallel line you add
-        // yields 2 extra variables. So total number of variables in system is 6+(2*size).
-        group.throughput(Throughput::Elements(6 + size * 2));
-        group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, _size| {
+        group.throughput(Throughput::Elements(size));
+        group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _size| {
             let txt =
                 std::fs::read_to_string("test_cases/massive_parallel_system/problem.txt").unwrap();
             let mut t = txt.as_str();

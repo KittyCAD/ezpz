@@ -1,1014 +1,1203 @@
 # constraints
 point p0
 point p1
+vertical(p0, p1)
+p0.x=0
+p0.y=0
+p1.y=4
 point p2
 point p3
+vertical(p2, p3)
+p2.x=1
+p2.y=0
+p3.y=4
 point p4
 point p5
+vertical(p4, p5)
+p4.x=2
+p4.y=0
+p5.y=4
 point p6
 point p7
+vertical(p6, p7)
+p6.x=3
+p6.y=0
+p7.y=4
 point p8
 point p9
+vertical(p8, p9)
+p8.x=4
+p8.y=0
+p9.y=4
 point p10
 point p11
+vertical(p10, p11)
+p10.x=5
+p10.y=0
+p11.y=4
 point p12
 point p13
+vertical(p12, p13)
+p12.x=6
+p12.y=0
+p13.y=4
 point p14
 point p15
+vertical(p14, p15)
+p14.x=7
+p14.y=0
+p15.y=4
 point p16
 point p17
+vertical(p16, p17)
+p16.x=8
+p16.y=0
+p17.y=4
 point p18
 point p19
+vertical(p18, p19)
+p18.x=9
+p18.y=0
+p19.y=4
 point p20
 point p21
+vertical(p20, p21)
+p20.x=10
+p20.y=0
+p21.y=4
 point p22
 point p23
+vertical(p22, p23)
+p22.x=11
+p22.y=0
+p23.y=4
 point p24
 point p25
+vertical(p24, p25)
+p24.x=12
+p24.y=0
+p25.y=4
 point p26
 point p27
+vertical(p26, p27)
+p26.x=13
+p26.y=0
+p27.y=4
 point p28
 point p29
+vertical(p28, p29)
+p28.x=14
+p28.y=0
+p29.y=4
 point p30
 point p31
+vertical(p30, p31)
+p30.x=15
+p30.y=0
+p31.y=4
 point p32
 point p33
+vertical(p32, p33)
+p32.x=16
+p32.y=0
+p33.y=4
 point p34
 point p35
+vertical(p34, p35)
+p34.x=17
+p34.y=0
+p35.y=4
 point p36
 point p37
+vertical(p36, p37)
+p36.x=18
+p36.y=0
+p37.y=4
 point p38
 point p39
+vertical(p38, p39)
+p38.x=19
+p38.y=0
+p39.y=4
 point p40
 point p41
+vertical(p40, p41)
+p40.x=20
+p40.y=0
+p41.y=4
 point p42
 point p43
+vertical(p42, p43)
+p42.x=21
+p42.y=0
+p43.y=4
 point p44
 point p45
+vertical(p44, p45)
+p44.x=22
+p44.y=0
+p45.y=4
 point p46
 point p47
+vertical(p46, p47)
+p46.x=23
+p46.y=0
+p47.y=4
 point p48
 point p49
+vertical(p48, p49)
+p48.x=24
+p48.y=0
+p49.y=4
 point p50
 point p51
+vertical(p50, p51)
+p50.x=25
+p50.y=0
+p51.y=4
 point p52
 point p53
+vertical(p52, p53)
+p52.x=26
+p52.y=0
+p53.y=4
 point p54
 point p55
+vertical(p54, p55)
+p54.x=27
+p54.y=0
+p55.y=4
 point p56
 point p57
+vertical(p56, p57)
+p56.x=28
+p56.y=0
+p57.y=4
 point p58
 point p59
+vertical(p58, p59)
+p58.x=29
+p58.y=0
+p59.y=4
 point p60
 point p61
+vertical(p60, p61)
+p60.x=30
+p60.y=0
+p61.y=4
 point p62
 point p63
+vertical(p62, p63)
+p62.x=31
+p62.y=0
+p63.y=4
 point p64
 point p65
+vertical(p64, p65)
+p64.x=32
+p64.y=0
+p65.y=4
 point p66
 point p67
+vertical(p66, p67)
+p66.x=33
+p66.y=0
+p67.y=4
 point p68
 point p69
+vertical(p68, p69)
+p68.x=34
+p68.y=0
+p69.y=4
 point p70
 point p71
+vertical(p70, p71)
+p70.x=35
+p70.y=0
+p71.y=4
 point p72
 point p73
+vertical(p72, p73)
+p72.x=36
+p72.y=0
+p73.y=4
 point p74
 point p75
+vertical(p74, p75)
+p74.x=37
+p74.y=0
+p75.y=4
 point p76
 point p77
+vertical(p76, p77)
+p76.x=38
+p76.y=0
+p77.y=4
 point p78
 point p79
+vertical(p78, p79)
+p78.x=39
+p78.y=0
+p79.y=4
 point p80
 point p81
+vertical(p80, p81)
+p80.x=40
+p80.y=0
+p81.y=4
 point p82
 point p83
+vertical(p82, p83)
+p82.x=41
+p82.y=0
+p83.y=4
 point p84
 point p85
+vertical(p84, p85)
+p84.x=42
+p84.y=0
+p85.y=4
 point p86
 point p87
+vertical(p86, p87)
+p86.x=43
+p86.y=0
+p87.y=4
 point p88
 point p89
+vertical(p88, p89)
+p88.x=44
+p88.y=0
+p89.y=4
 point p90
 point p91
+vertical(p90, p91)
+p90.x=45
+p90.y=0
+p91.y=4
 point p92
 point p93
+vertical(p92, p93)
+p92.x=46
+p92.y=0
+p93.y=4
 point p94
 point p95
+vertical(p94, p95)
+p94.x=47
+p94.y=0
+p95.y=4
 point p96
 point p97
+vertical(p96, p97)
+p96.x=48
+p96.y=0
+p97.y=4
 point p98
 point p99
+vertical(p98, p99)
+p98.x=49
+p98.y=0
+p99.y=4
 point p100
 point p101
+vertical(p100, p101)
+p100.x=50
+p100.y=0
+p101.y=4
 point p102
 point p103
+vertical(p102, p103)
+p102.x=51
+p102.y=0
+p103.y=4
 point p104
 point p105
+vertical(p104, p105)
+p104.x=52
+p104.y=0
+p105.y=4
 point p106
 point p107
+vertical(p106, p107)
+p106.x=53
+p106.y=0
+p107.y=4
 point p108
 point p109
+vertical(p108, p109)
+p108.x=54
+p108.y=0
+p109.y=4
 point p110
 point p111
+vertical(p110, p111)
+p110.x=55
+p110.y=0
+p111.y=4
 point p112
 point p113
+vertical(p112, p113)
+p112.x=56
+p112.y=0
+p113.y=4
 point p114
 point p115
+vertical(p114, p115)
+p114.x=57
+p114.y=0
+p115.y=4
 point p116
 point p117
+vertical(p116, p117)
+p116.x=58
+p116.y=0
+p117.y=4
 point p118
 point p119
+vertical(p118, p119)
+p118.x=59
+p118.y=0
+p119.y=4
 point p120
 point p121
+vertical(p120, p121)
+p120.x=60
+p120.y=0
+p121.y=4
 point p122
 point p123
+vertical(p122, p123)
+p122.x=61
+p122.y=0
+p123.y=4
 point p124
 point p125
+vertical(p124, p125)
+p124.x=62
+p124.y=0
+p125.y=4
 point p126
 point p127
+vertical(p126, p127)
+p126.x=63
+p126.y=0
+p127.y=4
 point p128
 point p129
+vertical(p128, p129)
+p128.x=64
+p128.y=0
+p129.y=4
 point p130
 point p131
+vertical(p130, p131)
+p130.x=65
+p130.y=0
+p131.y=4
 point p132
 point p133
+vertical(p132, p133)
+p132.x=66
+p132.y=0
+p133.y=4
 point p134
 point p135
+vertical(p134, p135)
+p134.x=67
+p134.y=0
+p135.y=4
 point p136
 point p137
+vertical(p136, p137)
+p136.x=68
+p136.y=0
+p137.y=4
 point p138
 point p139
+vertical(p138, p139)
+p138.x=69
+p138.y=0
+p139.y=4
 point p140
 point p141
+vertical(p140, p141)
+p140.x=70
+p140.y=0
+p141.y=4
 point p142
 point p143
+vertical(p142, p143)
+p142.x=71
+p142.y=0
+p143.y=4
 point p144
 point p145
+vertical(p144, p145)
+p144.x=72
+p144.y=0
+p145.y=4
 point p146
 point p147
+vertical(p146, p147)
+p146.x=73
+p146.y=0
+p147.y=4
 point p148
 point p149
+vertical(p148, p149)
+p148.x=74
+p148.y=0
+p149.y=4
 point p150
 point p151
+vertical(p150, p151)
+p150.x=75
+p150.y=0
+p151.y=4
 point p152
 point p153
+vertical(p152, p153)
+p152.x=76
+p152.y=0
+p153.y=4
 point p154
 point p155
+vertical(p154, p155)
+p154.x=77
+p154.y=0
+p155.y=4
 point p156
 point p157
+vertical(p156, p157)
+p156.x=78
+p156.y=0
+p157.y=4
 point p158
 point p159
+vertical(p158, p159)
+p158.x=79
+p158.y=0
+p159.y=4
 point p160
 point p161
+vertical(p160, p161)
+p160.x=80
+p160.y=0
+p161.y=4
 point p162
 point p163
+vertical(p162, p163)
+p162.x=81
+p162.y=0
+p163.y=4
 point p164
 point p165
+vertical(p164, p165)
+p164.x=82
+p164.y=0
+p165.y=4
 point p166
 point p167
+vertical(p166, p167)
+p166.x=83
+p166.y=0
+p167.y=4
 point p168
 point p169
+vertical(p168, p169)
+p168.x=84
+p168.y=0
+p169.y=4
 point p170
 point p171
+vertical(p170, p171)
+p170.x=85
+p170.y=0
+p171.y=4
 point p172
 point p173
+vertical(p172, p173)
+p172.x=86
+p172.y=0
+p173.y=4
 point p174
 point p175
+vertical(p174, p175)
+p174.x=87
+p174.y=0
+p175.y=4
 point p176
 point p177
+vertical(p176, p177)
+p176.x=88
+p176.y=0
+p177.y=4
 point p178
 point p179
+vertical(p178, p179)
+p178.x=89
+p178.y=0
+p179.y=4
 point p180
 point p181
+vertical(p180, p181)
+p180.x=90
+p180.y=0
+p181.y=4
 point p182
 point p183
+vertical(p182, p183)
+p182.x=91
+p182.y=0
+p183.y=4
 point p184
 point p185
+vertical(p184, p185)
+p184.x=92
+p184.y=0
+p185.y=4
 point p186
 point p187
+vertical(p186, p187)
+p186.x=93
+p186.y=0
+p187.y=4
 point p188
 point p189
+vertical(p188, p189)
+p188.x=94
+p188.y=0
+p189.y=4
 point p190
 point p191
+vertical(p190, p191)
+p190.x=95
+p190.y=0
+p191.y=4
 point p192
 point p193
+vertical(p192, p193)
+p192.x=96
+p192.y=0
+p193.y=4
 point p194
 point p195
+vertical(p194, p195)
+p194.x=97
+p194.y=0
+p195.y=4
 point p196
 point p197
+vertical(p196, p197)
+p196.x=98
+p196.y=0
+p197.y=4
 point p198
 point p199
+vertical(p198, p199)
+p198.x=99
+p198.y=0
+p199.y=4
 point p200
 point p201
+vertical(p200, p201)
+p200.x=100
+p200.y=0
+p201.y=4
 point p202
 point p203
+vertical(p202, p203)
+p202.x=101
+p202.y=0
+p203.y=4
 point p204
 point p205
+vertical(p204, p205)
+p204.x=102
+p204.y=0
+p205.y=4
 point p206
 point p207
+vertical(p206, p207)
+p206.x=103
+p206.y=0
+p207.y=4
 point p208
 point p209
+vertical(p208, p209)
+p208.x=104
+p208.y=0
+p209.y=4
 point p210
 point p211
+vertical(p210, p211)
+p210.x=105
+p210.y=0
+p211.y=4
 point p212
 point p213
+vertical(p212, p213)
+p212.x=106
+p212.y=0
+p213.y=4
 point p214
 point p215
+vertical(p214, p215)
+p214.x=107
+p214.y=0
+p215.y=4
 point p216
 point p217
+vertical(p216, p217)
+p216.x=108
+p216.y=0
+p217.y=4
 point p218
 point p219
+vertical(p218, p219)
+p218.x=109
+p218.y=0
+p219.y=4
 point p220
 point p221
+vertical(p220, p221)
+p220.x=110
+p220.y=0
+p221.y=4
 point p222
 point p223
+vertical(p222, p223)
+p222.x=111
+p222.y=0
+p223.y=4
 point p224
 point p225
+vertical(p224, p225)
+p224.x=112
+p224.y=0
+p225.y=4
 point p226
 point p227
+vertical(p226, p227)
+p226.x=113
+p226.y=0
+p227.y=4
 point p228
 point p229
+vertical(p228, p229)
+p228.x=114
+p228.y=0
+p229.y=4
 point p230
 point p231
+vertical(p230, p231)
+p230.x=115
+p230.y=0
+p231.y=4
 point p232
 point p233
+vertical(p232, p233)
+p232.x=116
+p232.y=0
+p233.y=4
 point p234
 point p235
+vertical(p234, p235)
+p234.x=117
+p234.y=0
+p235.y=4
 point p236
 point p237
+vertical(p236, p237)
+p236.x=118
+p236.y=0
+p237.y=4
 point p238
 point p239
+vertical(p238, p239)
+p238.x=119
+p238.y=0
+p239.y=4
 point p240
 point p241
+vertical(p240, p241)
+p240.x=120
+p240.y=0
+p241.y=4
 point p242
 point p243
+vertical(p242, p243)
+p242.x=121
+p242.y=0
+p243.y=4
 point p244
 point p245
+vertical(p244, p245)
+p244.x=122
+p244.y=0
+p245.y=4
 point p246
 point p247
+vertical(p246, p247)
+p246.x=123
+p246.y=0
+p247.y=4
 point p248
 point p249
+vertical(p248, p249)
+p248.x=124
+p248.y=0
+p249.y=4
 point p250
 point p251
+vertical(p250, p251)
+p250.x=125
+p250.y=0
+p251.y=4
 point p252
-p0 = (0, 0)
-parallel(p0, p1, p1, p2)
-parallel(p1, p2, p2, p3)
-parallel(p2, p3, p3, p4)
-parallel(p3, p4, p4, p5)
-parallel(p4, p5, p5, p6)
-parallel(p5, p6, p6, p7)
-parallel(p6, p7, p7, p8)
-parallel(p7, p8, p8, p9)
-parallel(p8, p9, p9, p10)
-parallel(p9, p10, p10, p11)
-parallel(p10, p11, p11, p12)
-parallel(p11, p12, p12, p13)
-parallel(p12, p13, p13, p14)
-parallel(p13, p14, p14, p15)
-parallel(p14, p15, p15, p16)
-parallel(p15, p16, p16, p17)
-parallel(p16, p17, p17, p18)
-parallel(p17, p18, p18, p19)
-parallel(p18, p19, p19, p20)
-parallel(p19, p20, p20, p21)
-parallel(p20, p21, p21, p22)
-parallel(p21, p22, p22, p23)
-parallel(p22, p23, p23, p24)
-parallel(p23, p24, p24, p25)
-parallel(p24, p25, p25, p26)
-parallel(p25, p26, p26, p27)
-parallel(p26, p27, p27, p28)
-parallel(p27, p28, p28, p29)
-parallel(p28, p29, p29, p30)
-parallel(p29, p30, p30, p31)
-parallel(p30, p31, p31, p32)
-parallel(p31, p32, p32, p33)
-parallel(p32, p33, p33, p34)
-parallel(p33, p34, p34, p35)
-parallel(p34, p35, p35, p36)
-parallel(p35, p36, p36, p37)
-parallel(p36, p37, p37, p38)
-parallel(p37, p38, p38, p39)
-parallel(p38, p39, p39, p40)
-parallel(p39, p40, p40, p41)
-parallel(p40, p41, p41, p42)
-parallel(p41, p42, p42, p43)
-parallel(p42, p43, p43, p44)
-parallel(p43, p44, p44, p45)
-parallel(p44, p45, p45, p46)
-parallel(p45, p46, p46, p47)
-parallel(p46, p47, p47, p48)
-parallel(p47, p48, p48, p49)
-parallel(p48, p49, p49, p50)
-parallel(p49, p50, p50, p51)
-parallel(p50, p51, p51, p52)
-parallel(p51, p52, p52, p53)
-parallel(p52, p53, p53, p54)
-parallel(p53, p54, p54, p55)
-parallel(p54, p55, p55, p56)
-parallel(p55, p56, p56, p57)
-parallel(p56, p57, p57, p58)
-parallel(p57, p58, p58, p59)
-parallel(p58, p59, p59, p60)
-parallel(p59, p60, p60, p61)
-parallel(p60, p61, p61, p62)
-parallel(p61, p62, p62, p63)
-parallel(p62, p63, p63, p64)
-parallel(p63, p64, p64, p65)
-parallel(p64, p65, p65, p66)
-parallel(p65, p66, p66, p67)
-parallel(p66, p67, p67, p68)
-parallel(p67, p68, p68, p69)
-parallel(p68, p69, p69, p70)
-parallel(p69, p70, p70, p71)
-parallel(p70, p71, p71, p72)
-parallel(p71, p72, p72, p73)
-parallel(p72, p73, p73, p74)
-parallel(p73, p74, p74, p75)
-parallel(p74, p75, p75, p76)
-parallel(p75, p76, p76, p77)
-parallel(p76, p77, p77, p78)
-parallel(p77, p78, p78, p79)
-parallel(p78, p79, p79, p80)
-parallel(p79, p80, p80, p81)
-parallel(p80, p81, p81, p82)
-parallel(p81, p82, p82, p83)
-parallel(p82, p83, p83, p84)
-parallel(p83, p84, p84, p85)
-parallel(p84, p85, p85, p86)
-parallel(p85, p86, p86, p87)
-parallel(p86, p87, p87, p88)
-parallel(p87, p88, p88, p89)
-parallel(p88, p89, p89, p90)
-parallel(p89, p90, p90, p91)
-parallel(p90, p91, p91, p92)
-parallel(p91, p92, p92, p93)
-parallel(p92, p93, p93, p94)
-parallel(p93, p94, p94, p95)
-parallel(p94, p95, p95, p96)
-parallel(p95, p96, p96, p97)
-parallel(p96, p97, p97, p98)
-parallel(p97, p98, p98, p99)
-parallel(p98, p99, p99, p100)
-parallel(p99, p100, p100, p101)
-parallel(p100, p101, p101, p102)
-parallel(p101, p102, p102, p103)
-parallel(p102, p103, p103, p104)
-parallel(p103, p104, p104, p105)
-parallel(p104, p105, p105, p106)
-parallel(p105, p106, p106, p107)
-parallel(p106, p107, p107, p108)
-parallel(p107, p108, p108, p109)
-parallel(p108, p109, p109, p110)
-parallel(p109, p110, p110, p111)
-parallel(p110, p111, p111, p112)
-parallel(p111, p112, p112, p113)
-parallel(p112, p113, p113, p114)
-parallel(p113, p114, p114, p115)
-parallel(p114, p115, p115, p116)
-parallel(p115, p116, p116, p117)
-parallel(p116, p117, p117, p118)
-parallel(p117, p118, p118, p119)
-parallel(p118, p119, p119, p120)
-parallel(p119, p120, p120, p121)
-parallel(p120, p121, p121, p122)
-parallel(p121, p122, p122, p123)
-parallel(p122, p123, p123, p124)
-parallel(p123, p124, p124, p125)
-parallel(p124, p125, p125, p126)
-parallel(p125, p126, p126, p127)
-parallel(p126, p127, p127, p128)
-parallel(p127, p128, p128, p129)
-parallel(p128, p129, p129, p130)
-parallel(p129, p130, p130, p131)
-parallel(p130, p131, p131, p132)
-parallel(p131, p132, p132, p133)
-parallel(p132, p133, p133, p134)
-parallel(p133, p134, p134, p135)
-parallel(p134, p135, p135, p136)
-parallel(p135, p136, p136, p137)
-parallel(p136, p137, p137, p138)
-parallel(p137, p138, p138, p139)
-parallel(p138, p139, p139, p140)
-parallel(p139, p140, p140, p141)
-parallel(p140, p141, p141, p142)
-parallel(p141, p142, p142, p143)
-parallel(p142, p143, p143, p144)
-parallel(p143, p144, p144, p145)
-parallel(p144, p145, p145, p146)
-parallel(p145, p146, p146, p147)
-parallel(p146, p147, p147, p148)
-parallel(p147, p148, p148, p149)
-parallel(p148, p149, p149, p150)
-parallel(p149, p150, p150, p151)
-parallel(p150, p151, p151, p152)
-parallel(p151, p152, p152, p153)
-parallel(p152, p153, p153, p154)
-parallel(p153, p154, p154, p155)
-parallel(p154, p155, p155, p156)
-parallel(p155, p156, p156, p157)
-parallel(p156, p157, p157, p158)
-parallel(p157, p158, p158, p159)
-parallel(p158, p159, p159, p160)
-parallel(p159, p160, p160, p161)
-parallel(p160, p161, p161, p162)
-parallel(p161, p162, p162, p163)
-parallel(p162, p163, p163, p164)
-parallel(p163, p164, p164, p165)
-parallel(p164, p165, p165, p166)
-parallel(p165, p166, p166, p167)
-parallel(p166, p167, p167, p168)
-parallel(p167, p168, p168, p169)
-parallel(p168, p169, p169, p170)
-parallel(p169, p170, p170, p171)
-parallel(p170, p171, p171, p172)
-parallel(p171, p172, p172, p173)
-parallel(p172, p173, p173, p174)
-parallel(p173, p174, p174, p175)
-parallel(p174, p175, p175, p176)
-parallel(p175, p176, p176, p177)
-parallel(p176, p177, p177, p178)
-parallel(p177, p178, p178, p179)
-parallel(p178, p179, p179, p180)
-parallel(p179, p180, p180, p181)
-parallel(p180, p181, p181, p182)
-parallel(p181, p182, p182, p183)
-parallel(p182, p183, p183, p184)
-parallel(p183, p184, p184, p185)
-parallel(p184, p185, p185, p186)
-parallel(p185, p186, p186, p187)
-parallel(p186, p187, p187, p188)
-parallel(p187, p188, p188, p189)
-parallel(p188, p189, p189, p190)
-parallel(p189, p190, p190, p191)
-parallel(p190, p191, p191, p192)
-parallel(p191, p192, p192, p193)
-parallel(p192, p193, p193, p194)
-parallel(p193, p194, p194, p195)
-parallel(p194, p195, p195, p196)
-parallel(p195, p196, p196, p197)
-parallel(p196, p197, p197, p198)
-parallel(p197, p198, p198, p199)
-parallel(p198, p199, p199, p200)
-parallel(p199, p200, p200, p201)
-parallel(p200, p201, p201, p202)
-parallel(p201, p202, p202, p203)
-parallel(p202, p203, p203, p204)
-parallel(p203, p204, p204, p205)
-parallel(p204, p205, p205, p206)
-parallel(p205, p206, p206, p207)
-parallel(p206, p207, p207, p208)
-parallel(p207, p208, p208, p209)
-parallel(p208, p209, p209, p210)
-parallel(p209, p210, p210, p211)
-parallel(p210, p211, p211, p212)
-parallel(p211, p212, p212, p213)
-parallel(p212, p213, p213, p214)
-parallel(p213, p214, p214, p215)
-parallel(p214, p215, p215, p216)
-parallel(p215, p216, p216, p217)
-parallel(p216, p217, p217, p218)
-parallel(p217, p218, p218, p219)
-parallel(p218, p219, p219, p220)
-parallel(p219, p220, p220, p221)
-parallel(p220, p221, p221, p222)
-parallel(p221, p222, p222, p223)
-parallel(p222, p223, p223, p224)
-parallel(p223, p224, p224, p225)
-parallel(p224, p225, p225, p226)
-parallel(p225, p226, p226, p227)
-parallel(p226, p227, p227, p228)
-parallel(p227, p228, p228, p229)
-parallel(p228, p229, p229, p230)
-parallel(p229, p230, p230, p231)
-parallel(p230, p231, p231, p232)
-parallel(p231, p232, p232, p233)
-parallel(p232, p233, p233, p234)
-parallel(p233, p234, p234, p235)
-parallel(p234, p235, p235, p236)
-parallel(p235, p236, p236, p237)
-parallel(p236, p237, p237, p238)
-parallel(p237, p238, p238, p239)
-parallel(p238, p239, p239, p240)
-parallel(p239, p240, p240, p241)
-parallel(p240, p241, p241, p242)
-parallel(p241, p242, p242, p243)
-parallel(p242, p243, p243, p244)
-parallel(p243, p244, p244, p245)
-parallel(p244, p245, p245, p246)
-parallel(p245, p246, p246, p247)
-parallel(p246, p247, p247, p248)
-parallel(p247, p248, p248, p249)
-parallel(p248, p249, p249, p250)
-parallel(p249, p250, p250, p251)
-parallel(p250, p251, p251, p252)
-distance(p0, p1, sqrt(32))
-distance(p1, p2, sqrt(32))
-distance(p2, p3, sqrt(32))
-distance(p3, p4, sqrt(32))
-distance(p4, p5, sqrt(32))
-distance(p5, p6, sqrt(32))
-distance(p6, p7, sqrt(32))
-distance(p7, p8, sqrt(32))
-distance(p8, p9, sqrt(32))
-distance(p9, p10, sqrt(32))
-distance(p10, p11, sqrt(32))
-distance(p11, p12, sqrt(32))
-distance(p12, p13, sqrt(32))
-distance(p13, p14, sqrt(32))
-distance(p14, p15, sqrt(32))
-distance(p15, p16, sqrt(32))
-distance(p16, p17, sqrt(32))
-distance(p17, p18, sqrt(32))
-distance(p18, p19, sqrt(32))
-distance(p19, p20, sqrt(32))
-distance(p20, p21, sqrt(32))
-distance(p21, p22, sqrt(32))
-distance(p22, p23, sqrt(32))
-distance(p23, p24, sqrt(32))
-distance(p24, p25, sqrt(32))
-distance(p25, p26, sqrt(32))
-distance(p26, p27, sqrt(32))
-distance(p27, p28, sqrt(32))
-distance(p28, p29, sqrt(32))
-distance(p29, p30, sqrt(32))
-distance(p30, p31, sqrt(32))
-distance(p31, p32, sqrt(32))
-distance(p32, p33, sqrt(32))
-distance(p33, p34, sqrt(32))
-distance(p34, p35, sqrt(32))
-distance(p35, p36, sqrt(32))
-distance(p36, p37, sqrt(32))
-distance(p37, p38, sqrt(32))
-distance(p38, p39, sqrt(32))
-distance(p39, p40, sqrt(32))
-distance(p40, p41, sqrt(32))
-distance(p41, p42, sqrt(32))
-distance(p42, p43, sqrt(32))
-distance(p43, p44, sqrt(32))
-distance(p44, p45, sqrt(32))
-distance(p45, p46, sqrt(32))
-distance(p46, p47, sqrt(32))
-distance(p47, p48, sqrt(32))
-distance(p48, p49, sqrt(32))
-distance(p49, p50, sqrt(32))
-distance(p50, p51, sqrt(32))
-distance(p51, p52, sqrt(32))
-distance(p52, p53, sqrt(32))
-distance(p53, p54, sqrt(32))
-distance(p54, p55, sqrt(32))
-distance(p55, p56, sqrt(32))
-distance(p56, p57, sqrt(32))
-distance(p57, p58, sqrt(32))
-distance(p58, p59, sqrt(32))
-distance(p59, p60, sqrt(32))
-distance(p60, p61, sqrt(32))
-distance(p61, p62, sqrt(32))
-distance(p62, p63, sqrt(32))
-distance(p63, p64, sqrt(32))
-distance(p64, p65, sqrt(32))
-distance(p65, p66, sqrt(32))
-distance(p66, p67, sqrt(32))
-distance(p67, p68, sqrt(32))
-distance(p68, p69, sqrt(32))
-distance(p69, p70, sqrt(32))
-distance(p70, p71, sqrt(32))
-distance(p71, p72, sqrt(32))
-distance(p72, p73, sqrt(32))
-distance(p73, p74, sqrt(32))
-distance(p74, p75, sqrt(32))
-distance(p75, p76, sqrt(32))
-distance(p76, p77, sqrt(32))
-distance(p77, p78, sqrt(32))
-distance(p78, p79, sqrt(32))
-distance(p79, p80, sqrt(32))
-distance(p80, p81, sqrt(32))
-distance(p81, p82, sqrt(32))
-distance(p82, p83, sqrt(32))
-distance(p83, p84, sqrt(32))
-distance(p84, p85, sqrt(32))
-distance(p85, p86, sqrt(32))
-distance(p86, p87, sqrt(32))
-distance(p87, p88, sqrt(32))
-distance(p88, p89, sqrt(32))
-distance(p89, p90, sqrt(32))
-distance(p90, p91, sqrt(32))
-distance(p91, p92, sqrt(32))
-distance(p92, p93, sqrt(32))
-distance(p93, p94, sqrt(32))
-distance(p94, p95, sqrt(32))
-distance(p95, p96, sqrt(32))
-distance(p96, p97, sqrt(32))
-distance(p97, p98, sqrt(32))
-distance(p98, p99, sqrt(32))
-distance(p99, p100, sqrt(32))
-distance(p100, p101, sqrt(32))
-distance(p101, p102, sqrt(32))
-distance(p102, p103, sqrt(32))
-distance(p103, p104, sqrt(32))
-distance(p104, p105, sqrt(32))
-distance(p105, p106, sqrt(32))
-distance(p106, p107, sqrt(32))
-distance(p107, p108, sqrt(32))
-distance(p108, p109, sqrt(32))
-distance(p109, p110, sqrt(32))
-distance(p110, p111, sqrt(32))
-distance(p111, p112, sqrt(32))
-distance(p112, p113, sqrt(32))
-distance(p113, p114, sqrt(32))
-distance(p114, p115, sqrt(32))
-distance(p115, p116, sqrt(32))
-distance(p116, p117, sqrt(32))
-distance(p117, p118, sqrt(32))
-distance(p118, p119, sqrt(32))
-distance(p119, p120, sqrt(32))
-distance(p120, p121, sqrt(32))
-distance(p121, p122, sqrt(32))
-distance(p122, p123, sqrt(32))
-distance(p123, p124, sqrt(32))
-distance(p124, p125, sqrt(32))
-distance(p125, p126, sqrt(32))
-distance(p126, p127, sqrt(32))
-distance(p127, p128, sqrt(32))
-distance(p128, p129, sqrt(32))
-distance(p129, p130, sqrt(32))
-distance(p130, p131, sqrt(32))
-distance(p131, p132, sqrt(32))
-distance(p132, p133, sqrt(32))
-distance(p133, p134, sqrt(32))
-distance(p134, p135, sqrt(32))
-distance(p135, p136, sqrt(32))
-distance(p136, p137, sqrt(32))
-distance(p137, p138, sqrt(32))
-distance(p138, p139, sqrt(32))
-distance(p139, p140, sqrt(32))
-distance(p140, p141, sqrt(32))
-distance(p141, p142, sqrt(32))
-distance(p142, p143, sqrt(32))
-distance(p143, p144, sqrt(32))
-distance(p144, p145, sqrt(32))
-distance(p145, p146, sqrt(32))
-distance(p146, p147, sqrt(32))
-distance(p147, p148, sqrt(32))
-distance(p148, p149, sqrt(32))
-distance(p149, p150, sqrt(32))
-distance(p150, p151, sqrt(32))
-distance(p151, p152, sqrt(32))
-distance(p152, p153, sqrt(32))
-distance(p153, p154, sqrt(32))
-distance(p154, p155, sqrt(32))
-distance(p155, p156, sqrt(32))
-distance(p156, p157, sqrt(32))
-distance(p157, p158, sqrt(32))
-distance(p158, p159, sqrt(32))
-distance(p159, p160, sqrt(32))
-distance(p160, p161, sqrt(32))
-distance(p161, p162, sqrt(32))
-distance(p162, p163, sqrt(32))
-distance(p163, p164, sqrt(32))
-distance(p164, p165, sqrt(32))
-distance(p165, p166, sqrt(32))
-distance(p166, p167, sqrt(32))
-distance(p167, p168, sqrt(32))
-distance(p168, p169, sqrt(32))
-distance(p169, p170, sqrt(32))
-distance(p170, p171, sqrt(32))
-distance(p171, p172, sqrt(32))
-distance(p172, p173, sqrt(32))
-distance(p173, p174, sqrt(32))
-distance(p174, p175, sqrt(32))
-distance(p175, p176, sqrt(32))
-distance(p176, p177, sqrt(32))
-distance(p177, p178, sqrt(32))
-distance(p178, p179, sqrt(32))
-distance(p179, p180, sqrt(32))
-distance(p180, p181, sqrt(32))
-distance(p181, p182, sqrt(32))
-distance(p182, p183, sqrt(32))
-distance(p183, p184, sqrt(32))
-distance(p184, p185, sqrt(32))
-distance(p185, p186, sqrt(32))
-distance(p186, p187, sqrt(32))
-distance(p187, p188, sqrt(32))
-distance(p188, p189, sqrt(32))
-distance(p189, p190, sqrt(32))
-distance(p190, p191, sqrt(32))
-distance(p191, p192, sqrt(32))
-distance(p192, p193, sqrt(32))
-distance(p193, p194, sqrt(32))
-distance(p194, p195, sqrt(32))
-distance(p195, p196, sqrt(32))
-distance(p196, p197, sqrt(32))
-distance(p197, p198, sqrt(32))
-distance(p198, p199, sqrt(32))
-distance(p199, p200, sqrt(32))
-distance(p200, p201, sqrt(32))
-distance(p201, p202, sqrt(32))
-distance(p202, p203, sqrt(32))
-distance(p203, p204, sqrt(32))
-distance(p204, p205, sqrt(32))
-distance(p205, p206, sqrt(32))
-distance(p206, p207, sqrt(32))
-distance(p207, p208, sqrt(32))
-distance(p208, p209, sqrt(32))
-distance(p209, p210, sqrt(32))
-distance(p210, p211, sqrt(32))
-distance(p211, p212, sqrt(32))
-distance(p212, p213, sqrt(32))
-distance(p213, p214, sqrt(32))
-distance(p214, p215, sqrt(32))
-distance(p215, p216, sqrt(32))
-distance(p216, p217, sqrt(32))
-distance(p217, p218, sqrt(32))
-distance(p218, p219, sqrt(32))
-distance(p219, p220, sqrt(32))
-distance(p220, p221, sqrt(32))
-distance(p221, p222, sqrt(32))
-distance(p222, p223, sqrt(32))
-distance(p223, p224, sqrt(32))
-distance(p224, p225, sqrt(32))
-distance(p225, p226, sqrt(32))
-distance(p226, p227, sqrt(32))
-distance(p227, p228, sqrt(32))
-distance(p228, p229, sqrt(32))
-distance(p229, p230, sqrt(32))
-distance(p230, p231, sqrt(32))
-distance(p231, p232, sqrt(32))
-distance(p232, p233, sqrt(32))
-distance(p233, p234, sqrt(32))
-distance(p234, p235, sqrt(32))
-distance(p235, p236, sqrt(32))
-distance(p236, p237, sqrt(32))
-distance(p237, p238, sqrt(32))
-distance(p238, p239, sqrt(32))
-distance(p239, p240, sqrt(32))
-distance(p240, p241, sqrt(32))
-distance(p241, p242, sqrt(32))
-distance(p242, p243, sqrt(32))
-distance(p243, p244, sqrt(32))
-distance(p244, p245, sqrt(32))
-distance(p245, p246, sqrt(32))
-distance(p246, p247, sqrt(32))
-distance(p247, p248, sqrt(32))
-distance(p248, p249, sqrt(32))
-distance(p249, p250, sqrt(32))
-distance(p250, p251, sqrt(32))
-distance(p251, p252, sqrt(32))
-p1.x = 4
+point p253
+vertical(p252, p253)
+p252.x=126
+p252.y=0
+p253.y=4
+point p254
+point p255
+vertical(p254, p255)
+p254.x=127
+p254.y=0
+p255.y=4
+point p256
+point p257
+vertical(p256, p257)
+p256.x=128
+p256.y=0
+p257.y=4
+point p258
+point p259
+vertical(p258, p259)
+p258.x=129
+p258.y=0
+p259.y=4
+point p260
+point p261
+vertical(p260, p261)
+p260.x=130
+p260.y=0
+p261.y=4
+point p262
+point p263
+vertical(p262, p263)
+p262.x=131
+p262.y=0
+p263.y=4
+point p264
+point p265
+vertical(p264, p265)
+p264.x=132
+p264.y=0
+p265.y=4
+point p266
+point p267
+vertical(p266, p267)
+p266.x=133
+p266.y=0
+p267.y=4
+point p268
+point p269
+vertical(p268, p269)
+p268.x=134
+p268.y=0
+p269.y=4
+point p270
+point p271
+vertical(p270, p271)
+p270.x=135
+p270.y=0
+p271.y=4
+point p272
+point p273
+vertical(p272, p273)
+p272.x=136
+p272.y=0
+p273.y=4
+point p274
+point p275
+vertical(p274, p275)
+p274.x=137
+p274.y=0
+p275.y=4
+point p276
+point p277
+vertical(p276, p277)
+p276.x=138
+p276.y=0
+p277.y=4
+point p278
+point p279
+vertical(p278, p279)
+p278.x=139
+p278.y=0
+p279.y=4
+point p280
+point p281
+vertical(p280, p281)
+p280.x=140
+p280.y=0
+p281.y=4
+point p282
+point p283
+vertical(p282, p283)
+p282.x=141
+p282.y=0
+p283.y=4
+point p284
+point p285
+vertical(p284, p285)
+p284.x=142
+p284.y=0
+p285.y=4
+point p286
+point p287
+vertical(p286, p287)
+p286.x=143
+p286.y=0
+p287.y=4
+point p288
+point p289
+vertical(p288, p289)
+p288.x=144
+p288.y=0
+p289.y=4
+point p290
+point p291
+vertical(p290, p291)
+p290.x=145
+p290.y=0
+p291.y=4
+point p292
+point p293
+vertical(p292, p293)
+p292.x=146
+p292.y=0
+p293.y=4
+point p294
+point p295
+vertical(p294, p295)
+p294.x=147
+p294.y=0
+p295.y=4
+point p296
+point p297
+vertical(p296, p297)
+p296.x=148
+p296.y=0
+p297.y=4
+point p298
+point p299
+vertical(p298, p299)
+p298.x=149
+p298.y=0
+p299.y=4
 
 # guesses
 p0 roughly (0,0)
-p1 roughly (3,3)
-p2 roughly (6,6)
-p3 roughly (9,9)
-p4 roughly (10,10)
-p5 roughly (11,11)
-p6 roughly (12,12)
-p7 roughly (13,13)
-p8 roughly (14,14)
-p9 roughly (15,15)
-p10 roughly (16,16)
-p11 roughly (17,17)
-p12 roughly (18,18)
-p13 roughly (19,19)
-p14 roughly (20,20)
-p15 roughly (21,21)
-p16 roughly (22,22)
-p17 roughly (23,23)
-p18 roughly (24,24)
-p19 roughly (25,25)
-p20 roughly (26,26)
-p21 roughly (27,27)
-p22 roughly (28,28)
-p23 roughly (29,29)
-p24 roughly (30,30)
-p25 roughly (31,31)
-p26 roughly (32,32)
-p27 roughly (33,33)
-p28 roughly (34,34)
-p29 roughly (35,35)
-p30 roughly (36,36)
-p31 roughly (37,37)
-p32 roughly (38,38)
-p33 roughly (39,39)
-p34 roughly (40,40)
-p35 roughly (41,41)
-p36 roughly (42,42)
-p37 roughly (43,43)
-p38 roughly (44,44)
-p39 roughly (45,45)
-p40 roughly (46,46)
-p41 roughly (47,47)
-p42 roughly (48,48)
-p43 roughly (49,49)
-p44 roughly (50,50)
-p45 roughly (51,51)
-p46 roughly (52,52)
-p47 roughly (53,53)
-p48 roughly (54,54)
-p49 roughly (55,55)
-p50 roughly (56,56)
-p51 roughly (57,57)
-p52 roughly (58,58)
-p53 roughly (59,59)
-p54 roughly (60,60)
-p55 roughly (61,61)
-p56 roughly (62,62)
-p57 roughly (63,63)
-p58 roughly (64,64)
-p59 roughly (65,65)
-p60 roughly (66,66)
-p61 roughly (67,67)
-p62 roughly (68,68)
-p63 roughly (69,69)
-p64 roughly (70,70)
-p65 roughly (71,71)
-p66 roughly (72,72)
-p67 roughly (73,73)
-p68 roughly (74,74)
-p69 roughly (75,75)
-p70 roughly (76,76)
-p71 roughly (77,77)
-p72 roughly (78,78)
-p73 roughly (79,79)
-p74 roughly (80,80)
-p75 roughly (81,81)
-p76 roughly (82,82)
-p77 roughly (83,83)
-p78 roughly (84,84)
-p79 roughly (85,85)
-p80 roughly (86,86)
-p81 roughly (87,87)
-p82 roughly (88,88)
-p83 roughly (89,89)
-p84 roughly (90,90)
-p85 roughly (91,91)
-p86 roughly (92,92)
-p87 roughly (93,93)
-p88 roughly (94,94)
-p89 roughly (95,95)
-p90 roughly (96,96)
-p91 roughly (97,97)
-p92 roughly (98,98)
-p93 roughly (99,99)
-p94 roughly (100,100)
-p95 roughly (101,101)
-p96 roughly (102,102)
-p97 roughly (103,103)
-p98 roughly (104,104)
-p99 roughly (105,105)
-p100 roughly (106,106)
-p101 roughly (107,107)
-p102 roughly (108,108)
-p103 roughly (109,109)
-p104 roughly (110,110)
-p105 roughly (111,111)
-p106 roughly (112,112)
-p107 roughly (113,113)
-p108 roughly (114,114)
-p109 roughly (115,115)
-p110 roughly (116,116)
-p111 roughly (117,117)
-p112 roughly (118,118)
-p113 roughly (119,119)
-p114 roughly (120,120)
-p115 roughly (121,121)
-p116 roughly (122,122)
-p117 roughly (123,123)
-p118 roughly (124,124)
-p119 roughly (125,125)
-p120 roughly (126,126)
-p121 roughly (127,127)
-p122 roughly (128,128)
-p123 roughly (129,129)
-p124 roughly (130,130)
-p125 roughly (131,131)
-p126 roughly (132,132)
-p127 roughly (133,133)
-p128 roughly (134,134)
-p129 roughly (135,135)
-p130 roughly (136,136)
-p131 roughly (137,137)
-p132 roughly (138,138)
-p133 roughly (139,139)
-p134 roughly (140,140)
-p135 roughly (141,141)
-p136 roughly (142,142)
-p137 roughly (143,143)
-p138 roughly (144,144)
-p139 roughly (145,145)
-p140 roughly (146,146)
-p141 roughly (147,147)
-p142 roughly (148,148)
-p143 roughly (149,149)
-p144 roughly (150,150)
-p145 roughly (151,151)
-p146 roughly (152,152)
-p147 roughly (153,153)
-p148 roughly (154,154)
-p149 roughly (155,155)
-p150 roughly (156,156)
-p151 roughly (157,157)
-p152 roughly (158,158)
-p153 roughly (159,159)
-p154 roughly (160,160)
-p155 roughly (161,161)
-p156 roughly (162,162)
-p157 roughly (163,163)
-p158 roughly (164,164)
-p159 roughly (165,165)
-p160 roughly (166,166)
-p161 roughly (167,167)
-p162 roughly (168,168)
-p163 roughly (169,169)
-p164 roughly (170,170)
-p165 roughly (171,171)
-p166 roughly (172,172)
-p167 roughly (173,173)
-p168 roughly (174,174)
-p169 roughly (175,175)
-p170 roughly (176,176)
-p171 roughly (177,177)
-p172 roughly (178,178)
-p173 roughly (179,179)
-p174 roughly (180,180)
-p175 roughly (181,181)
-p176 roughly (182,182)
-p177 roughly (183,183)
-p178 roughly (184,184)
-p179 roughly (185,185)
-p180 roughly (186,186)
-p181 roughly (187,187)
-p182 roughly (188,188)
-p183 roughly (189,189)
-p184 roughly (190,190)
-p185 roughly (191,191)
-p186 roughly (192,192)
-p187 roughly (193,193)
-p188 roughly (194,194)
-p189 roughly (195,195)
-p190 roughly (196,196)
-p191 roughly (197,197)
-p192 roughly (198,198)
-p193 roughly (199,199)
-p194 roughly (200,200)
-p195 roughly (201,201)
-p196 roughly (202,202)
-p197 roughly (203,203)
-p198 roughly (204,204)
-p199 roughly (205,205)
-p200 roughly (206,206)
-p201 roughly (207,207)
-p202 roughly (208,208)
-p203 roughly (209,209)
-p204 roughly (210,210)
-p205 roughly (211,211)
-p206 roughly (212,212)
-p207 roughly (213,213)
-p208 roughly (214,214)
-p209 roughly (215,215)
-p210 roughly (216,216)
-p211 roughly (217,217)
-p212 roughly (218,218)
-p213 roughly (219,219)
-p214 roughly (220,220)
-p215 roughly (221,221)
-p216 roughly (222,222)
-p217 roughly (223,223)
-p218 roughly (224,224)
-p219 roughly (225,225)
-p220 roughly (226,226)
-p221 roughly (227,227)
-p222 roughly (228,228)
-p223 roughly (229,229)
-p224 roughly (230,230)
-p225 roughly (231,231)
-p226 roughly (232,232)
-p227 roughly (233,233)
-p228 roughly (234,234)
-p229 roughly (235,235)
-p230 roughly (236,236)
-p231 roughly (237,237)
-p232 roughly (238,238)
-p233 roughly (239,239)
-p234 roughly (240,240)
-p235 roughly (241,241)
-p236 roughly (242,242)
-p237 roughly (243,243)
-p238 roughly (244,244)
-p239 roughly (245,245)
-p240 roughly (246,246)
-p241 roughly (247,247)
-p242 roughly (248,248)
-p243 roughly (249,249)
-p244 roughly (250,250)
-p245 roughly (251,251)
-p246 roughly (252,252)
-p247 roughly (253,253)
-p248 roughly (254,254)
-p249 roughly (255,255)
-p250 roughly (256,256)
-p251 roughly (257,257)
-p252 roughly (258,258)
+p1 roughly (1,1)
+p2 roughly (2,2)
+p3 roughly (3,3)
+p4 roughly (4,4)
+p5 roughly (5,5)
+p6 roughly (6,6)
+p7 roughly (7,7)
+p8 roughly (8,8)
+p9 roughly (9,9)
+p10 roughly (10,10)
+p11 roughly (11,11)
+p12 roughly (12,12)
+p13 roughly (13,13)
+p14 roughly (14,14)
+p15 roughly (15,15)
+p16 roughly (16,16)
+p17 roughly (17,17)
+p18 roughly (18,18)
+p19 roughly (19,19)
+p20 roughly (20,20)
+p21 roughly (21,21)
+p22 roughly (22,22)
+p23 roughly (23,23)
+p24 roughly (24,24)
+p25 roughly (25,25)
+p26 roughly (26,26)
+p27 roughly (27,27)
+p28 roughly (28,28)
+p29 roughly (29,29)
+p30 roughly (30,30)
+p31 roughly (31,31)
+p32 roughly (32,32)
+p33 roughly (33,33)
+p34 roughly (34,34)
+p35 roughly (35,35)
+p36 roughly (36,36)
+p37 roughly (37,37)
+p38 roughly (38,38)
+p39 roughly (39,39)
+p40 roughly (40,40)
+p41 roughly (41,41)
+p42 roughly (42,42)
+p43 roughly (43,43)
+p44 roughly (44,44)
+p45 roughly (45,45)
+p46 roughly (46,46)
+p47 roughly (47,47)
+p48 roughly (48,48)
+p49 roughly (49,49)
+p50 roughly (50,50)
+p51 roughly (51,51)
+p52 roughly (52,52)
+p53 roughly (53,53)
+p54 roughly (54,54)
+p55 roughly (55,55)
+p56 roughly (56,56)
+p57 roughly (57,57)
+p58 roughly (58,58)
+p59 roughly (59,59)
+p60 roughly (60,60)
+p61 roughly (61,61)
+p62 roughly (62,62)
+p63 roughly (63,63)
+p64 roughly (64,64)
+p65 roughly (65,65)
+p66 roughly (66,66)
+p67 roughly (67,67)
+p68 roughly (68,68)
+p69 roughly (69,69)
+p70 roughly (70,70)
+p71 roughly (71,71)
+p72 roughly (72,72)
+p73 roughly (73,73)
+p74 roughly (74,74)
+p75 roughly (75,75)
+p76 roughly (76,76)
+p77 roughly (77,77)
+p78 roughly (78,78)
+p79 roughly (79,79)
+p80 roughly (80,80)
+p81 roughly (81,81)
+p82 roughly (82,82)
+p83 roughly (83,83)
+p84 roughly (84,84)
+p85 roughly (85,85)
+p86 roughly (86,86)
+p87 roughly (87,87)
+p88 roughly (88,88)
+p89 roughly (89,89)
+p90 roughly (90,90)
+p91 roughly (91,91)
+p92 roughly (92,92)
+p93 roughly (93,93)
+p94 roughly (94,94)
+p95 roughly (95,95)
+p96 roughly (96,96)
+p97 roughly (97,97)
+p98 roughly (98,98)
+p99 roughly (99,99)
+p100 roughly (100,100)
+p101 roughly (101,101)
+p102 roughly (102,102)
+p103 roughly (103,103)
+p104 roughly (104,104)
+p105 roughly (105,105)
+p106 roughly (106,106)
+p107 roughly (107,107)
+p108 roughly (108,108)
+p109 roughly (109,109)
+p110 roughly (110,110)
+p111 roughly (111,111)
+p112 roughly (112,112)
+p113 roughly (113,113)
+p114 roughly (114,114)
+p115 roughly (115,115)
+p116 roughly (116,116)
+p117 roughly (117,117)
+p118 roughly (118,118)
+p119 roughly (119,119)
+p120 roughly (120,120)
+p121 roughly (121,121)
+p122 roughly (122,122)
+p123 roughly (123,123)
+p124 roughly (124,124)
+p125 roughly (125,125)
+p126 roughly (126,126)
+p127 roughly (127,127)
+p128 roughly (128,128)
+p129 roughly (129,129)
+p130 roughly (130,130)
+p131 roughly (131,131)
+p132 roughly (132,132)
+p133 roughly (133,133)
+p134 roughly (134,134)
+p135 roughly (135,135)
+p136 roughly (136,136)
+p137 roughly (137,137)
+p138 roughly (138,138)
+p139 roughly (139,139)
+p140 roughly (140,140)
+p141 roughly (141,141)
+p142 roughly (142,142)
+p143 roughly (143,143)
+p144 roughly (144,144)
+p145 roughly (145,145)
+p146 roughly (146,146)
+p147 roughly (147,147)
+p148 roughly (148,148)
+p149 roughly (149,149)
+p150 roughly (150,150)
+p151 roughly (151,151)
+p152 roughly (152,152)
+p153 roughly (153,153)
+p154 roughly (154,154)
+p155 roughly (155,155)
+p156 roughly (156,156)
+p157 roughly (157,157)
+p158 roughly (158,158)
+p159 roughly (159,159)
+p160 roughly (160,160)
+p161 roughly (161,161)
+p162 roughly (162,162)
+p163 roughly (163,163)
+p164 roughly (164,164)
+p165 roughly (165,165)
+p166 roughly (166,166)
+p167 roughly (167,167)
+p168 roughly (168,168)
+p169 roughly (169,169)
+p170 roughly (170,170)
+p171 roughly (171,171)
+p172 roughly (172,172)
+p173 roughly (173,173)
+p174 roughly (174,174)
+p175 roughly (175,175)
+p176 roughly (176,176)
+p177 roughly (177,177)
+p178 roughly (178,178)
+p179 roughly (179,179)
+p180 roughly (180,180)
+p181 roughly (181,181)
+p182 roughly (182,182)
+p183 roughly (183,183)
+p184 roughly (184,184)
+p185 roughly (185,185)
+p186 roughly (186,186)
+p187 roughly (187,187)
+p188 roughly (188,188)
+p189 roughly (189,189)
+p190 roughly (190,190)
+p191 roughly (191,191)
+p192 roughly (192,192)
+p193 roughly (193,193)
+p194 roughly (194,194)
+p195 roughly (195,195)
+p196 roughly (196,196)
+p197 roughly (197,197)
+p198 roughly (198,198)
+p199 roughly (199,199)
+p200 roughly (200,200)
+p201 roughly (201,201)
+p202 roughly (202,202)
+p203 roughly (203,203)
+p204 roughly (204,204)
+p205 roughly (205,205)
+p206 roughly (206,206)
+p207 roughly (207,207)
+p208 roughly (208,208)
+p209 roughly (209,209)
+p210 roughly (210,210)
+p211 roughly (211,211)
+p212 roughly (212,212)
+p213 roughly (213,213)
+p214 roughly (214,214)
+p215 roughly (215,215)
+p216 roughly (216,216)
+p217 roughly (217,217)
+p218 roughly (218,218)
+p219 roughly (219,219)
+p220 roughly (220,220)
+p221 roughly (221,221)
+p222 roughly (222,222)
+p223 roughly (223,223)
+p224 roughly (224,224)
+p225 roughly (225,225)
+p226 roughly (226,226)
+p227 roughly (227,227)
+p228 roughly (228,228)
+p229 roughly (229,229)
+p230 roughly (230,230)
+p231 roughly (231,231)
+p232 roughly (232,232)
+p233 roughly (233,233)
+p234 roughly (234,234)
+p235 roughly (235,235)
+p236 roughly (236,236)
+p237 roughly (237,237)
+p238 roughly (238,238)
+p239 roughly (239,239)
+p240 roughly (240,240)
+p241 roughly (241,241)
+p242 roughly (242,242)
+p243 roughly (243,243)
+p244 roughly (244,244)
+p245 roughly (245,245)
+p246 roughly (246,246)
+p247 roughly (247,247)
+p248 roughly (248,248)
+p249 roughly (249,249)
+p250 roughly (250,250)
+p251 roughly (251,251)
+p252 roughly (252,252)
+p253 roughly (253,253)
+p254 roughly (254,254)
+p255 roughly (255,255)
+p256 roughly (256,256)
+p257 roughly (257,257)
+p258 roughly (258,258)
+p259 roughly (259,259)
+p260 roughly (260,260)
+p261 roughly (261,261)
+p262 roughly (262,262)
+p263 roughly (263,263)
+p264 roughly (264,264)
+p265 roughly (265,265)
+p266 roughly (266,266)
+p267 roughly (267,267)
+p268 roughly (268,268)
+p269 roughly (269,269)
+p270 roughly (270,270)
+p271 roughly (271,271)
+p272 roughly (272,272)
+p273 roughly (273,273)
+p274 roughly (274,274)
+p275 roughly (275,275)
+p276 roughly (276,276)
+p277 roughly (277,277)
+p278 roughly (278,278)
+p279 roughly (279,279)
+p280 roughly (280,280)
+p281 roughly (281,281)
+p282 roughly (282,282)
+p283 roughly (283,283)
+p284 roughly (284,284)
+p285 roughly (285,285)
+p286 roughly (286,286)
+p287 roughly (287,287)
+p288 roughly (288,288)
+p289 roughly (289,289)
+p290 roughly (290,290)
+p291 roughly (291,291)
+p292 roughly (292,292)
+p293 roughly (293,293)
+p294 roughly (294,294)
+p295 roughly (295,295)
+p296 roughly (296,296)
+p297 roughly (297,297)
+p298 roughly (298,298)
+p299 roughly (299,299)
