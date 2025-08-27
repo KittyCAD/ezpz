@@ -24,7 +24,7 @@ const EPSILON: f64 = 0.001;
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("{0}")]
-    NonLinearSystemError(NonLinearSystemError),
+    NonLinearSystemError(#[from] NonLinearSystemError),
     #[error("Solver error {0}")]
     Solver(Box<dyn std::error::Error>),
     #[error("No guess was given for point {label}")]
@@ -64,7 +64,7 @@ pub fn solve(
         initial_guesses.into_iter().unzip();
     let lints = lint(&constraints);
 
-    let mut model = Model::new(constraints, all_variables);
+    let mut model = Model::new(constraints, all_variables)?;
     let iterations = newton_faer::solve(
         &mut model,
         &mut final_values,

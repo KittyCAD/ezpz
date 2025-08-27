@@ -1,4 +1,4 @@
-use faer::sparse::{Pair, SymbolicSparseColMat};
+use faer::sparse::{Pair, SymbolicSparseColMat, Triplet};
 use newton_faer::{JacobianCache, NonlinearSystem, RowMap};
 
 use crate::{Constraint, NonLinearSystemError, constraints::lookup, id::Id};
@@ -46,6 +46,7 @@ impl Layout {
 /// Required by newton_faer.
 struct Jc {
     sym: SymbolicSparseColMat<usize>,
+    // pairs: Vec<Pair<usize, usize>>,
     vals: Vec<f64>,
 }
 
@@ -80,17 +81,6 @@ impl std::fmt::Debug for Jc {
     }
 }
 
-/// Generate 2D indices that iterate over every cell in a matrix of the given size.
-fn gen_pairs(num_cols: usize, num_rows: usize) -> Vec<Pair<usize, usize>> {
-    let mut out = Vec::with_capacity(num_cols * num_rows);
-    for col in 0..num_cols {
-        for row in 0..num_rows {
-            out.push(Pair { row, col })
-        }
-    }
-    out
-}
-
 /// The problem to actually solve.
 pub struct Model {
     layout: Layout,
@@ -99,7 +89,10 @@ pub struct Model {
 }
 
 impl Model {
-    pub fn new(constraints: Vec<Constraint>, all_variables: Vec<Id>) -> Self {
+    pub fn new(
+        constraints: Vec<Constraint>,
+        all_variables: Vec<Id>,
+    ) -> Result<Self, NonLinearSystemError> {
         /*
         Firstly, find the size of the relevant matrices.
         Each constraint yields 1 or more residual function f.
@@ -117,26 +110,48 @@ impl Model {
         let num_residuals: usize = constraints.iter().map(|c| c.residual_dim()).sum();
         let num_cols = all_variables.len();
         let num_rows = num_residuals;
+        let layout = Layout {
+            total_num_residuals: num_rows,
+            all_variables,
+        };
 
         // Generate the matrix.
-        let pairs = gen_pairs(num_cols, num_rows);
+        let mut pairs: Vec<Pair<usize, usize>> = Vec::with_capacity(num_cols * num_rows);
+        let mut row_num = 0;
+        for constraint in &constraints {
+            let rows = constraint.nonzeroes();
+            debug_assert_eq!(
+                rows.len(),
+                constraint.residual_dim(),
+                "Constraint {} should have {} rows but actually had {}",
+                constraint.constraint_kind(),
+                constraint.residual_dim(),
+                rows.len(),
+            );
+
+            for row in rows {
+                let this_row = row_num;
+                row_num += 1;
+                for var in row {
+                    let col = layout.index_of(var)?;
+                    pairs.push(Pair { row: this_row, col });
+                }
+            }
+        }
         let (sym, _) =
             SymbolicSparseColMat::try_new_from_indices(num_rows, num_cols, &pairs).unwrap();
-        let num_cells = sym.col_ptr()[sym.ncols()];
-        debug_assert_eq!(num_cells, num_cols * num_rows);
+        let num_cells = pairs.len();
 
         // All done.
-        Self {
-            layout: Layout {
-                total_num_residuals: num_rows,
-                all_variables,
-            },
+        Ok(Self {
+            layout,
             jc: Jc {
-                sym,
                 vals: vec![0.0; num_cells],
+                sym,
+                // pairs,
             },
             constraints,
-        }
+        })
     }
 }
 
@@ -190,8 +205,7 @@ impl NonlinearSystem for Model {
 
     /// Update the values of a cached sparse Jacobian.
     fn refresh_jacobian(&mut self, current_assignments: &[Self::Real]) -> Result<(), Self::Error> {
-        let num_cols = self.layout.num_cols();
-        let num_rows = self.layout.num_rows();
+        let mut entries: Vec<Triplet<_, _, _>> = Vec::new();
         let mut row_num = 0;
         for constraint in &self.constraints {
             let jacobian_rows = constraint.jacobian_rows(&self.layout, current_assignments)?;
@@ -205,46 +219,22 @@ impl NonlinearSystem for Model {
             );
 
             for jacobian_row in jacobian_rows {
-                // newton_faer requires the matrix in column-major order,
-                // so we write this row into a column of the matrix.
-                // Transpose basically.
-                let target_column_num = row_num;
+                let row = row_num;
                 row_num += 1;
-
-                // Write zeros in every cell for this row of the Jacobian matrix
-                // (which, again, is internally represented by a column in `jc`).
-                for i in 0..num_cols {
-                    let dst = target_column_num + (i * num_rows);
-                    self.jc.values_mut()[dst] = 0.0;
-                }
-                // Overwrite any nonzero cells.
-                // It's probably faster than avoiding the writes of zeroes in the first place.
                 for jacobian_var in jacobian_row {
-                    let i = self.layout.index_of(jacobian_var.id)?;
-                    let dst = target_column_num + (i * num_rows);
-                    self.jc.values_mut()[dst] = jacobian_var.partial_derivative;
+                    let col = self.layout.index_of(jacobian_var.id)?;
+                    entries.push(Triplet {
+                        row,
+                        col,
+                        val: jacobian_var.partial_derivative,
+                    });
                 }
             }
         }
+        debug_assert_eq!(entries.len(), self.jc.vals.len());
+        entries.sort_by(|a, b| a.col.cmp(&b.col).then(a.row.cmp(&b.row)));
+        let vals: Vec<_> = entries.into_iter().map(|triplet| triplet.val).collect();
+        self.jc.values_mut().copy_from_slice(&vals);
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_gen_pairs() {
-        let actual = gen_pairs(3, 2);
-        let expected = vec![
-            Pair { row: 0, col: 0 },
-            Pair { row: 1, col: 0 },
-            Pair { row: 0, col: 1 },
-            Pair { row: 1, col: 1 },
-            Pair { row: 0, col: 2 },
-            Pair { row: 1, col: 2 },
-        ];
-        assert_eq!(expected, actual)
     }
 }

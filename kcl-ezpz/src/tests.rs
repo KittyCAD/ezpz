@@ -39,7 +39,8 @@ fn angle_constraints() {
         let solved = problem.to_constraint_system().unwrap().solve().unwrap();
         assert_points_eq(solved.get_point("p0").unwrap(), Point { x: 0.0, y: 0.0 });
         assert_points_eq(solved.get_point("p1").unwrap(), Point { x: 4.0, y: 4.0 });
-        assert_points_eq(solved.get_point("p2").unwrap(), Point { x: 8.0, y: 8.0 });
+        assert_points_eq(solved.get_point("p2").unwrap(), Point { x: 0.0, y: 0.0 });
+        assert_points_eq(solved.get_point("p3").unwrap(), Point { x: 4.0, y: 4.0 });
     }
 }
 

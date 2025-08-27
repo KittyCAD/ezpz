@@ -8,6 +8,7 @@ license = "MIT"
 
 [dependencies]
 faer = "0.22.6"
+fxhash = "0.2.1"
 getrandom = { version = "0.2.16", features = ["js"] }
 indexmap = "2.11.0"
 kittycad-modeling-cmds = "0.2.131"
