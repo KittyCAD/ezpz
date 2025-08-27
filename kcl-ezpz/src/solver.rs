@@ -231,8 +231,10 @@ impl NonlinearSystem for Model {
         }
         debug_assert_eq!(entries.len(), self.jc.vals.len());
         entries.sort_by(|a, b| a.col.cmp(&b.col).then(a.row.cmp(&b.row)));
-        let vals: Vec<_> = entries.into_iter().map(|triplet| triplet.val).collect();
-        self.jc.values_mut().copy_from_slice(&vals);
+        let values_mut = self.jc.values_mut();
+        for (i, val) in entries.into_iter().map(|triplet| triplet.val).enumerate() {
+            values_mut[i] = val;
+        }
         Ok(())
     }
 }
