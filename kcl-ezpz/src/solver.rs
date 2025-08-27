@@ -203,7 +203,7 @@ impl NonlinearSystem for Model {
 
     /// Update the values of a cached sparse Jacobian.
     fn refresh_jacobian(&mut self, current_assignments: &[Self::Real]) -> Result<(), Self::Error> {
-        let mut entries = Vec::with_capacity(self.jc.vals.len());
+        let mut entries = Vec::new();
         let mut row_num = 0;
         for constraint in &self.constraints {
             let jacobian_rows = constraint.jacobian_rows(&self.layout, current_assignments)?;
