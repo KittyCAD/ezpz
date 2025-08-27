@@ -182,42 +182,6 @@ fn solve_two_rectangles_dependent(c: &mut Criterion) {
     });
 }
 
-fn solve_angled_lines(c: &mut Criterion) {
-    let mut id_generator = IdGenerator::default();
-    // It has 4 points.
-    let p0 = DatumPoint::new(&mut id_generator);
-    let p1 = DatumPoint::new(&mut id_generator);
-    let p2 = DatumPoint::new(&mut id_generator);
-    let line0 = LineSegment::new(p0, p1);
-    let line1 = LineSegment::new(p1, p2);
-    let constraints = vec![
-        // p0 is the origin
-        Constraint::Fixed(p0.id_x(), 0.0),
-        Constraint::Fixed(p0.id_y(), 0.0),
-        // Both lines are parallel
-        Constraint::lines_parallel([line0, line1]),
-        // Both lines are the same distance
-        Constraint::Distance(p0, p1, 32.0f64.sqrt()),
-        Constraint::Distance(p1, p2, 32.0f64.sqrt()),
-        Constraint::Fixed(p1.id_x(), 4.0),
-    ];
-
-    let initial_guesses = vec![
-        (p0.id_x(), 0.0),
-        (p0.id_y(), 0.0),
-        (p1.id_x(), 3.0f64.sqrt()),
-        (p1.id_y(), 3.0f64.sqrt()),
-        (p2.id_x(), 6.0f64.sqrt()),
-        (p2.id_y(), 6.0f64.sqrt()),
-    ];
-
-    c.bench_function("solve angled lines", |b| {
-        b.iter(|| {
-            let _actual = black_box(solve(constraints.clone(), initial_guesses.clone()).unwrap());
-        })
-    });
-}
-
 fn solve_massive(c: &mut Criterion) {
     let mut group = c.benchmark_group("massively_parallel");
     for size in [1, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500].iter() {
@@ -248,7 +212,6 @@ criterion_group!(
     solve_easy,
     solve_two_rectangles,
     solve_two_rectangles_dependent,
-    solve_angled_lines,
     solve_massive,
 );
 criterion_main!(benches);
