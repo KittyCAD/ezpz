@@ -60,7 +60,7 @@ pub struct JacobianRow {
 
 impl JacobianRow {
     /// Iterate over columns.
-    pub fn iter(&mut self) -> impl Iterator<Item = &JacobianVar> {
+    pub fn iter(&self) -> impl Iterator<Item = &JacobianVar> {
         self.nonzero_columns.iter()
     }
 }
@@ -77,8 +77,38 @@ impl IntoIterator for JacobianRow {
 }
 
 impl Constraint {
+    /// For each row of the Jacobian matrix, which variables are involved in them?
+    pub fn nonzeroes(&self) -> Vec<Vec<Id>> {
+        match self {
+            Constraint::Distance(p0, p1, _dist) => {
+                vec![vec![p0.id_x(), p0.id_y(), p1.id_x(), p1.id_y()]]
+            }
+            Constraint::Vertical(line) => {
+                vec![vec![line.p0.id_x(), line.p1.id_x()]]
+            }
+            Constraint::Horizontal(line) => {
+                vec![vec![line.p0.id_y(), line.p1.id_y()]]
+            }
+            Constraint::LinesAtAngle(line0, line1, _angle) => {
+                vec![vec![
+                    line0.p0.id_x(),
+                    line0.p0.id_y(),
+                    line0.p1.id_x(),
+                    line0.p1.id_y(),
+                    line1.p0.id_x(),
+                    line1.p0.id_y(),
+                    line1.p1.id_x(),
+                    line1.p1.id_y(),
+                ]]
+            }
+            Constraint::Fixed(id, _scalar) => vec![vec![*id]],
+        }
+    }
+
     /// Constrain these lines to be parallel.
     pub fn lines_parallel([l0, l1]: [LineSegment; 2]) -> Self {
+        // TODO: Check if all points are unique.
+        // Our math can't handle a common point just yet.
         Self::LinesAtAngle(l0, l1, AngleKind::Parallel)
     }
 
