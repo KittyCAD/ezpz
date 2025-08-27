@@ -46,7 +46,6 @@ impl Layout {
 /// Required by newton_faer.
 struct Jc {
     sym: SymbolicSparseColMat<usize>,
-    // pairs: Vec<Pair<usize, usize>>,
     vals: Vec<f64>,
 }
 
@@ -148,7 +147,6 @@ impl Model {
             jc: Jc {
                 vals: vec![0.0; num_cells],
                 sym,
-                // pairs,
             },
             constraints,
         })
