@@ -29,7 +29,7 @@ impl RowMap for Layout {
 
 impl Layout {
     pub fn index_of(&self, var: <Layout as RowMap>::Var) -> Result<usize, NonLinearSystemError> {
-        lookup(var, &self.all_variables)
+        Ok(var as usize)
     }
 
     pub fn num_cols(&self) -> usize {
