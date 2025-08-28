@@ -16,6 +16,10 @@ This project has 3 Rust crates:
 
 The CLI lets you pass a constraint problem file (described below) and analyze it, solve it, visualize the solution and benchmark how long it took.
 
+Here's a quick video demo:
+
+https://github.com/user-attachments/assets/62a2d4ab-490f-48e5-aa0a-7a2b192fc938
+
 First, install it. From this repo's root, run:
 
 ```
