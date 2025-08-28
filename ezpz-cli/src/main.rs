@@ -21,7 +21,7 @@ struct Cli {
     gnuplot: bool,
 
     /// Save results as a PNG if solve was successful.
-    #[arg(short = 'o')]
+    #[arg(short = 'o', long = "gnuplot-png-path")]
     gnuplot_png_path: Option<PathBuf>,
 
     /// Show the final values assigned to each point.
