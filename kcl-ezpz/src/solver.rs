@@ -28,8 +28,8 @@ impl RowMap for Layout {
 }
 
 impl Layout {
-    pub fn index_of(&self, var: <Layout as RowMap>::Var) -> Result<usize, NonLinearSystemError> {
-        Ok(var as usize)
+    pub fn index_of(&self, var: <Layout as RowMap>::Var) -> usize {
+        var as usize
     }
 
     pub fn num_cols(&self) -> usize {
@@ -120,7 +120,7 @@ impl<'c> Model<'c> {
         let mut nonzeroes_scratch = Vec::with_capacity(4);
         for constraint in constraints {
             nonzeroes_scratch.clear();
-            let () = constraint.nonzeroes(&mut nonzeroes_scratch);
+            constraint.nonzeroes(&mut nonzeroes_scratch);
             debug_assert_eq!(
                 constraint.residual_dim(),
                 1,
@@ -133,7 +133,7 @@ impl<'c> Model<'c> {
                 let this_row = row_num;
                 row_num += 1;
                 for var in row {
-                    let col = layout.index_of(*var)?;
+                    let col = layout.index_of(*var);
                     pairs.push(Pair { row: this_row, col });
                 }
             }
@@ -159,7 +159,6 @@ impl<'c> NonlinearSystem for Model<'c> {
     /// What number type we're using.
     type Real = f64;
     type Layout = Layout;
-    type Error = crate::NonLinearSystemError;
 
     fn layout(&self) -> &Self::Layout {
         &self.layout
@@ -176,18 +175,14 @@ impl<'c> NonlinearSystem for Model<'c> {
     }
 
     /// Compute the residual F, figuring out how close the problem is to being solved.
-    fn residual(
-        &self,
-        current_assignments: &[Self::Real],
-        out: &mut [Self::Real],
-    ) -> Result<(), Self::Error> {
+    fn residual(&self, current_assignments: &[Self::Real], out: &mut [Self::Real]) {
         // Each row of `out` corresponds to one row of the matrix, i.e. one equation.
         // Each item of `current_assignments` corresponds to one column of the matrix, i.e. one variable.
         let mut row_num = 0;
         let mut residuals = Vec::new();
         for constraint in self.constraints {
             residuals.clear();
-            let () = constraint.residual(&self.layout, current_assignments, &mut residuals)?;
+            constraint.residual(&self.layout, current_assignments, &mut residuals);
             debug_assert_eq!(
                 residuals.len(),
                 constraint.residual_dim(),
@@ -201,18 +196,16 @@ impl<'c> NonlinearSystem for Model<'c> {
                 row_num += 1;
             }
         }
-        Ok(())
     }
 
     /// Update the values of a cached sparse Jacobian.
-    fn refresh_jacobian(&mut self, current_assignments: &[Self::Real]) -> Result<(), Self::Error> {
+    fn refresh_jacobian(&mut self, current_assignments: &[Self::Real]) {
         let mut entries = Vec::new();
         let mut row_num = 0;
         let mut row0_scratch = Vec::with_capacity(self.layout.num_cols());
         for constraint in self.constraints {
             row0_scratch.clear();
-            let () =
-                constraint.jacobian_rows(&self.layout, current_assignments, &mut row0_scratch)?;
+            constraint.jacobian_rows(&self.layout, current_assignments, &mut row0_scratch);
             let jacobian_rows = [&row0_scratch];
             debug_assert_eq!(
                 1,
@@ -226,7 +219,7 @@ impl<'c> NonlinearSystem for Model<'c> {
                 let row = row_num;
                 row_num += 1;
                 for jacobian_var in jacobian_row {
-                    let col = self.layout.index_of(jacobian_var.id)?;
+                    let col = self.layout.index_of(jacobian_var.id);
                     entries.push(Triplet {
                         row,
                         col,
@@ -241,6 +234,5 @@ impl<'c> NonlinearSystem for Model<'c> {
         for (i, val) in entries.into_iter().map(|triplet| triplet.val).enumerate() {
             values_mut[i] = val;
         }
-        Ok(())
     }
 }
