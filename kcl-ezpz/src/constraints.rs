@@ -58,13 +58,6 @@ pub struct JacobianRow {
     nonzero_columns: Vec<JacobianVar>,
 }
 
-impl JacobianRow {
-    /// Iterate over columns.
-    pub fn iter(&self) -> impl Iterator<Item = &JacobianVar> {
-        self.nonzero_columns.iter()
-    }
-}
-
 /// Iterate over columns in the row.
 impl IntoIterator for JacobianRow {
     type Item = JacobianVar;
@@ -218,7 +211,8 @@ impl Constraint {
         &self,
         layout: &Layout,
         current_assignments: &[f64],
-    ) -> Result<Vec<JacobianRow>, NonLinearSystemError> {
+        row0: &mut Vec<JacobianVar>,
+    ) -> Result<(), NonLinearSystemError> {
         match self {
             Constraint::Distance(p0, p1, _expected_distance) => {
                 // Residual: R = sqrt((x1-x2)**2 + (y1-y2)**2) - d
@@ -237,15 +231,15 @@ impl Constraint {
 
                 let dist = euclidean_distance((x0, y0), (x1, y1));
                 if dist < EPSILON {
-                    return Ok(vec![Default::default()]);
+                    return Ok(());
                 }
                 let dr_dx0 = (x0 - x1) / dist;
                 let dr_dy0 = (y0 - y1) / dist;
                 let dr_dx1 = (-x0 + x1) / dist;
                 let dr_dy1 = (-y0 + y1) / dist;
 
-                Ok(vec![JacobianRow {
-                    nonzero_columns: vec![
+                row0.extend(
+                    [
                         JacobianVar {
                             id: p0.id_x(),
                             partial_derivative: dr_dx0,
@@ -262,8 +256,10 @@ impl Constraint {
                             id: p1.id_y(),
                             partial_derivative: dr_dy1,
                         },
-                    ],
-                }])
+                    ]
+                    .as_slice(),
+                );
+                Ok(())
             }
             Constraint::Vertical(line) => {
                 // Residual: R = x0 - x1
@@ -275,21 +271,21 @@ impl Constraint {
                 let p0_x_id = line.p0.id_x();
                 let p1_x_id = line.p1.id_x();
 
-                Ok(vec![
-                    // One row with values for both p0.x and p1.x
-                    JacobianRow {
-                        nonzero_columns: vec![
-                            JacobianVar {
-                                id: p0_x_id,
-                                partial_derivative: dr_dx0,
-                            },
-                            JacobianVar {
-                                id: p1_x_id,
-                                partial_derivative: dr_dx1,
-                            },
-                        ],
-                    },
-                ])
+                row0.extend(
+                    [
+                        // One row with values for both p0.x and p1.x
+                        JacobianVar {
+                            id: p0_x_id,
+                            partial_derivative: dr_dx0,
+                        },
+                        JacobianVar {
+                            id: p1_x_id,
+                            partial_derivative: dr_dx1,
+                        },
+                    ]
+                    .as_slice(),
+                );
+                Ok(())
             }
             Constraint::Horizontal(line) => {
                 // Residual: R = y1 - y2
@@ -301,28 +297,31 @@ impl Constraint {
                 let p0_y_id = line.p0.id_y();
                 let p1_y_id = line.p1.id_y();
 
-                Ok(vec![
-                    // One row with values for both p0.x and p1.x
-                    JacobianRow {
-                        nonzero_columns: vec![
-                            JacobianVar {
-                                id: p0_y_id,
-                                partial_derivative: dr_dy0,
-                            },
-                            JacobianVar {
-                                id: p1_y_id,
-                                partial_derivative: dr_dy1,
-                            },
-                        ],
-                    },
-                ])
+                row0.extend(
+                    [
+                        JacobianVar {
+                            id: p0_y_id,
+                            partial_derivative: dr_dy0,
+                        },
+                        JacobianVar {
+                            id: p1_y_id,
+                            partial_derivative: dr_dy1,
+                        },
+                    ]
+                    .as_slice(),
+                );
+                Ok(())
             }
-            Constraint::Fixed(id, _expected) => Ok(vec![JacobianRow {
-                nonzero_columns: vec![JacobianVar {
-                    id: *id,
-                    partial_derivative: 1.0,
-                }],
-            }]),
+            Constraint::Fixed(id, _expected) => {
+                row0.extend(
+                    [JacobianVar {
+                        id: *id,
+                        partial_derivative: 1.0,
+                    }]
+                    .as_slice(),
+                );
+                Ok(())
+            }
             Constraint::LinesAtAngle(line0, line1, expected_angle) => {
                 // Residual: R = atan2(v1×v2, v1·v2) - α
                 // ∂R/∂x1 = (y1 - y2)/(x1**2 - 2*x1*x2 + x2**2 + y1**2 - 2*y1*y2 + y2**2)
@@ -379,7 +378,7 @@ impl Constraint {
                         let is_invalid = (mag0 < EPSILON) || (mag1 < EPSILON);
                         if is_invalid {
                             // All zeroes
-                            return Ok(vec![JacobianRow::default()]);
+                            return Ok(());
                         }
 
                         // Calculate derivatives.
@@ -404,42 +403,42 @@ impl Constraint {
                     }
                 };
 
-                Ok(vec![JacobianRow {
-                    nonzero_columns: vec![
-                        JacobianVar {
-                            id: line0.p0.id_x(),
-                            partial_derivative: pds.dr_dx0,
-                        },
-                        JacobianVar {
-                            id: line0.p0.id_y(),
-                            partial_derivative: pds.dr_dy0,
-                        },
-                        JacobianVar {
-                            id: line0.p1.id_x(),
-                            partial_derivative: pds.dr_dx1,
-                        },
-                        JacobianVar {
-                            id: line0.p1.id_y(),
-                            partial_derivative: pds.dr_dy1,
-                        },
-                        JacobianVar {
-                            id: line1.p0.id_x(),
-                            partial_derivative: pds.dr_dx2,
-                        },
-                        JacobianVar {
-                            id: line1.p0.id_y(),
-                            partial_derivative: pds.dr_dy2,
-                        },
-                        JacobianVar {
-                            id: line1.p1.id_x(),
-                            partial_derivative: pds.dr_dx3,
-                        },
-                        JacobianVar {
-                            id: line1.p1.id_y(),
-                            partial_derivative: pds.dr_dy3,
-                        },
-                    ],
-                }])
+                let jvars = [
+                    JacobianVar {
+                        id: line0.p0.id_x(),
+                        partial_derivative: pds.dr_dx0,
+                    },
+                    JacobianVar {
+                        id: line0.p0.id_y(),
+                        partial_derivative: pds.dr_dy0,
+                    },
+                    JacobianVar {
+                        id: line0.p1.id_x(),
+                        partial_derivative: pds.dr_dx1,
+                    },
+                    JacobianVar {
+                        id: line0.p1.id_y(),
+                        partial_derivative: pds.dr_dy1,
+                    },
+                    JacobianVar {
+                        id: line1.p0.id_x(),
+                        partial_derivative: pds.dr_dx2,
+                    },
+                    JacobianVar {
+                        id: line1.p0.id_y(),
+                        partial_derivative: pds.dr_dy2,
+                    },
+                    JacobianVar {
+                        id: line1.p1.id_x(),
+                        partial_derivative: pds.dr_dx3,
+                    },
+                    JacobianVar {
+                        id: line1.p1.id_y(),
+                        partial_derivative: pds.dr_dy3,
+                    },
+                ];
+                row0.extend(jvars.as_slice());
+                Ok(())
             }
         }
     }
