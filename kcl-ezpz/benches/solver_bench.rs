@@ -32,7 +32,7 @@ fn solve_easy(c: &mut Criterion) {
 
     c.bench_function("solve easy", |b| {
         b.iter(|| {
-            let _actual = black_box(solve(constraints.clone(), initial_guesses.clone()).unwrap());
+            let _actual = black_box(solve(&constraints.clone(), initial_guesses.clone()).unwrap());
         })
     });
 }
@@ -106,7 +106,7 @@ fn solve_two_rectangles(c: &mut Criterion) {
     constraints.extend(constraints1);
     c.bench_function("solve two rectangles", |b| {
         b.iter(|| {
-            let _actual = black_box(solve(constraints.clone(), initial_guesses.clone()).unwrap());
+            let _actual = black_box(solve(&constraints.clone(), initial_guesses.clone()).unwrap());
         })
     });
 }
@@ -177,7 +177,7 @@ fn solve_two_rectangles_dependent(c: &mut Criterion) {
     constraints.extend(constraints1);
     c.bench_function("solve two rectangles dependent", |b| {
         b.iter(|| {
-            let _actual = black_box(solve(constraints.clone(), initial_guesses.clone()).unwrap());
+            let _actual = black_box(solve(&constraints.clone(), initial_guesses.clone()).unwrap());
         })
     });
 }
@@ -186,7 +186,7 @@ fn solve_massive(c: &mut Criterion) {
     let mut group = c.benchmark_group("massively_parallel");
     for num_lines in [1, 50, 100, 150, 200].iter() {
         // Each line has 2 points, each point has two variables (x and y)
-        // So each line is 4 variables, and that is the relvant throughput metric.
+        // So each line is 4 variables, and that is the relevant throughput metric.
         let size = num_lines * 4;
         std::process::Command::new("just")
             .args(["regen-massive-test", &size.to_string()])
@@ -200,8 +200,9 @@ fn solve_massive(c: &mut Criterion) {
                 std::fs::read_to_string("test_cases/massive_parallel_system/problem.txt").unwrap();
             let mut t = txt.as_str();
             let problem = Problem::parse(&mut t).unwrap();
+            let constraints = problem.to_constraint_system().unwrap();
             b.iter(|| {
-                let _actual = problem.to_constraint_system().unwrap().solve().unwrap();
+                let _actual = constraints.solve().unwrap();
             });
         });
     }

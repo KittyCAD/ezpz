@@ -57,12 +57,12 @@ pub struct Lint {
 /// Given some initial guesses, constrain them.
 /// Returns the same variables in the same order, but constrained.
 pub fn solve(
-    constraints: Vec<Constraint>,
+    constraints: &[Constraint],
     initial_guesses: Vec<(Id, f64)>,
 ) -> Result<SolveOutcome, Error> {
     let (all_variables, mut final_values): (Vec<Id>, Vec<f64>) =
         initial_guesses.into_iter().unzip();
-    let lints = lint(&constraints);
+    let lints = lint(constraints);
 
     let mut model = Model::new(constraints, all_variables)?;
     let iterations = newton_faer::solve(

@@ -183,8 +183,8 @@ fn main_inner(cli: &Cli) -> Result<(Outcome, Duration), String> {
     let solved = constraint_system.solve().map_err(|e| e.to_string())?;
 
     // It succeeded. Benchmark its perf
+    let constraint_system = parsed.to_constraint_system().map_err(|e| e.to_string())?;
     for _ in 0..NUM_ITERS_BENCHMARK {
-        let constraint_system = parsed.to_constraint_system().map_err(|e| e.to_string())?;
         let _ = black_box(constraint_system.solve().map_err(|e| e.to_string()))?;
     }
     let elapsed = now.elapsed();

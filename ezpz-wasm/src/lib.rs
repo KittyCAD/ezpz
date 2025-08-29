@@ -86,7 +86,7 @@ pub fn benchmark() -> Vec<f64> {
 
     let mut constraints = constraints0;
     constraints.extend(constraints1);
-    let actual = solve(constraints.clone(), initial_guesses.clone()).unwrap();
+    let actual = solve(&constraints.clone(), initial_guesses.clone()).unwrap();
     actual.final_values
     // vec![]
 }
