@@ -1,6 +1,6 @@
 use kittycad_modeling_cmds::shared::Angle;
 
-use crate::{EPSILON, NonLinearSystemError, datatypes::*, id::Id, solver::Layout};
+use crate::{EPSILON, datatypes::*, id::Id, solver::Layout};
 
 /// Each geometric constraint we support.
 #[derive(Clone, Copy, Debug)]
@@ -22,21 +22,6 @@ pub enum AngleKind {
     Parallel,
     Perpendicular,
     Other(Angle),
-}
-
-/// Given a list of all IDs in the system, find the target ID's index in that list.
-pub fn lookup(target_id: Id, all_ids: &[Id]) -> Result<usize, NonLinearSystemError> {
-    // Right now data is small enough that I suspect linear search
-    // beats binary search.
-    // I think I'm probably supposed to do this in the RowMap type:
-    // <https://docs.rs/newton_faer/latest/newton_faer/trait.RowMap.html>
-    // but it's not very well commented and I don't really understand it.
-    for (i, id) in all_ids.iter().enumerate() {
-        if id == &target_id {
-            return Ok(i);
-        }
-    }
-    Err(NonLinearSystemError::NotFound(target_id))
 }
 
 /// Describes one value in one row of the Jacobian matrix.
@@ -194,9 +179,8 @@ impl Constraint {
     }
 
     /// Used to construct part of a Jacobian matrix.
-    /// Returns rows of the Jacobian, where in each row,
-    /// each column is a variable's partial derivative for this equation.
-    /// One row per equation this constraint corresponds to.
+    /// Writes each row into a `row0` or `row1` mutable output parameter,
+    /// for performance reasons (this way it avoids allocations).
     pub fn jacobian_rows(
         &self,
         layout: &Layout,
@@ -260,7 +244,6 @@ impl Constraint {
 
                 row0.extend(
                     [
-                        // One row with values for both p0.x and p1.x
                         JacobianVar {
                             id: p0_x_id,
                             partial_derivative: dr_dx0,
