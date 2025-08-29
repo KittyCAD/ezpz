@@ -81,15 +81,15 @@ impl std::fmt::Debug for Jc {
 }
 
 /// The problem to actually solve.
-pub struct Model {
+pub struct Model<'c> {
     layout: Layout,
     jc: Jc,
-    constraints: Vec<Constraint>,
+    constraints: &'c [Constraint],
 }
 
-impl Model {
+impl<'c> Model<'c> {
     pub fn new(
-        constraints: Vec<Constraint>,
+        constraints: &'c [Constraint],
         all_variables: Vec<Id>,
     ) -> Result<Self, NonLinearSystemError> {
         /*
@@ -117,7 +117,7 @@ impl Model {
         // Generate the matrix.
         let mut pairs: Vec<Pair<usize, usize>> = Vec::with_capacity(num_cols * num_rows);
         let mut row_num = 0;
-        for constraint in &constraints {
+        for constraint in constraints {
             let rows = constraint.nonzeroes();
             debug_assert_eq!(
                 rows.len(),
@@ -154,7 +154,7 @@ impl Model {
 }
 
 /// Connect the model to newton_faer's solver.
-impl NonlinearSystem for Model {
+impl<'c> NonlinearSystem for Model<'c> {
     /// What number type we're using.
     type Real = f64;
     type Layout = Layout;
@@ -183,7 +183,7 @@ impl NonlinearSystem for Model {
         // Each row of `out` corresponds to one row of the matrix, i.e. one equation.
         // Each item of `current_assignments` corresponds to one column of the matrix, i.e. one variable.
         let mut row_num = 0;
-        for constraint in &self.constraints {
+        for constraint in self.constraints {
             let residuals = constraint.residual(&self.layout, current_assignments)?;
             debug_assert_eq!(
                 residuals.len(),
@@ -205,7 +205,7 @@ impl NonlinearSystem for Model {
     fn refresh_jacobian(&mut self, current_assignments: &[Self::Real]) -> Result<(), Self::Error> {
         let mut entries = Vec::new();
         let mut row_num = 0;
-        for constraint in &self.constraints {
+        for constraint in self.constraints {
             let jacobian_rows = constraint.jacobian_rows(&self.layout, current_assignments)?;
             debug_assert_eq!(
                 jacobian_rows.len(),

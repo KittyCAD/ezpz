@@ -146,6 +146,7 @@ impl Problem {
     }
 }
 
+#[derive(Clone)]
 pub struct ConstraintSystem<'a> {
     constraints: Vec<Constraint>,
     initial_guesses: Vec<(Id, f64)>,
@@ -153,7 +154,7 @@ pub struct ConstraintSystem<'a> {
 }
 
 impl ConstraintSystem<'_> {
-    pub fn solve(self) -> Result<Outcome, crate::Error> {
+    pub fn solve(&self) -> Result<Outcome, crate::Error> {
         let num_vars = self.initial_guesses.len();
         let num_eqs = self.constraints.iter().map(|c| c.residual_dim()).sum();
         // Pass into the solver.
@@ -161,7 +162,7 @@ impl ConstraintSystem<'_> {
             iterations,
             lints,
             final_values,
-        } = crate::solve(self.constraints, self.initial_guesses)?;
+        } = crate::solve(&self.constraints, self.initial_guesses.to_owned())?;
         let num_points = final_values.len();
 
         let mut final_points = IndexMap::with_capacity(num_points);
