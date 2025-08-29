@@ -115,7 +115,8 @@ impl Constraint {
         &self,
         layout: &Layout,
         current_assignments: &[f64],
-    ) -> Result<Vec<f64>, NonLinearSystemError> {
+        output: &mut Vec<f64>,
+    ) -> Result<(), NonLinearSystemError> {
         match self {
             Constraint::Distance(p0, p1, expected_distance) => {
                 let p0_x = current_assignments[layout.index_of(p0.id_x())?];
@@ -123,21 +124,25 @@ impl Constraint {
                 let p1_x = current_assignments[layout.index_of(p1.id_x())?];
                 let p1_y = current_assignments[layout.index_of(p1.id_y())?];
                 let actual_distance = euclidean_distance((p0_x, p0_y), (p1_x, p1_y));
-                Ok(vec![actual_distance - expected_distance])
+                output.push(actual_distance - expected_distance);
+                Ok(())
             }
             Constraint::Vertical(line) => {
                 let p0_x = current_assignments[layout.index_of(line.p0.id_x())?];
                 let p1_x = current_assignments[layout.index_of(line.p1.id_x())?];
-                Ok(vec![p0_x - p1_x])
+                output.push(p0_x - p1_x);
+                Ok(())
             }
             Constraint::Horizontal(line) => {
                 let p0_y = current_assignments[layout.index_of(line.p0.id_y())?];
                 let p1_y = current_assignments[layout.index_of(line.p1.id_y())?];
-                Ok(vec![p0_y - p1_y])
+                output.push(p0_y - p1_y);
+                Ok(())
             }
             Constraint::Fixed(id, expected) => {
                 let actual = current_assignments[layout.index_of(*id)?];
-                Ok(vec![actual - expected])
+                output.push(actual - expected);
+                Ok(())
             }
             Constraint::LinesAtAngle(line0, line1, expected_angle) => {
                 // Get direction vectors for both lines.
@@ -157,12 +162,13 @@ impl Constraint {
 
                 match expected_angle {
                     AngleKind::Parallel => {
-                        // return nb.np.array([v1[0] * v2[1] - v1[1] * v2[0]])
-                        Ok(vec![v0.0 * v1.1 - v0.1 * v1.0])
+                        output.push(v0.0 * v1.1 - v0.1 * v1.0);
+                        Ok(())
                     }
                     AngleKind::Perpendicular => {
                         let dot = v0.0 * v1.0 + v0.1 * v1.1;
-                        Ok(vec![dot])
+                        output.push(dot);
+                        Ok(())
                     }
                     AngleKind::Other(expected_angle) => {
                         // Calculate magnitudes.
@@ -172,7 +178,8 @@ impl Constraint {
                         // Check for zero-length lines.
                         let is_invalid = (mag0 < EPSILON) || (mag1 < EPSILON);
                         if is_invalid {
-                            return Ok(vec![0.0]);
+                            output.push(0.0);
+                            return Ok(());
                         }
 
                         // 2D cross product and dot product.
@@ -184,7 +191,8 @@ impl Constraint {
 
                         // Compute angle difference.
                         let angle_residual = current_angle_radians - expected_angle.to_radians();
-                        Ok(vec![angle_residual])
+                        output.push(angle_residual);
+                        Ok(())
                     }
                 }
             }
