@@ -1625,7 +1625,8 @@ dependencies = [
 [[package]]
 name = "newton_faer"
 version = "0.1.2"
-source = "git+https://github.com/adamchalmers/newton-faer?branch=achalmers%2Ffallible#7dfa5e5bea49e73f68578ffd0baf3a18b26d6350"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dbcf64395235c636ee5ecbdcea5c831351dffceb703534770dba6e50877807fe"
 dependencies = [
  "dyn-stack 0.13.0",
  "error-stack",

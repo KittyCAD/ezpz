@@ -105,50 +105,41 @@ impl Constraint {
     }
 
     /// How close is this constraint to being satisfied?
-    pub fn residual(
-        &self,
-        layout: &Layout,
-        current_assignments: &[f64],
-        output: &mut Vec<f64>,
-    ) -> Result<(), NonLinearSystemError> {
+    pub fn residual(&self, layout: &Layout, current_assignments: &[f64], output: &mut Vec<f64>) {
         match self {
             Constraint::Distance(p0, p1, expected_distance) => {
-                let p0_x = current_assignments[layout.index_of(p0.id_x())?];
-                let p0_y = current_assignments[layout.index_of(p0.id_y())?];
-                let p1_x = current_assignments[layout.index_of(p1.id_x())?];
-                let p1_y = current_assignments[layout.index_of(p1.id_y())?];
+                let p0_x = current_assignments[layout.index_of(p0.id_x())];
+                let p0_y = current_assignments[layout.index_of(p0.id_y())];
+                let p1_x = current_assignments[layout.index_of(p1.id_x())];
+                let p1_y = current_assignments[layout.index_of(p1.id_y())];
                 let actual_distance = euclidean_distance((p0_x, p0_y), (p1_x, p1_y));
                 output.push(actual_distance - expected_distance);
-                Ok(())
             }
             Constraint::Vertical(line) => {
-                let p0_x = current_assignments[layout.index_of(line.p0.id_x())?];
-                let p1_x = current_assignments[layout.index_of(line.p1.id_x())?];
+                let p0_x = current_assignments[layout.index_of(line.p0.id_x())];
+                let p1_x = current_assignments[layout.index_of(line.p1.id_x())];
                 output.push(p0_x - p1_x);
-                Ok(())
             }
             Constraint::Horizontal(line) => {
-                let p0_y = current_assignments[layout.index_of(line.p0.id_y())?];
-                let p1_y = current_assignments[layout.index_of(line.p1.id_y())?];
+                let p0_y = current_assignments[layout.index_of(line.p0.id_y())];
+                let p1_y = current_assignments[layout.index_of(line.p1.id_y())];
                 output.push(p0_y - p1_y);
-                Ok(())
             }
             Constraint::Fixed(id, expected) => {
-                let actual = current_assignments[layout.index_of(*id)?];
+                let actual = current_assignments[layout.index_of(*id)];
                 output.push(actual - expected);
-                Ok(())
             }
             Constraint::LinesAtAngle(line0, line1, expected_angle) => {
                 // Get direction vectors for both lines.
-                let p0_x_l0 = current_assignments[layout.index_of(line0.p0.id_x())?];
-                let p0_y_l0 = current_assignments[layout.index_of(line0.p0.id_y())?];
-                let p1_x_l0 = current_assignments[layout.index_of(line0.p1.id_x())?];
-                let p1_y_l0 = current_assignments[layout.index_of(line0.p1.id_y())?];
+                let p0_x_l0 = current_assignments[layout.index_of(line0.p0.id_x())];
+                let p0_y_l0 = current_assignments[layout.index_of(line0.p0.id_y())];
+                let p1_x_l0 = current_assignments[layout.index_of(line0.p1.id_x())];
+                let p1_y_l0 = current_assignments[layout.index_of(line0.p1.id_y())];
                 let l0 = ((p0_x_l0, p0_y_l0), (p1_x_l0, p1_y_l0));
-                let p0_x_l1 = current_assignments[layout.index_of(line1.p0.id_x())?];
-                let p0_y_l1 = current_assignments[layout.index_of(line1.p0.id_y())?];
-                let p1_x_l1 = current_assignments[layout.index_of(line1.p1.id_x())?];
-                let p1_y_l1 = current_assignments[layout.index_of(line1.p1.id_y())?];
+                let p0_x_l1 = current_assignments[layout.index_of(line1.p0.id_x())];
+                let p0_y_l1 = current_assignments[layout.index_of(line1.p0.id_y())];
+                let p1_x_l1 = current_assignments[layout.index_of(line1.p1.id_x())];
+                let p1_y_l1 = current_assignments[layout.index_of(line1.p1.id_y())];
                 let l1 = ((p0_x_l1, p0_y_l1), (p1_x_l1, p1_y_l1));
 
                 let v0 = (p1_x_l0 - p0_x_l0, p1_y_l0 - p0_y_l0);
@@ -157,12 +148,10 @@ impl Constraint {
                 match expected_angle {
                     AngleKind::Parallel => {
                         output.push(v0.0 * v1.1 - v0.1 * v1.0);
-                        Ok(())
                     }
                     AngleKind::Perpendicular => {
                         let dot = v0.0 * v1.0 + v0.1 * v1.1;
                         output.push(dot);
-                        Ok(())
                     }
                     AngleKind::Other(expected_angle) => {
                         // Calculate magnitudes.
@@ -173,7 +162,7 @@ impl Constraint {
                         let is_invalid = (mag0 < EPSILON) || (mag1 < EPSILON);
                         if is_invalid {
                             output.push(0.0);
-                            return Ok(());
+                            return;
                         }
 
                         // 2D cross product and dot product.
@@ -186,7 +175,6 @@ impl Constraint {
                         // Compute angle difference.
                         let angle_residual = current_angle_radians - expected_angle.to_radians();
                         output.push(angle_residual);
-                        Ok(())
                     }
                 }
             }
@@ -214,7 +202,7 @@ impl Constraint {
         layout: &Layout,
         current_assignments: &[f64],
         row0: &mut Vec<JacobianVar>,
-    ) -> Result<(), NonLinearSystemError> {
+    ) {
         match self {
             Constraint::Distance(p0, p1, _expected_distance) => {
                 // Residual: R = sqrt((x1-x2)**2 + (y1-y2)**2) - d
@@ -224,16 +212,14 @@ impl Constraint {
                 // ∂R/∂y1 = (-y0 + y1)/ sqrt((x0 - x1)**2 + (y0 - y1)**2)
 
                 // Derivatives wrt p0 and p2's X/Y coordinates.
-                let x0 = current_assignments[layout.index_of(p0.id_x())?];
-                let y0 = current_assignments[layout.index_of(p0.id_y())?];
-                let x1 = current_assignments[layout.index_of(p1.id_x())?];
-                let y1 = current_assignments[layout.index_of(p1.id_y())?];
-
-                // TODO: Handle zero-length vecs gracefully.
+                let x0 = current_assignments[layout.index_of(p0.id_x())];
+                let y0 = current_assignments[layout.index_of(p0.id_y())];
+                let x1 = current_assignments[layout.index_of(p1.id_x())];
+                let y1 = current_assignments[layout.index_of(p1.id_y())];
 
                 let dist = euclidean_distance((x0, y0), (x1, y1));
                 if dist < EPSILON {
-                    return Ok(());
+                    return;
                 }
                 let dr_dx0 = (x0 - x1) / dist;
                 let dr_dy0 = (y0 - y1) / dist;
@@ -261,7 +247,6 @@ impl Constraint {
                     ]
                     .as_slice(),
                 );
-                Ok(())
             }
             Constraint::Vertical(line) => {
                 // Residual: R = x0 - x1
@@ -287,7 +272,6 @@ impl Constraint {
                     ]
                     .as_slice(),
                 );
-                Ok(())
             }
             Constraint::Horizontal(line) => {
                 // Residual: R = y1 - y2
@@ -312,7 +296,6 @@ impl Constraint {
                     ]
                     .as_slice(),
                 );
-                Ok(())
             }
             Constraint::Fixed(id, _expected) => {
                 row0.extend(
@@ -322,7 +305,6 @@ impl Constraint {
                     }]
                     .as_slice(),
                 );
-                Ok(())
             }
             Constraint::LinesAtAngle(line0, line1, expected_angle) => {
                 // Residual: R = atan2(v1×v2, v1·v2) - α
@@ -335,15 +317,15 @@ impl Constraint {
                 // ∂R/∂x4 = (y3 - y4)/(x3**2 - 2*x3*x4 + x4**2 + y3**2 - 2*y3*y4 + y4**2)
                 // ∂R/∂y4 = (-x3 + x4)/(x3**2 - 2*x3*x4 + x4**2 + y3**2 - 2*y3*y4 + y4**2)
 
-                let x0 = current_assignments[layout.index_of(line0.p0.id_x())?];
-                let y0 = current_assignments[layout.index_of(line0.p0.id_y())?];
-                let x1 = current_assignments[layout.index_of(line0.p1.id_x())?];
-                let y1 = current_assignments[layout.index_of(line0.p1.id_y())?];
+                let x0 = current_assignments[layout.index_of(line0.p0.id_x())];
+                let y0 = current_assignments[layout.index_of(line0.p0.id_y())];
+                let x1 = current_assignments[layout.index_of(line0.p1.id_x())];
+                let y1 = current_assignments[layout.index_of(line0.p1.id_y())];
                 let l0 = ((x0, y0), (x1, y1));
-                let x2 = current_assignments[layout.index_of(line1.p0.id_x())?];
-                let y2 = current_assignments[layout.index_of(line1.p0.id_y())?];
-                let x3 = current_assignments[layout.index_of(line1.p1.id_x())?];
-                let y3 = current_assignments[layout.index_of(line1.p1.id_y())?];
+                let x2 = current_assignments[layout.index_of(line1.p0.id_x())];
+                let y2 = current_assignments[layout.index_of(line1.p0.id_y())];
+                let x3 = current_assignments[layout.index_of(line1.p1.id_x())];
+                let y3 = current_assignments[layout.index_of(line1.p1.id_y())];
                 let l1 = ((x2, y2), (x3, y3));
 
                 // Calculate partial derivatives
@@ -380,7 +362,7 @@ impl Constraint {
                         let is_invalid = (mag0 < EPSILON) || (mag1 < EPSILON);
                         if is_invalid {
                             // All zeroes
-                            return Ok(());
+                            return;
                         }
 
                         // Calculate derivatives.
@@ -440,7 +422,6 @@ impl Constraint {
                     },
                 ];
                 row0.extend(jvars.as_slice());
-                Ok(())
             }
         }
     }
