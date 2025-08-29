@@ -71,30 +71,24 @@ impl IntoIterator for JacobianRow {
 
 impl Constraint {
     /// For each row of the Jacobian matrix, which variables are involved in them?
-    pub fn nonzeroes(&self) -> Vec<Vec<Id>> {
+    pub fn nonzeroes(&self, row0: &mut Vec<Id>) {
         match self {
             Constraint::Distance(p0, p1, _dist) => {
-                vec![vec![p0.id_x(), p0.id_y(), p1.id_x(), p1.id_y()]]
+                row0.extend([p0.id_x(), p0.id_y(), p1.id_x(), p1.id_y()])
             }
-            Constraint::Vertical(line) => {
-                vec![vec![line.p0.id_x(), line.p1.id_x()]]
-            }
-            Constraint::Horizontal(line) => {
-                vec![vec![line.p0.id_y(), line.p1.id_y()]]
-            }
-            Constraint::LinesAtAngle(line0, line1, _angle) => {
-                vec![vec![
-                    line0.p0.id_x(),
-                    line0.p0.id_y(),
-                    line0.p1.id_x(),
-                    line0.p1.id_y(),
-                    line1.p0.id_x(),
-                    line1.p0.id_y(),
-                    line1.p1.id_x(),
-                    line1.p1.id_y(),
-                ]]
-            }
-            Constraint::Fixed(id, _scalar) => vec![vec![*id]],
+            Constraint::Vertical(line) => row0.extend([line.p0.id_x(), line.p1.id_x()]),
+            Constraint::Horizontal(line) => row0.extend([line.p0.id_y(), line.p1.id_y()]),
+            Constraint::LinesAtAngle(line0, line1, _angle) => row0.extend([
+                line0.p0.id_x(),
+                line0.p0.id_y(),
+                line0.p1.id_x(),
+                line0.p1.id_y(),
+                line1.p0.id_x(),
+                line1.p0.id_y(),
+                line1.p1.id_x(),
+                line1.p1.id_y(),
+            ]),
+            Constraint::Fixed(id, _scalar) => row0.push(*id),
         }
     }
 

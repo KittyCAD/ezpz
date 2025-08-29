@@ -117,22 +117,23 @@ impl<'c> Model<'c> {
         // Generate the matrix.
         let mut pairs: Vec<Pair<usize, usize>> = Vec::with_capacity(num_cols * num_rows);
         let mut row_num = 0;
+        let mut nonzeroes_scratch = Vec::with_capacity(4);
         for constraint in constraints {
-            let rows = constraint.nonzeroes();
+            nonzeroes_scratch.clear();
+            let () = constraint.nonzeroes(&mut nonzeroes_scratch);
             debug_assert_eq!(
-                rows.len(),
                 constraint.residual_dim(),
-                "Constraint {} should have {} rows but actually had {}",
+                1,
+                "Constraint {} has {} rows but we only passed scratch room for 1, pls update this code",
                 constraint.constraint_kind(),
                 constraint.residual_dim(),
-                rows.len(),
             );
 
-            for row in rows {
+            for row in [&nonzeroes_scratch] {
                 let this_row = row_num;
                 row_num += 1;
                 for var in row {
-                    let col = layout.index_of(var)?;
+                    let col = layout.index_of(*var)?;
                     pairs.push(Pair { row: this_row, col });
                 }
             }
