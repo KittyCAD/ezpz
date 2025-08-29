@@ -205,15 +205,18 @@ impl<'c> NonlinearSystem for Model<'c> {
     fn refresh_jacobian(&mut self, current_assignments: &[Self::Real]) -> Result<(), Self::Error> {
         let mut entries = Vec::new();
         let mut row_num = 0;
+        let mut row0_scratch = Vec::with_capacity(self.layout.num_cols());
         for constraint in self.constraints {
-            let jacobian_rows = constraint.jacobian_rows(&self.layout, current_assignments)?;
+            row0_scratch.clear();
+            let () =
+                constraint.jacobian_rows(&self.layout, current_assignments, &mut row0_scratch)?;
+            let jacobian_rows = [&row0_scratch];
             debug_assert_eq!(
-                jacobian_rows.len(),
+                1,
                 constraint.residual_dim(),
-                "Constraint {} should have {} Jacobian rows but actually had {}",
+                "Constraint {} should have 1 Jacobian rows but actually had {}, update the code to pass more scratch rows.",
                 constraint.constraint_kind(),
                 constraint.residual_dim(),
-                jacobian_rows.len(),
             );
 
             for jacobian_row in jacobian_rows {
