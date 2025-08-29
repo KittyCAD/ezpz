@@ -1,7 +1,7 @@
 use faer::sparse::{Pair, SymbolicSparseColMat, Triplet};
 use newton_faer::{JacobianCache, NonlinearSystem, RowMap};
 
-use crate::{Constraint, NonLinearSystemError, constraints::lookup, id::Id};
+use crate::{Constraint, NonLinearSystemError, id::Id};
 
 pub struct Layout {
     /// Equivalent to number of rows in the matrix being solved.
@@ -23,7 +23,8 @@ impl RowMap for Layout {
     // `bus` is the row index and `var` is the variable being looked up,
     // and you get the index (column) of the variable in that row.
     fn row(&self, _row_number: usize, var: Self::Var) -> Option<usize> {
-        lookup(var, &self.all_variables).ok()
+        // In our system, variables are the same in every row.
+        Some(var as usize)
     }
 }
 
