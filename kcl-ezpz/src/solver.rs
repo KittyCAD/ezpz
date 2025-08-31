@@ -3,6 +3,10 @@ use newton_faer::{JacobianCache, NonlinearSystem, RowMap};
 
 use crate::{Constraint, NonLinearSystemError, id::Id};
 
+// Roughly. Most constraints will only involve roughly 4 variables.
+// May as well round up to the nearest power of 2.
+const NONZEROES_PER_ROW: usize = 8;
+
 pub struct Layout {
     /// Equivalent to number of rows in the matrix being solved.
     total_num_residuals: usize,
@@ -46,7 +50,12 @@ impl Layout {
 /// Stores the Jacobian so we don't constantly reallocate it.
 /// Required by newton_faer.
 struct Jc {
+    /// The symbolic structure of the matrix (i.e. which cells are non-zero).
+    /// This way the matrix's structure is only allocated once, and reused
+    /// between different Jacobian calculations.
     sym: SymbolicSparseColMat<usize>,
+    /// The values which belong in that symbolic matrix, sorted in column-major order.
+    /// Must be column-major because faer expects that.
     vals: Vec<f64>,
 }
 
@@ -57,27 +66,14 @@ impl JacobianCache<f64> for Jc {
         &self.sym
     }
 
+    /// Lets newton-faer read the current values.
     fn values(&self) -> &[f64] {
         &self.vals
     }
 
-    /// Exposes a mutable values slice each iteration
+    /// Lets newton-faer overwrite the previous values.
     fn values_mut(&mut self) -> &mut [f64] {
         &mut self.vals
-    }
-}
-
-impl std::fmt::Debug for Jc {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let ncols = self.sym.ncols();
-        let nrows = self.sym.nrows();
-        for y in 0..nrows {
-            for x in 0..ncols {
-                write!(f, "{:3} ", self.vals[ncols * y + x])?;
-            }
-            writeln!(f)?;
-        }
-        Ok(())
     }
 }
 
@@ -100,10 +96,13 @@ impl<'c> Model<'c> {
         Each residual function yields a derivative f'.
         The overall Jacobian is a matrix where
             each row is one of the residual functions.
-            each column in a row represents the partial derivative of a given variable in that equation
+            each column is a variable
+            each cell represents the partial derivative of that column's variable,
+            in that row's equation.
         Thus the Jacobian has
             num_rows = number of residual functions,
-                       which is >= number of constraints (as each constraint yields 1 or more residual functions)
+                       which is >= number of constraints
+                       (as each constraint yields 1 or more residual functions)
             num_cols = total number of variables
                        which is = total number of "involved primitive IDs"
         */
@@ -115,10 +114,12 @@ impl<'c> Model<'c> {
             all_variables,
         };
 
-        // Generate the matrix.
-        let mut pairs: Vec<Pair<usize, usize>> = Vec::with_capacity(num_cols * num_rows);
+        // Generate the Jacobian matrix.
+        // `pairs` tracks all the cells which might be nonzero.
+        let mut nonzero_cells: Vec<Pair<usize, usize>> =
+            Vec::with_capacity(NONZEROES_PER_ROW * num_rows);
         let mut row_num = 0;
-        let mut nonzeroes_scratch = Vec::with_capacity(4);
+        let mut nonzeroes_scratch = Vec::with_capacity(NONZEROES_PER_ROW);
         for constraint in constraints {
             nonzeroes_scratch.clear();
             constraint.nonzeroes(&mut nonzeroes_scratch);
@@ -130,18 +131,21 @@ impl<'c> Model<'c> {
                 constraint.residual_dim(),
             );
 
-            for row in [&nonzeroes_scratch] {
+            // Right now, all constraints have a single row,
+            // but we know that soon we'll add constraints with more.
+            let rows = [&nonzeroes_scratch];
+            for row in rows {
                 let this_row = row_num;
                 row_num += 1;
                 for var in row {
                     let col = layout.index_of(*var);
-                    pairs.push(Pair { row: this_row, col });
+                    nonzero_cells.push(Pair { row: this_row, col });
                 }
             }
         }
         let (sym, _) =
-            SymbolicSparseColMat::try_new_from_indices(num_rows, num_cols, &pairs).unwrap();
-        let num_cells = pairs.len();
+            SymbolicSparseColMat::try_new_from_indices(num_rows, num_cols, &nonzero_cells).unwrap();
+        let num_cells = nonzero_cells.len();
 
         // All done.
         Ok(Self {
@@ -201,9 +205,13 @@ impl<'c> NonlinearSystem for Model<'c> {
 
     /// Update the values of a cached sparse Jacobian.
     fn refresh_jacobian(&mut self, current_assignments: &[Self::Real]) {
-        let mut entries = Vec::new();
+        let mut jacobian_values = Vec::with_capacity(self.jc.vals.len());
         let mut row_num = 0;
-        let mut row0_scratch = Vec::with_capacity(self.layout.num_cols());
+        // Allocate some scratch space for the Jacobian calculations, so that we can
+        // do one allocation here and then won't need any allocations per-row or per-column.
+        let mut row0_scratch = Vec::with_capacity(NONZEROES_PER_ROW);
+
+        // Note: this is iterating in row-major order.
         for constraint in self.constraints {
             row0_scratch.clear();
             constraint.jacobian_rows(&self.layout, current_assignments, &mut row0_scratch);
@@ -221,7 +229,7 @@ impl<'c> NonlinearSystem for Model<'c> {
                 row_num += 1;
                 for jacobian_var in jacobian_row {
                     let col = self.layout.index_of(jacobian_var.id);
-                    entries.push(Triplet {
+                    jacobian_values.push(Triplet {
                         row,
                         col,
                         val: jacobian_var.partial_derivative,
@@ -229,11 +237,23 @@ impl<'c> NonlinearSystem for Model<'c> {
                 }
             }
         }
-        debug_assert_eq!(entries.len(), self.jc.vals.len());
-        entries.sort_by(|a, b| a.col.cmp(&b.col).then(a.row.cmp(&b.row)));
-        let values_mut = self.jc.values_mut();
-        for (i, val) in entries.into_iter().map(|triplet| triplet.val).enumerate() {
-            values_mut[i] = val;
-        }
+        debug_assert_eq!(jacobian_values.len(), self.jc.vals.len());
+
+        // Because this was written to in row-major order, sort it into column-major order,
+        // as that's what faer needs.
+        jacobian_values.sort_by(column_major);
+        self.jc.vals.clear();
+        self.jc
+            .vals
+            .extend(jacobian_values.into_iter().map(|triplet| triplet.val));
     }
+}
+
+/// Sort by columns, then by rows.
+#[inline(always)]
+fn column_major<T>(
+    a: &Triplet<usize, usize, T>,
+    b: &Triplet<usize, usize, T>,
+) -> std::cmp::Ordering {
+    a.col.cmp(&b.col).then(a.row.cmp(&b.row))
 }
