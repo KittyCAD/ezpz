@@ -1,6 +1,6 @@
 clippy-flags := "--workspace --tests --benches --examples"
 
-check-most:
+@check-most:
     just lint
     just check-wasm
     just check-typos
@@ -33,7 +33,8 @@ flamegraph:
     cargo flamegraph -p --root --bench solver_bench
 
 bench:
-    cargo criterion -p --bench solver_bench
+    cargo criterion -p kcl-ezpz --bench solver_bench
+    git restore test_cases/massive_parallel_system/problem.txt
 
 fmt-check:
     cargo fmt --check
