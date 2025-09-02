@@ -14,7 +14,7 @@ fn simple() {
 
 #[test]
 fn rectangle() {
-    let mut txt = include_str!("../../test_cases/rectangle/problem.txt");
+    let mut txt = include_str!("../../test_cases/two_rectangles/problem.txt");
     let problem = Problem::parse(&mut txt).unwrap();
     let solved = problem.to_constraint_system().unwrap().solve().unwrap();
     // This forms two rectangles.

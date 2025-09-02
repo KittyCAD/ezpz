@@ -9,39 +9,54 @@ use kcl_ezpz::{
 };
 use newton_faer::init_global_parallelism;
 
-fn solve_easy(c: &mut Criterion) {
-    init_global_parallelism(1);
-    let mut id_generator = IdGenerator::default();
-    let p = DatumPoint::new(&mut id_generator);
-    let q = DatumPoint::new(&mut id_generator);
-    let initial_guesses = vec![
-        // px and py
-        (p.id_x(), 0.0),
-        (p.id_y(), 0.0),
-        // qx and qy
-        (q.id_x(), 0.01),
-        (q.id_y(), 9.0),
-    ];
-    let line = LineSegment { p0: p, p1: q };
-    let constraints = vec![
-        Constraint::Vertical(line),
-        Constraint::Fixed(p.id_x(), 0.0),
-        Constraint::Fixed(p.id_y(), 0.0),
-        Constraint::Fixed(q.id_y(), 9.0),
-    ];
-
-    c.bench_function("solve easy", |b| {
+fn solve_tiny(c: &mut Criterion) {
+    let txt = std::fs::read_to_string("test_cases/tiny/problem.txt").unwrap();
+    c.bench_function("solve_tiny", |b| {
+        let problem = Problem::parse(&mut txt.as_str()).unwrap();
+        let constraints = problem.to_constraint_system().unwrap();
         b.iter(|| {
-            let _actual = black_box(solve(&constraints.clone(), initial_guesses.clone()).unwrap());
-        })
+            let _actual = black_box(constraints.solve().unwrap());
+        });
     });
 }
 
 fn solve_two_rectangles(c: &mut Criterion) {
     let txt = std::fs::read_to_string("test_cases/two_rectangles/problem.txt").unwrap();
     c.bench_function("solve_two_rectangles", |b| {
-        let mut t = txt.as_str();
-        let problem = Problem::parse(&mut t).unwrap();
+        let problem = Problem::parse(&mut txt.as_str()).unwrap();
+        let constraints = problem.to_constraint_system().unwrap();
+        b.iter(|| {
+            let _actual = black_box(constraints.solve().unwrap());
+        });
+    });
+}
+
+fn solve_angle_parallel(c: &mut Criterion) {
+    let txt = std::fs::read_to_string("test_cases/angle_parallel/problem.txt").unwrap();
+    c.bench_function("solve_angle_parallel", |b| {
+        let problem = Problem::parse(&mut txt.as_str()).unwrap();
+        let constraints = problem.to_constraint_system().unwrap();
+        b.iter(|| {
+            let _actual = black_box(constraints.solve().unwrap());
+        });
+    });
+}
+
+fn solve_nonsquare(c: &mut Criterion) {
+    let txt = std::fs::read_to_string("test_cases/nonsquare/problem.txt").unwrap();
+    c.bench_function("solve_nonsquare", |b| {
+        let problem = Problem::parse(&mut txt.as_str()).unwrap();
+        let constraints = problem.to_constraint_system().unwrap();
+        b.iter(|| {
+            let _actual = black_box(constraints.solve().unwrap());
+        });
+    });
+}
+
+fn solve_perpendicular(c: &mut Criterion) {
+    let txt = std::fs::read_to_string("test_cases/perpendicular/problem.txt").unwrap();
+    c.bench_function("solve_perpendicular", |b| {
+        let problem = Problem::parse(&mut txt.as_str()).unwrap();
         let constraints = problem.to_constraint_system().unwrap();
         b.iter(|| {
             let _actual = black_box(constraints.solve().unwrap());
@@ -149,9 +164,12 @@ fn solve_massive(c: &mut Criterion) {
 
 criterion_group!(
     benches,
-    solve_easy,
+    solve_tiny,
+    solve_nonsquare,
     solve_two_rectangles,
     solve_two_rectangles_dependent,
+    solve_angle_parallel,
+    solve_perpendicular,
     solve_massive,
 );
 criterion_main!(benches);
