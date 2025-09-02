@@ -12,7 +12,7 @@ getrandom = { version = "0.2.16", features = ["js"] }
 indexmap = "2.11.0"
 kittycad-modeling-cmds = "0.2.131"
 libm = "0.2.15"
-newton_faer = "0.1.2"
+newton_faer = { git = "https://github.com/KittyCAD/newtonls-faer", branch = "main" }
 thiserror = "2.0.14"
 winnow = { version = "0.7.13" }
 

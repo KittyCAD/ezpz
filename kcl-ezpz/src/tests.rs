@@ -55,6 +55,15 @@ fn perpendiculars() {
     assert_points_eq(solved.get_point("p3").unwrap(), Point { x: 4.0, y: 0.0 });
 }
 
+#[test]
+fn nonsquare() {
+    let mut txt = include_str!("../../test_cases/nonsquare/problem.txt");
+    let problem = Problem::parse(&mut txt).unwrap();
+    let solved = problem.to_constraint_system().unwrap().solve().unwrap();
+    assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 0.0 });
+    assert_points_eq(solved.get_point("q").unwrap(), Point { x: 0.0, y: 0.0 });
+}
+
 #[track_caller]
 fn assert_points_eq(l: Point, r: Point) {
     let dist = l.euclidean_distance(r);
