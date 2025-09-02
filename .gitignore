@@ -3,3 +3,4 @@ node_modules
 package.json
 package-lock.json
 flamegraph.svg
+lcov.info
