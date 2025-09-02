@@ -1,0 +1,34 @@
+[package]
+name = "newton_faer"
+version = "0.1.2"
+edition = "2024"
+authors = ["Alessandro Latif <alelat19@gmail.com>"]
+license = "MIT"
+description = "Newton's method for solving systems of nonlinear equations using the Faer library."
+repository = "https://github.com/alexlatif/newton-faer"
+homepage = "https://github.com/alexlatif/newton-faer"
+documentation = "https://docs.rs/newton-faer"
+keywords = ["nonlinear", "optimization", "algebra", "linear", "newton"]
+readme = "./README.md"
+include = ["src/**/*", "Cargo.toml", "README.md", "LICENSE"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+doctest = false
+
+[lib]
+name = "newton_faer"
+path = "src/lib.rs"
+
+[dependencies]
+dyn-stack = "0.13.0"
+error-stack   = "0.5.0"
+faer          = { version = "0.22.6", features = ["rayon", "std"] }
+faer-sparse   = "0.17.1"
+faer-traits = "0.22.1"
+num-complex = "0.4.6"
+num-traits = "0.2.19"
+rayon         = "1"
+serde         = { version = "1", features = ["derive"] }
+serde_json    = "1"
