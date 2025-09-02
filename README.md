@@ -12,6 +12,10 @@ This project has 3 Rust crates:
   - Users probably won't need to use this library yourself, it's really intended as a sample application for the maintainers to test with.
   - Users should probably integrate `kcl-ezpz` into your web projects directly.
 
+## Development
+
+New developers should read [CONTRIBUTING.md](https://github.com/KittyCAD/ezpz/blob/main/CONTRIBUTING.md)
+
 ## Using the CLI
 
 The CLI lets you pass a constraint problem file (described below) and analyze it, solve it, visualize the solution and benchmark how long it took.
