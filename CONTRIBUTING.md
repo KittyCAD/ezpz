@@ -13,3 +13,5 @@ Before opening PRs, please run `just bench` on `main`, then again on your branch
 If you see there's a slowdown, run `just flamegraph` and open the resulting `flamegraph.svg` to see where the program is spending its time.
 
 You should also run `cargo llvm-cov nextest --open` to make sure your changes are tested properly. Ideally new PRs wouldn't lower the test coverage.
+
+So far, both benchmarks and tests read a text file with constraint system (e.g. [`test_cases/tiny/problem.txt`](https://github.com/KittyCAD/ezpz/blob/main/test_cases/tiny/problem.txt)). Then they run that constraint system and either check its outputs (tests) or note its performance (benchmarks). If you want to add a new one, make a new directory under `test_cases/YOUR_TEST/problem.txt` and then update either [tests.rs](https://github.com/KittyCAD/ezpz/blob/main/kcl-ezpz/src/tests.rs) or [solver_bench.rs](https://github.com/KittyCAD/ezpz/blob/main/kcl-ezpz/benches/solver_bench.rs). Just copy how other tests/benches work.
