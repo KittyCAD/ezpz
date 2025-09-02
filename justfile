@@ -1,4 +1,5 @@
 clippy-flags := "--workspace --tests --benches --examples"
+gen := "test_cases/massive_parallel_system/gen_big_problem.py"
 
 @check-most:
     just lint
@@ -42,4 +43,7 @@ fmt-check:
     typos
 
 @regen-massive-test extra_lines:
-    python3 test_cases/massive_parallel_system/gen_big_problem.py {{extra_lines}} > test_cases/massive_parallel_system/problem.txt
+    python3 {{gen}} {{extra_lines}} > test_cases/massive_parallel_system/problem.txt
+
+@regen-massive-test-overconstrained extra_lines:
+    python3 {{gen}} {{extra_lines}} true > test_cases/massive_parallel_system/problem.txt

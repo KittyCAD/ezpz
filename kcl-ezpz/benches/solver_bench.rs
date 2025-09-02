@@ -136,13 +136,35 @@ fn solve_two_rectangles_dependent(c: &mut Criterion) {
 }
 
 fn solve_massive(c: &mut Criterion) {
-    let mut group = c.benchmark_group("massively_parallel");
-    for num_lines in [1, 50, 100, 150, 200].iter() {
+    run_massive(c, false)
+}
+
+fn solve_massive_overconstrained(c: &mut Criterion) {
+    run_massive(c, true)
+}
+
+fn run_massive(c: &mut Criterion, overconstrained: bool) {
+    let mut group = c.benchmark_group(format!(
+        "massively_parallel{}",
+        if overconstrained {
+            "_overconstrained"
+        } else {
+            ""
+        }
+    ));
+    for num_lines in [50, 150].iter() {
         // Each line has 2 points, each point has two variables (x and y)
         // So each line is 4 variables, and that is the relevant throughput metric.
         let size = num_lines * 4;
         std::process::Command::new("just")
-            .args(["regen-massive-test", &size.to_string()])
+            .args([
+                if overconstrained {
+                    "regen-massive-test-overconstrained"
+                } else {
+                    "regen-massive-test"
+                },
+                &size.to_string(),
+            ])
             .spawn()
             .unwrap()
             .wait()
@@ -171,5 +193,6 @@ criterion_group!(
     solve_angle_parallel,
     solve_perpendicular,
     solve_massive,
+    solve_massive_overconstrained,
 );
 criterion_main!(benches);

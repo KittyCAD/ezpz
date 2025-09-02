@@ -1,7 +1,16 @@
 # Generates a big EZPZ problem.
 import sys
 
+
+def get_overconstrain():
+    try:
+        return sys.argv[2] == "true"
+    except IndexError:
+        return False
+
+
 total_lines = int(sys.argv[1])
+overconstrain = get_overconstrain()
 
 print("# constraints")
 for line in range(total_lines):
@@ -13,6 +22,8 @@ for line in range(total_lines):
     print(f"p{a}.x={line}")
     print(f"p{a}.y=0")
     print(f"p{b}.y=4")
+    if overconstrain:
+        print(f"distance(p{a}, p{b}, 4)")
 
 print()
 print("# guesses")
