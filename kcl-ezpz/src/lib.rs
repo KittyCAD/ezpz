@@ -1,3 +1,5 @@
+//! Solves constraint systems.
+
 pub use crate::constraints::Constraint;
 // Only public for now so that I can benchmark it.
 // TODO: Replace this with an end-to-end benchmark,
