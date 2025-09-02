@@ -38,76 +38,14 @@ fn solve_easy(c: &mut Criterion) {
 }
 
 fn solve_two_rectangles(c: &mut Criterion) {
-    let mut id_generator = IdGenerator::default();
-    init_global_parallelism(1);
-    let p0 = DatumPoint::new(&mut id_generator);
-    let p1 = DatumPoint::new(&mut id_generator);
-    let p2 = DatumPoint::new(&mut id_generator);
-    let p3 = DatumPoint::new(&mut id_generator);
-    let line0_bottom = LineSegment::new(p0, p1);
-    let line0_right = LineSegment::new(p1, p2);
-    let line0_top = LineSegment::new(p2, p3);
-    let line0_left = LineSegment::new(p3, p0);
-    // Second square (upper case IDs)
-    let p4 = DatumPoint::new(&mut id_generator);
-    let p5 = DatumPoint::new(&mut id_generator);
-    let p6 = DatumPoint::new(&mut id_generator);
-    let p7 = DatumPoint::new(&mut id_generator);
-    let line1_bottom = LineSegment::new(p4, p5);
-    let line1_right = LineSegment::new(p5, p6);
-    let line1_top = LineSegment::new(p6, p7);
-    let line1_left = LineSegment::new(p7, p4);
-    // First square (lower case IDs)
-    let constraints0 = vec![
-        Constraint::Fixed(p0.id_x(), 1.0),
-        Constraint::Fixed(p0.id_y(), 1.0),
-        Constraint::Horizontal(line0_bottom),
-        Constraint::Horizontal(line0_top),
-        Constraint::Vertical(line0_left),
-        Constraint::Vertical(line0_right),
-        Constraint::Distance(p0, p1, 4.0),
-        Constraint::Distance(p0, p3, 3.0),
-    ];
-
-    // Start p at the origin, and q at (1,9)
-    let initial_guesses = vec![
-        // First square.
-        (p0.id_x(), 1.0),
-        (p0.id_y(), 1.0),
-        (p1.id_x(), 4.5),
-        (p1.id_y(), 1.5),
-        (p2.id_x(), 4.0),
-        (p2.id_y(), 3.5),
-        (p3.id_x(), 1.5),
-        (p3.id_y(), 3.0),
-        // Second square.
-        (p4.id_x(), 2.0),
-        (p4.id_y(), 2.0),
-        (p5.id_x(), 5.5),
-        (p5.id_y(), 3.5),
-        (p6.id_x(), 5.0),
-        (p6.id_y(), 4.5),
-        (p7.id_x(), 2.5),
-        (p7.id_y(), 4.0),
-    ];
-
-    let constraints1 = vec![
-        Constraint::Fixed(p4.id_x(), 2.0),
-        Constraint::Fixed(p4.id_y(), 2.0),
-        Constraint::Horizontal(line1_bottom),
-        Constraint::Horizontal(line1_top),
-        Constraint::Vertical(line1_left),
-        Constraint::Vertical(line1_right),
-        Constraint::Distance(p4, p5, 4.0),
-        Constraint::Distance(p4, p7, 4.0),
-    ];
-
-    let mut constraints = constraints0;
-    constraints.extend(constraints1);
-    c.bench_function("solve two rectangles", |b| {
+    let txt = std::fs::read_to_string("test_cases/two_rectangles/problem.txt").unwrap();
+    c.bench_function("solve_two_rectangles", |b| {
+        let mut t = txt.as_str();
+        let problem = Problem::parse(&mut t).unwrap();
+        let constraints = problem.to_constraint_system().unwrap();
         b.iter(|| {
-            let _actual = black_box(solve(&constraints.clone(), initial_guesses.clone()).unwrap());
-        })
+            let _actual = black_box(constraints.solve().unwrap());
+        });
     });
 }
 
@@ -202,7 +140,7 @@ fn solve_massive(c: &mut Criterion) {
             let problem = Problem::parse(&mut t).unwrap();
             let constraints = problem.to_constraint_system().unwrap();
             b.iter(|| {
-                let _actual = constraints.solve().unwrap();
+                let _actual = black_box(constraints.solve().unwrap());
             });
         });
     }
