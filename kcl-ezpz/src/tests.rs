@@ -64,6 +64,40 @@ fn nonsquare() {
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 0.0, y: 0.0 });
 }
 
+#[test]
+fn lints() {
+    let mut txt = "# constraints
+point p
+point q
+p.x = 0
+p.y = 0
+q.y = 0
+vertical(p, q)
+point r
+point s
+r.x = 0
+s.x = 0
+s.y = 0
+lines_at_angle(p, q, r, s, 0rad)
+
+# guesses
+p roughly (3, 4)
+q roughly (5, 6)
+r roughly (3, 4)
+s roughly (5, 6)
+";
+    let problem = Problem::parse(&mut txt).unwrap();
+    let solved = problem.to_constraint_system().unwrap().solve().unwrap();
+    assert!(!solved.lints.is_empty());
+    assert_eq!(
+        solved.lints,
+        vec![Lint {
+            about_constraint: Some(7),
+            content: content_for_angle(true, 0.0),
+        }]
+    );
+}
+
 #[track_caller]
 fn assert_points_eq(l: Point, r: Point) {
     let dist = l.euclidean_distance(r);

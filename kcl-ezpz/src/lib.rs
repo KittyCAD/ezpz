@@ -51,6 +51,7 @@ pub struct SolveOutcome {
 }
 
 #[derive(Debug)]
+#[cfg_attr(test, derive(Eq, PartialEq))]
 pub struct Lint {
     pub about_constraint: Option<usize>,
     pub content: String,
@@ -96,10 +97,7 @@ fn lint(constraints: &[Constraint]) -> Vec<Lint> {
             {
                 lints.push(Lint {
                     about_constraint: Some(i),
-                    content: format!(
-                        "Suggest using AngleKind::Parallel instead of AngleKind::Other({})",
-                        theta.to_degrees()
-                    ),
+                    content: content_for_angle(true, theta.to_degrees()),
                 });
             }
             Constraint::LinesAtAngle(_, _, constraints::AngleKind::Other(theta))
@@ -107,14 +105,23 @@ fn lint(constraints: &[Constraint]) -> Vec<Lint> {
             {
                 lints.push(Lint {
                     about_constraint: Some(i),
-                    content: format!(
-                        "Suggest using AngleKind::Perpendicular instead of AngleKind::Other({})",
-                        theta.to_degrees()
-                    ),
+                    content: content_for_angle(false, theta.to_degrees()),
                 });
             }
             _ => {}
         }
     }
     lints
+}
+
+fn content_for_angle(is_parallel: bool, actual_degrees: f64) -> String {
+    format!(
+        "Suggest using AngleKind::{} instead of AngleKind::Other({}deg)",
+        if is_parallel {
+            "Parallel"
+        } else {
+            "Perpendicular"
+        },
+        actual_degrees
+    )
 }

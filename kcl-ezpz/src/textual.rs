@@ -64,12 +64,6 @@ impl PartialEq<String> for Label {
     }
 }
 
-impl PartialEq<str> for Label {
-    fn eq(&self, other: &str) -> bool {
-        self.0 == other
-    }
-}
-
 impl Problem {
     pub fn points(&self) -> &[Label] {
         &self.inner_points
@@ -85,5 +79,13 @@ mod tests {
         let l = Label("x".to_owned());
         assert_eq!(l, "x");
         assert_eq!(l, "x".to_owned());
+        let l2 = Label::from("x");
+        assert_eq!(l, l2);
+    }
+
+    #[test]
+    fn test_point_str() {
+        let p = Point { x: 1.0, y: 2.0 };
+        assert_eq!(p.to_string(), "(1,2)");
     }
 }
