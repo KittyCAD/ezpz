@@ -17,11 +17,6 @@ pub struct Layout {
 impl RowMap for Layout {
     type Var = Id;
 
-    /// Total number of rows in the matrix.
-    fn dim(&self) -> usize {
-        self.total_num_residuals
-    }
-
     // `faer_newton` stores variables in a vec, refers to them only by their offset.
     // So this function lets you look up the index of a particular variable in that vec.
     // `bus` is the row index and `var` is the variable being looked up,
@@ -30,19 +25,19 @@ impl RowMap for Layout {
         // In our system, variables are the same in every row.
         Some(var as usize)
     }
+
+    fn n_variables(&self) -> usize {
+        self.all_variables.len()
+    }
+
+    fn n_residuals(&self) -> usize {
+        self.total_num_residuals
+    }
 }
 
 impl Layout {
     pub fn index_of(&self, var: <Layout as RowMap>::Var) -> usize {
         var as usize
-    }
-
-    pub fn num_cols(&self) -> usize {
-        self.all_variables.len()
-    }
-
-    pub fn num_rows(&self) -> usize {
-        self.dim()
     }
 }
 
