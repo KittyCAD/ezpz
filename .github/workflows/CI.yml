@@ -103,8 +103,9 @@ jobs:
       steps:
         - name: Checkout
           uses: actions/checkout@v4
-        - name: Install cargo-sort
-          run: cargo install cargo-sort
+        - uses: cargo-bins/cargo-binstall@main
+        - name: Install deps
+          run: cargo binstall cargo-sort
         - name: Run check
           run: cargo sort --workspace --check
 
