@@ -8,16 +8,19 @@ use faer::mat::Mat as FaerMat;
 use faer_traits::ComplexField;
 use num_traits::{Float, One, ToPrimitive, Zero};
 
+const AUTO_DENSE_THRESHOLD: usize = 100;
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum MatrixFormat {
     Sparse,
     Dense,
-    Auto(usize),
+    Auto,
 }
 
 impl Default for MatrixFormat {
     fn default() -> Self {
-        Self::Auto(100)
+        // We'll drive sparse/dense decision based on AUTO_DENSE_THRESHOLD.
+        Self::Auto
     }
 }
 
@@ -519,15 +522,19 @@ where
 {
     let n_vars = model.layout().n_variables();
     let n_res = model.layout().n_residuals();
+    let is_square = n_vars == n_res;
 
-    // TODO: We need better logic here. We probably always want sparse for our
-    // use case, but exposing a smarter way of handling this could be possible.
-    // Our system might also be square but not have all rows linearly independent,
-    // which I think will tank LU decomp... so we might need a fallback to QR.
-    let use_dense = match cfg.format {
-        super::MatrixFormat::Dense => true,
-        super::MatrixFormat::Sparse => false,
-        super::MatrixFormat::Auto(threshold) => n_vars < threshold,
+    // We support: dense LU, sparse LU.
+    let use_dense = if cfg.format == MatrixFormat::Dense {
+        // User explicitly requested dense format.
+        // Only allow if system is square; our dense methods can't deal with non-square.
+        is_square
+    } else if cfg.format == MatrixFormat::Sparse {
+        // User explicitly requested sparse format.
+        false
+    } else {
+        // Auto mode: use dense for smaller problems.
+        is_square && n_vars < AUTO_DENSE_THRESHOLD
     };
 
     if use_dense {
