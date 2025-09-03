@@ -395,16 +395,17 @@ where
     let n_res = model.layout().n_residuals();
     let is_square = n_vars == n_res;
 
-    let use_dense = match cfg.format {
-        MatrixFormat::Dense => {
-            if !is_square {
-                return Err(Report::new(SolverError)
-                    .attach_printable("Dense format only supported for square systems"));
-            }
-            true
-        }
-        MatrixFormat::Sparse => false,
-        MatrixFormat::Auto => is_square && n_vars < AUTO_DENSE_THRESHOLD,
+    // We support: dense LU, sparse LU.
+    let use_dense = if cfg.format == MatrixFormat::Dense {
+        // User explicitly requested dense format.
+        // Only allow if system is square; our dense methods can't deal with non-square.
+        is_square
+    } else if cfg.format == MatrixFormat::Sparse {
+        // User explicitly requested sparse format.
+        false
+    } else {
+        // Auto mode: use dense for smaller problems.
+        is_square && n_vars < AUTO_DENSE_THRESHOLD
     };
 
     if use_dense {
