@@ -1,4 +1,4 @@
-//! Solves constraint systems.
+//! Solves 2D constraint systems.
 
 pub use crate::constraints::Constraint;
 // Only public for now so that I can benchmark it.
