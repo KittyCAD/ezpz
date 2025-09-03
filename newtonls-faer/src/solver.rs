@@ -9,6 +9,9 @@ use faer_traits::ComplexField;
 use num_traits::{Float, One, ToPrimitive, Zero};
 
 const AUTO_DENSE_THRESHOLD: usize = 100;
+const FTOL_DEFAULT: f64 = 1e-8;
+const XTOL_DEFAULT: f64 = 1e-8;
+const GTOL_DEFAULT: f64 = 1e-8;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum MatrixFormat {
@@ -56,9 +59,9 @@ impl<T: Float> Default for NewtonCfg<T> {
     fn default() -> Self {
         let _ = init_global_parallelism(0);
         Self {
-            tol: T::from(1e-8).expect("Type must support 1e-8 for default tolerance"),
-            tol_grad: T::from(1e-8).expect("Type must support 1e-8 for default gradient tolerance"),
-            tol_step: T::from(1e-8).expect("Type must support 1e-8 for default step tolerance"),
+            tol: T::from(FTOL_DEFAULT).unwrap(),
+            tol_grad: T::from(GTOL_DEFAULT).unwrap(),
+            tol_step: T::from(XTOL_DEFAULT).unwrap(),
             damping: T::one(),
             max_iter: 50,
             format: MatrixFormat::default(),

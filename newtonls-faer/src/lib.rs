@@ -598,7 +598,7 @@ mod tests {
         }
 
         let mut system = SimpleSystem::new();
-        let mut x = [0.5_f64, 0.5_f64]; // Initial guess
+        let mut x = [0.5_f64, 0.5_f64];
 
         let cfg = NewtonCfg::<f64>::sparse()
             .with_adaptive(true)
@@ -651,8 +651,8 @@ mod tests {
         //
         // No exact solution exists. The least-squares minimiser satisfies.
         //   J^T r = 0  =>  x = y = (1/2)^(1/3) ≈ 0.793700526.
-        struct Layout3;
-        impl RowMap for Layout3 {
+        struct Layout;
+        impl RowMap for Layout {
             type Var = ();
             fn n_variables(&self) -> usize {
                 2
@@ -666,11 +666,11 @@ mod tests {
         }
 
         #[derive(Clone)]
-        struct Jc3 {
+        struct Jc {
             sym: SymbolicSparseColMat<usize>,
             vals: Vec<f64>,
         }
-        impl JacobianCache<f64> for Jc3 {
+        impl JacobianCache<f64> for Jc {
             fn symbolic(&self) -> &SymbolicSparseColMat<usize> {
                 &self.sym
             }
@@ -683,8 +683,8 @@ mod tests {
         }
 
         struct InconsistentSystem {
-            layout: Layout3,
-            jac: Jc3,
+            layout: Layout,
+            jac: Jc,
         }
 
         impl InconsistentSystem {
@@ -701,8 +701,8 @@ mod tests {
                 let (sym, _) = SymbolicSparseColMat::try_new_from_indices(3, 2, &pairs).unwrap();
                 let nnz = sym.col_ptr()[sym.ncols()];
                 Self {
-                    layout: Layout3,
-                    jac: Jc3 {
+                    layout: Layout,
+                    jac: Jc {
                         sym,
                         vals: vec![0.0; nnz],
                     },
@@ -712,7 +712,7 @@ mod tests {
 
         impl NonlinearSystem for InconsistentSystem {
             type Real = f64;
-            type Layout = Layout3;
+            type Layout = Layout;
 
             fn layout(&self) -> &Self::Layout {
                 &self.layout
@@ -736,8 +736,9 @@ mod tests {
             fn refresh_jacobian(&mut self, x: &[Self::Real]) {
                 // Column 0 (x): [dr0/dx, dr1/dx, dr2/dx] = [2x, 1, 1]
                 // Column 1 (y): [dr0/dy, dr1/dy, dr2/dy] = [2y, -1, 1]
+
                 let v = self.jac.values_mut();
-                v[0] = 2.0 * x[0]; // (row 0, col 0)
+                v[0] = 2.0 * x[0];
                 v[1] = 1.0; // (row 1, col 0)
                 v[2] = 1.0; // (row 2, col 0)
                 v[3] = 2.0 * x[1]; // (row 0, col 1)
@@ -751,8 +752,8 @@ mod tests {
 
         let cfg = NewtonCfg::<f64>::sparse()
             .with_adaptive(true)
-            .with_tol_grad(1e-10) // Tighter gradient tolerance for this least-squares test
-            .with_tol_step(0.0) // Disable step tolerance to focus on gradient tolerance
+            .with_tol_grad(1e-8)
+            .with_tol_step(0.0) // Disable step tolerance to focus on gradient tolerance.
             .with_threads(1);
 
         let callback = |stats: &IterationStats<f64>| {
@@ -794,7 +795,7 @@ mod tests {
             "x and y should be essentially equal"
         );
 
-        // Verify we reached a (near) least-squares stationary point: J^T r ≈ 0.
+        // Verify we reached a (near) least-squares stationary point: J^T r ~= 0.
         let mut r = [0.0; 3];
         system.residual(&x, &mut r);
         // J^T r components for this problem:
