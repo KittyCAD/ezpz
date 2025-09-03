@@ -4,10 +4,7 @@ mod linalg;
 mod solver;
 
 pub use linalg::{DenseLu, FaerLu, SparseQr};
-pub use solver::{
-    Control, IterationStats, Iterations, MatrixFormat, NewtonCfg, solve, solve_cb, solve_dense_cb,
-    solve_sparse_cb,
-};
+pub use solver::{Control, IterationStats, Iterations, MatrixFormat, NewtonCfg, solve, solve_cb};
 
 use core::fmt::{self, Display, Formatter};
 use core::num::NonZeroUsize;
@@ -132,8 +129,6 @@ pub fn current_parallelism() -> usize {
 
 #[cfg(test)]
 mod tests {
-    use crate::solver::NormType;
-
     use super::*;
     use faer::sparse::Pair;
     use faer::sparse::SymbolicSparseColMat;
@@ -235,15 +230,8 @@ mod tests {
         let mut model = Model::new();
         let mut x = [0.9_f64, 2.1_f64];
 
-        let iters = crate::solve_sparse_cb(
-            &mut model,
-            &mut x,
-            &mut crate::FaerLu::<f64>::default(),
-            cfg,
-            NormType::LInf,
-            |_| Control::Continue,
-        )
-        .expect("solver");
+        let iters =
+            crate::solve_cb(&mut model, &mut x, cfg, |_| Control::Continue).expect("solver");
 
         assert!(iters > 0 && iters <= 25);
         assert!((x[0] - 1.0).abs() < 1e-10);
