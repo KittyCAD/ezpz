@@ -90,6 +90,8 @@ impl Constraint {
     }
 
     /// How close is this constraint to being satisfied?
+    /// For performance reasons (avoiding allocations), this doesn't return a `Vec<f64>`,
+    /// instead it takes one as a mutable argument and writes out all residuals to that.
     pub fn residual(&self, layout: &Layout, current_assignments: &[f64], output: &mut Vec<f64>) {
         match self {
             Constraint::Distance(p0, p1, expected_distance) => {
@@ -179,8 +181,10 @@ impl Constraint {
     }
 
     /// Used to construct part of a Jacobian matrix.
-    /// Writes each row into a `row0` or `row1` mutable output parameter,
-    /// for performance reasons (this way it avoids allocations).
+    /// For performance reasons (avoiding allocations), this doesn't return a
+    /// `Vec<JacobianVar>` for each Jacobian row, instead takes the output rows as
+    /// mutable arguments and writes out all nonzero variables for each row to
+    /// one of them.
     pub fn jacobian_rows(
         &self,
         layout: &Layout,
