@@ -133,8 +133,8 @@ pub enum Control {
     Cancel,
 }
 
-fn compute_residual_norm<T: Float>(f: &[T], norm_kind: NormType) -> T {
-    match norm_kind {
+fn compute_residual_norm<T: Float>(f: &[T], norm_type: NormType) -> T {
+    match norm_type {
         NormType::LInf => f.iter().map(|&v| v.abs()).fold(T::zero(), |a, b| a.max(b)),
         NormType::L2 => f
             .iter()
@@ -208,9 +208,9 @@ fn compute_step_norm<T: Float>(step: &[T], x: &[T]) -> T {
 fn newton_iterate_sparse<M, L, Cb>(
     model: &mut M,
     x: &mut [M::Real],
-    lin: &mut L,
+    linear_solver: &mut L,
     cfg: super::NewtonCfg<M::Real>,
-    norm_kind: NormType,
+    norm_type: NormType,
     mut on_iter: Cb,
 ) -> SolverResult<Iterations>
 where
@@ -235,7 +235,7 @@ where
 
     for iter in 0..cfg.max_iter {
         model.residual(x, &mut f);
-        let res = compute_residual_norm(&f, norm_kind);
+        let res = compute_residual_norm(&f, norm_type);
 
         if matches!(
             on_iter(&IterationStats {
@@ -255,7 +255,7 @@ where
 
         // Update Jacobian and factor.
         model.refresh_jacobian(x);
-        lin.factor(&model.jacobian().attach())?;
+        linear_solver.factor(&model.jacobian().attach())?;
 
         // Check gradient tolerance; gtol equivalent.
         if cfg.tol_grad > M::Real::zero() {
@@ -272,7 +272,7 @@ where
             .zip(f.iter())
             .for_each(|(dst, &src)| *dst = -src);
 
-        lin.solve_in_place(rhs.as_mut())?;
+        linear_solver.solve_in_place(rhs.as_mut())?;
 
         // Extract step from solution.
         for (i, &val) in rhs.col(0).iter().take(n_vars).enumerate() {
@@ -318,7 +318,7 @@ where
                         x_trial[i] = x[i] + alpha * dx[i];
                     }
                     model.residual(&x_trial, &mut f_trial);
-                    let res_try = compute_residual_norm(&f_trial, norm_kind);
+                    let res_try = compute_residual_norm(&f_trial, norm_type);
 
                     if res_try < res {
                         x.copy_from_slice(&x_trial);
@@ -359,7 +359,7 @@ fn newton_iterate_dense<M, L, Cb>(
     x: &mut [M::Real],
     lu: &mut L,
     cfg: super::NewtonCfg<M::Real>,
-    norm_kind: NormType,
+    norm_type: NormType,
     mut on_iter: Cb,
 ) -> SolverResult<Iterations>
 where
@@ -384,7 +384,7 @@ where
 
     for iter in 0..cfg.max_iter {
         model.residual(x, &mut f);
-        let res = compute_residual_norm(&f, norm_kind);
+        let res = compute_residual_norm(&f, norm_type);
 
         if matches!(
             on_iter(&IterationStats {
@@ -464,7 +464,7 @@ where
                         x_trial[i] = x[i] + alpha * dx[i];
                     }
                     model.residual(&x_trial, &mut f_trial);
-                    let res_try = compute_residual_norm(&f_trial, norm_kind);
+                    let res_try = compute_residual_norm(&f_trial, norm_type);
 
                     if res_try < res {
                         x.copy_from_slice(&x_trial);
@@ -557,9 +557,9 @@ where
 pub fn solve_sparse_cb<M, L, Cb>(
     model: &mut M,
     x: &mut [M::Real],
-    lin: &mut L,
+    linear_solver: &mut L,
     cfg: super::NewtonCfg<M::Real>,
-    norm_kind: NormType,
+    norm_type: NormType,
     on_iter: Cb,
 ) -> SolverResult<Iterations>
 where
@@ -568,15 +568,15 @@ where
     M::Real: ComplexField<Real = M::Real> + Float + Zero + One + ToPrimitive,
     Cb: FnMut(&IterationStats<M::Real>) -> Control,
 {
-    newton_iterate_sparse(model, x, lin, cfg, norm_kind, on_iter)
+    newton_iterate_sparse(model, x, linear_solver, cfg, norm_type, on_iter)
 }
 
 pub fn solve_dense_cb<M, L, Cb>(
     model: &mut M,
     x: &mut [M::Real],
-    factorization: &mut L,
+    linear_solver: &mut L,
     cfg: super::NewtonCfg<M::Real>,
-    norm_kind: NormType,
+    norm_type: NormType,
     on_iter: Cb,
 ) -> SolverResult<Iterations>
 where
@@ -585,5 +585,5 @@ where
     M::Real: ComplexField<Real = M::Real> + Float + Zero + One + ToPrimitive,
     Cb: FnMut(&IterationStats<M::Real>) -> Control,
 {
-    newton_iterate_dense(model, x, factorization, cfg, norm_kind, on_iter)
+    newton_iterate_dense(model, x, linear_solver, cfg, norm_type, on_iter)
 }
