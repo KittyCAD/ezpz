@@ -30,6 +30,8 @@ pub enum NormType {
 #[derive(Clone, Copy, Debug)]
 pub struct NewtonCfg<T> {
     pub tol: T,
+    pub tol_grad: T,
+    pub tol_step: T,
     pub damping: T,
     pub max_iter: usize,
     pub format: MatrixFormat,
@@ -52,8 +54,10 @@ impl<T: Float> Default for NewtonCfg<T> {
         let _ = init_global_parallelism(0);
         Self {
             tol: T::from(1e-8).expect("Type must support 1e-8 for default tolerance"),
+            tol_grad: T::from(1e-8).expect("Type must support 1e-8 for default gradient tolerance"),
+            tol_step: T::from(1e-8).expect("Type must support 1e-8 for default step tolerance"),
             damping: T::one(),
-            max_iter: 25,
+            max_iter: 50,
             format: MatrixFormat::default(),
             adaptive: false,
             min_damping: T::from(0.1).unwrap(),
@@ -94,6 +98,18 @@ impl<T: Float> NewtonCfg<T> {
         self.n_threads = n_threads;
         self
     }
+    pub fn with_tol(mut self, tol: T) -> Self {
+        self.tol = tol;
+        self
+    }
+    pub fn with_tol_grad(mut self, tol_grad: T) -> Self {
+        self.tol_grad = tol_grad;
+        self
+    }
+    pub fn with_tol_step(mut self, tol_step: T) -> Self {
+        self.tol_step = tol_step;
+        self
+    }
 }
 
 pub type Iterations = usize;
@@ -122,18 +138,79 @@ fn compute_residual_norm<T: Float>(f: &[T], norm_kind: NormType) -> T {
     }
 }
 
-fn newton_iterate<M, F, Cb>(
+fn compute_gradient_norm_sparse<T: Float>(
+    jacobian: &SparseColMatRef<'_, usize, T>,
+    residual: &[T],
+) -> T {
+    // Compute ||J^T * r||_Inf (infinity norm of the gradient).
+    let mut max_grad = T::zero();
+
+    for col in 0..jacobian.ncols() {
+        let mut grad_component = T::zero();
+        let range = jacobian.col_range(col);
+        let row_idx = jacobian.symbolic().row_idx();
+        let vals = jacobian.val();
+
+        for idx in range {
+            grad_component = grad_component + vals[idx] * residual[row_idx[idx]];
+        }
+
+        let abs_grad = grad_component.abs();
+        if abs_grad > max_grad {
+            max_grad = abs_grad;
+        }
+    }
+
+    return max_grad;
+}
+
+fn compute_gradient_norm_dense<T: Float>(jacobian: &Mat<T>, residual: &[T]) -> T {
+    // Compute ||J^T * r||_Inf (infinity norm of the gradient).
+    let mut max_grad = T::zero();
+
+    for col in 0..jacobian.ncols() {
+        let mut grad_component = T::zero();
+        for row in 0..jacobian.nrows() {
+            grad_component = grad_component + jacobian[(row, col)] * residual[row];
+        }
+
+        let abs_grad = grad_component.abs();
+        if abs_grad > max_grad {
+            max_grad = abs_grad;
+        }
+    }
+
+    return max_grad;
+}
+
+fn compute_step_norm<T: Float>(step: &[T], x: &[T]) -> T {
+    // Compute ||dx|| / (||x|| + tol_step) similar to scipy's approach
+    let step_norm = step
+        .iter()
+        .map(|&v| v * v)
+        .fold(T::zero(), |a, b| a + b)
+        .sqrt();
+    let x_norm = x
+        .iter()
+        .map(|&v| v * v)
+        .fold(T::zero(), |a, b| a + b)
+        .sqrt();
+
+    return step_norm / (x_norm + T::from(1e-8).unwrap_or_else(|| T::zero()));
+}
+
+fn newton_iterate_sparse<M, L, Cb>(
     model: &mut M,
     x: &mut [M::Real],
+    lin: &mut L,
     cfg: super::NewtonCfg<M::Real>,
     norm_kind: NormType,
-    mut solve_into: F,
     mut on_iter: Cb,
 ) -> SolverResult<Iterations>
 where
     M: NonlinearSystem,
+    L: for<'a> LinearSolver<M::Real, SparseColMatRef<'a, usize, M::Real>>,
     M::Real: ComplexField<Real = M::Real> + Float + Zero + One + ToPrimitive,
-    F: FnMut(&mut M, &[M::Real], &[M::Real], &mut [M::Real]) -> SolverResult<()>,
     Cb: FnMut(&IterationStats<M::Real>) -> Control,
 {
     let n_vars = model.layout().n_variables();
@@ -148,6 +225,7 @@ where
     // buffers for line search
     let mut x_trial = vec![M::Real::zero(); n_vars];
     let mut f_trial = vec![M::Real::zero(); n_res];
+    let mut rhs = FaerMat::<M::Real>::zeros(n_res, 1);
 
     for iter in 0..cfg.max_iter {
         model.residual(x, &mut f);
@@ -163,11 +241,45 @@ where
         ) {
             return Err(Report::new(SolverError).attach_printable("solve cancelled"));
         }
+
+        // Check residual tolerance; ftol in scipy world.
         if res < cfg.tol {
             return Ok(iter + 1);
         }
 
-        solve_into(model, x, &f, &mut dx)?;
+        // Update Jacobian and factor.
+        model.refresh_jacobian(x);
+        lin.factor(&model.jacobian().attach())?;
+
+        // Check gradient tolerance; gtol equivalent.
+        if cfg.tol_grad > M::Real::zero() {
+            let grad_norm = compute_gradient_norm_sparse(&model.jacobian().attach(), &f);
+            if grad_norm < cfg.tol_grad {
+                return Ok(iter + 1);
+            }
+        }
+
+        // Solve for step.
+        rhs.col_mut(0)
+            .as_mut()
+            .iter_mut()
+            .zip(f.iter())
+            .for_each(|(dst, &src)| *dst = -src);
+
+        lin.solve_in_place(rhs.as_mut())?;
+
+        // Extract step from solution.
+        for (i, &val) in rhs.col(0).iter().take(n_vars).enumerate() {
+            dx[i] = val;
+        }
+
+        // Check step tolerance; xtol equivalent.
+        if cfg.tol_step > M::Real::zero() {
+            let step_norm = compute_step_norm(&dx, x);
+            if step_norm < cfg.tol_step {
+                return Ok(iter + 1);
+            }
+        }
 
         let mut step_applied = false;
 
@@ -197,6 +309,152 @@ where
 
                 for _ in 0..cfg.ls_max_steps {
                     for i in 0..n_vars {
+                        x_trial[i] = x[i] + alpha * dx[i];
+                    }
+                    model.residual(&x_trial, &mut f_trial);
+                    let res_try = compute_residual_norm(&f_trial, norm_kind);
+
+                    if res_try < res {
+                        x.copy_from_slice(&x_trial);
+                        damping = alpha;
+                        step_applied = true;
+                        break;
+                    }
+                    alpha = alpha * cfg.ls_backtrack;
+                    if alpha < cfg.min_damping {
+                        break;
+                    }
+                }
+
+                if !step_applied {
+                    return Err(Report::new(SolverError)
+                        .attach_printable("divergence guard: line search failed"));
+                }
+            }
+        }
+
+        if !step_applied {
+            for (xi, &dxi) in x.iter_mut().zip(dx.iter()) {
+                *xi = *xi + damping * dxi;
+            }
+        }
+
+        last_res = res;
+    }
+
+    Err(Report::new(SolverError).attach_printable(format!(
+        "Newton solver did not converge after {} iterations",
+        cfg.max_iter
+    )))
+}
+
+fn newton_iterate_dense<M, L, Cb>(
+    model: &mut M,
+    x: &mut [M::Real],
+    lu: &mut L,
+    cfg: super::NewtonCfg<M::Real>,
+    norm_kind: NormType,
+    mut on_iter: Cb,
+) -> SolverResult<Iterations>
+where
+    M: NonlinearSystem,
+    L: LinearSolver<M::Real, Mat<M::Real>>,
+    M::Real: ComplexField<Real = M::Real> + Float + Zero + One + ToPrimitive,
+    Cb: FnMut(&IterationStats<M::Real>) -> Control,
+{
+    let n = model.layout().n_variables();
+
+    // `f` holds residuals, `dx` holds the step for the variables.
+    let mut f = vec![M::Real::zero(); n];
+    let mut dx = vec![M::Real::zero(); n];
+    let mut damping = cfg.damping;
+    let mut last_res = M::Real::infinity();
+
+    // buffers for line search
+    let mut x_trial = vec![M::Real::zero(); n];
+    let mut f_trial = vec![M::Real::zero(); n];
+    let mut jac = FaerMat::<M::Real>::zeros(n, n);
+    let mut rhs = FaerMat::<M::Real>::zeros(n, 1);
+
+    for iter in 0..cfg.max_iter {
+        model.residual(x, &mut f);
+        let res = compute_residual_norm(&f, norm_kind);
+
+        if matches!(
+            on_iter(&IterationStats {
+                iter,
+                residual: res,
+                damping
+            }),
+            Control::Cancel
+        ) {
+            return Err(Report::new(SolverError).attach_printable("solve cancelled"));
+        }
+
+        // Check residual tolerance; ftol in scipy world.
+        if res < cfg.tol {
+            return Ok(iter + 1);
+        }
+
+        // Update Jacobian and factor
+        model.jacobian_dense(x, &mut jac);
+        lu.factor(&jac)?;
+
+        // Check gradient tolerance (gtol equivalent)
+        if cfg.tol_grad > M::Real::zero() {
+            let grad_norm = compute_gradient_norm_dense(&jac, &f);
+            if grad_norm < cfg.tol_grad {
+                return Ok(iter + 1);
+            }
+        }
+
+        // Solve for step
+        for (i, &fi) in f.iter().enumerate() {
+            rhs[(i, 0)] = -fi;
+        }
+        lu.solve_in_place(rhs.as_mut())?;
+
+        // Extract step from solution
+        for (i, &val) in rhs.col(0).iter().enumerate() {
+            dx[i] = val;
+        }
+
+        // Check step tolerance (xtol equivalent)
+        if cfg.tol_step > M::Real::zero() {
+            let step_norm = compute_step_norm(&dx, x);
+            if step_norm < cfg.tol_step {
+                return Ok(iter + 1);
+            }
+        }
+
+        let mut step_applied = false;
+
+        if cfg.adaptive {
+            if res < last_res {
+                let nd = damping * cfg.grow;
+                damping = if nd > cfg.max_damping {
+                    cfg.max_damping
+                } else {
+                    nd
+                };
+            } else {
+                let nd = damping * cfg.shrink;
+                damping = if nd < cfg.min_damping {
+                    cfg.min_damping
+                } else {
+                    nd
+                };
+            }
+
+            if last_res.is_finite() && res > last_res * cfg.divergence_ratio {
+                let mut alpha = if damping * cfg.shrink < cfg.min_damping {
+                    cfg.min_damping
+                } else {
+                    damping * cfg.shrink
+                };
+
+                for _ in 0..cfg.ls_max_steps {
+                    for i in 0..n {
                         x_trial[i] = x[i] + alpha * dx[i];
                     }
                     model.residual(&x_trial, &mut f_trial);
@@ -296,51 +554,13 @@ where
     M::Real: ComplexField<Real = M::Real> + Float + Zero + One + ToPrimitive,
     Cb: FnMut(&IterationStats<M::Real>) -> Control,
 {
-    let n_vars = model.layout().n_variables();
-    let n_res = model.layout().n_residuals();
-    let mut rhs = FaerMat::<M::Real>::zeros(n_res, 1);
-
-    newton_iterate(
-        model,
-        x,
-        cfg,
-        norm_kind,
-        |model, x, f, dx| {
-            model.refresh_jacobian(x);
-            lin.factor(&model.jacobian().attach())?;
-
-            rhs.col_mut(0)
-                .as_mut()
-                .iter_mut()
-                .zip(f.iter())
-                .for_each(|(dst, &src)| *dst = -src);
-
-            // rhs is n_residuals x 1; smash -f in there.
-            rhs.col_mut(0)
-                .as_mut()
-                .iter_mut()
-                .zip(f.iter())
-                .for_each(|(dst, &src)| *dst = -src);
-
-            // In-place solve.
-            // For QR least-squares, the top n_vars rows now contain the solution.
-            lin.solve_in_place(rhs.as_mut())?;
-
-            // Chop those top rows out and copy into dx.
-            for (i, &val) in rhs.col(0).iter().take(n_vars).enumerate() {
-                dx[i] = val;
-            }
-
-            Ok(())
-        },
-        on_iter,
-    )
+    newton_iterate_sparse(model, x, lin, cfg, norm_kind, on_iter)
 }
 
 pub fn solve_dense_cb<M, L, Cb>(
     model: &mut M,
     x: &mut [M::Real],
-    lu: &mut L,
+    factorization: &mut L,
     cfg: super::NewtonCfg<M::Real>,
     norm_kind: NormType,
     on_iter: Cb,
@@ -351,32 +571,5 @@ where
     M::Real: ComplexField<Real = M::Real> + Float + Zero + One + ToPrimitive,
     Cb: FnMut(&IterationStats<M::Real>) -> Control,
 {
-    // This system is square so we can use m and n interchangeably;
-    // n_variables == n_residuals.
-    let n = model.layout().n_variables();
-    let mut jac = FaerMat::<M::Real>::zeros(n, n);
-    let mut rhs = FaerMat::<M::Real>::zeros(n, 1);
-
-    newton_iterate(
-        model,
-        x,
-        cfg,
-        norm_kind,
-        |model, x, f, dx| {
-            model.jacobian_dense(x, &mut jac);
-            lu.factor(&jac)?;
-            for (i, &fi) in f.iter().enumerate() {
-                rhs[(i, 0)] = -fi;
-            }
-            lu.solve_in_place(rhs.as_mut())?;
-
-            // Copy back to dx.
-            for (i, &val) in rhs.col(0).iter().enumerate() {
-                dx[i] = val;
-            }
-
-            Ok(())
-        },
-        on_iter,
-    )
+    newton_iterate_dense(model, x, factorization, cfg, norm_kind, on_iter)
 }

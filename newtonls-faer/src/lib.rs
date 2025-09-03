@@ -3,7 +3,7 @@
 mod linalg;
 mod solver;
 
-pub use linalg::{DenseLu, FaerLu};
+pub use linalg::{DenseLu, FaerLu, SparseQr};
 pub use solver::{
     Control, IterationStats, Iterations, MatrixFormat, NewtonCfg, solve, solve_cb, solve_dense_cb,
     solve_sparse_cb,
@@ -640,5 +640,178 @@ mod tests {
         let mut res = [0.0; 2];
         system.residual(&x, &mut res);
         println!("Residual: {:?}", res);
+    }
+
+    #[test]
+    fn solves_inconsistent_system_to_least_squares() {
+        // Inconsistent system:
+        //   r0 = x^2 + y^2 - 1          (unit circle)
+        //   r1 = x - y                  (x and y equal)
+        //   r2 = x + y - 2              (sum equals 2)
+        //
+        // No exact solution exists. The least-squares minimiser satisfies.
+        //   J^T r = 0  =>  x = y = (1/2)^(1/3) ≈ 0.793700526.
+        struct Layout3;
+        impl RowMap for Layout3 {
+            type Var = ();
+            fn n_variables(&self) -> usize {
+                2
+            }
+            fn n_residuals(&self) -> usize {
+                3
+            }
+            fn row(&self, _bus: usize, _var: Self::Var) -> Option<usize> {
+                None
+            }
+        }
+
+        #[derive(Clone)]
+        struct Jc3 {
+            sym: SymbolicSparseColMat<usize>,
+            vals: Vec<f64>,
+        }
+        impl JacobianCache<f64> for Jc3 {
+            fn symbolic(&self) -> &SymbolicSparseColMat<usize> {
+                &self.sym
+            }
+            fn values(&self) -> &[f64] {
+                &self.vals
+            }
+            fn values_mut(&mut self) -> &mut [f64] {
+                &mut self.vals
+            }
+        }
+
+        struct InconsistentSystem {
+            layout: Layout3,
+            jac: Jc3,
+        }
+
+        impl InconsistentSystem {
+            fn new() -> Self {
+                // Full 3x2 Jacobian sparsity, column-major (rows 0..2 for each col)
+                let pairs = vec![
+                    faer::sparse::Pair { row: 0, col: 0 },
+                    faer::sparse::Pair { row: 1, col: 0 },
+                    faer::sparse::Pair { row: 2, col: 0 },
+                    faer::sparse::Pair { row: 0, col: 1 },
+                    faer::sparse::Pair { row: 1, col: 1 },
+                    faer::sparse::Pair { row: 2, col: 1 },
+                ];
+                let (sym, _) = SymbolicSparseColMat::try_new_from_indices(3, 2, &pairs).unwrap();
+                let nnz = sym.col_ptr()[sym.ncols()];
+                Self {
+                    layout: Layout3,
+                    jac: Jc3 {
+                        sym,
+                        vals: vec![0.0; nnz],
+                    },
+                }
+            }
+        }
+
+        impl NonlinearSystem for InconsistentSystem {
+            type Real = f64;
+            type Layout = Layout3;
+
+            fn layout(&self) -> &Self::Layout {
+                &self.layout
+            }
+            fn jacobian(&self) -> &dyn JacobianCache<Self::Real> {
+                &self.jac
+            }
+            fn jacobian_mut(&mut self) -> &mut dyn JacobianCache<Self::Real> {
+                &mut self.jac
+            }
+
+            fn residual(&self, x: &[Self::Real], out: &mut [Self::Real]) {
+                // r0 = x^2 + y^2 - 1
+                // r1 = x - y
+                // r2 = x + y - 2
+                out[0] = x[0] * x[0] + x[1] * x[1] - 1.0;
+                out[1] = x[0] - x[1];
+                out[2] = x[0] + x[1] - 2.0;
+            }
+
+            fn refresh_jacobian(&mut self, x: &[Self::Real]) {
+                // Column 0 (x): [dr0/dx, dr1/dx, dr2/dx] = [2x, 1, 1]
+                // Column 1 (y): [dr0/dy, dr1/dy, dr2/dy] = [2y, -1, 1]
+                let v = self.jac.values_mut();
+                v[0] = 2.0 * x[0]; // (row 0, col 0)
+                v[1] = 1.0; // (row 1, col 0)
+                v[2] = 1.0; // (row 2, col 0)
+                v[3] = 2.0 * x[1]; // (row 0, col 1)
+                v[4] = -1.0; // (row 1, col 1)
+                v[5] = 1.0; // (row 2, col 1)
+            }
+        }
+
+        let mut system = InconsistentSystem::new();
+        let mut x = [0.5_f64, 0.5_f64]; // Initial guess
+
+        let cfg = NewtonCfg::<f64>::sparse()
+            .with_adaptive(true)
+            .with_tol_grad(1e-10) // Tighter gradient tolerance for this least-squares test
+            .with_tol_step(0.0) // Disable step tolerance to focus on gradient tolerance
+            .with_threads(1);
+
+        let callback = |stats: &IterationStats<f64>| {
+            println!(
+                "Iteration {}: residual = {:.2e}, damping = {:.3}",
+                stats.iter, stats.residual, stats.damping
+            );
+            Control::Continue
+        };
+
+        let result = crate::solve_cb(&mut system, &mut x, cfg, callback);
+
+        assert!(result.is_ok(), "Solver failed: {:?}", result);
+        let iters = result.unwrap();
+        assert!(
+            iters > 0 && iters <= 50,
+            "Unexpected iteration count: {}",
+            iters
+        );
+
+        // Expected least-squares solution: x = y = (1/2)^(1/3)
+        let expected = 0.5_f64.powf(1.0 / 3.0);
+        let tol = 1e-6;
+
+        assert!(
+            (x[0] - expected).abs() < tol,
+            "x[0] = {}, expected {}",
+            x[0],
+            expected
+        );
+        assert!(
+            (x[1] - expected).abs() < tol,
+            "x[1] = {}, expected {}",
+            x[1],
+            expected
+        );
+        assert!(
+            (x[0] - x[1]).abs() < 1e-8,
+            "x and y should be essentially equal"
+        );
+
+        // Verify we reached a (near) least-squares stationary point: J^T r ≈ 0.
+        let mut r = [0.0; 3];
+        system.residual(&x, &mut r);
+        // J^T r components for this problem:
+        let g_x = 2.0 * x[0] * r[0] + r[1] + r[2];
+        let g_y = 2.0 * x[1] * r[0] - r[1] + r[2];
+        let grad_norm = (g_x * g_x + g_y * g_y).sqrt();
+        assert!(
+            grad_norm < 1e-8,
+            "Not at a least-squares stationary point: ||J^T r|| = {}",
+            grad_norm
+        );
+
+        // Print final result and residuals / SSE.
+        println!("Converged in {} iterations", iters);
+        println!("Solution (least squares): x = {:?}", x);
+        println!("Residuals: {:?}", r);
+        let sse = r.iter().map(|ri| ri * ri).sum::<f64>();
+        println!("Sum of squared residuals: {:.8}", sse);
     }
 }
