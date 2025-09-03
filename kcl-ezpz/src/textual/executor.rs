@@ -4,6 +4,7 @@ use indexmap::IndexMap;
 
 use crate::Constraint;
 use crate::Error;
+use crate::FailureOutcome;
 use crate::Id;
 use crate::IdGenerator;
 use crate::Lint;
@@ -154,7 +155,7 @@ pub struct ConstraintSystem<'a> {
 }
 
 impl ConstraintSystem<'_> {
-    pub fn solve(&self) -> Result<Outcome, crate::Error> {
+    pub fn solve(&self) -> Result<Outcome, FailureOutcome> {
         let num_vars = self.initial_guesses.len();
         let num_eqs = self.constraints.iter().map(|c| c.residual_dim()).sum();
         // Pass into the solver.
