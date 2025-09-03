@@ -45,6 +45,12 @@ pub struct Point {
     pub y: f64,
 }
 
+#[derive(Clone, Copy, PartialEq, Debug, Default)]
+pub struct Circle {
+    pub radius: f64,
+    pub center: Point,
+}
+
 impl std::fmt::Display for Point {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "({},{})", self.x, self.y)
@@ -88,6 +94,9 @@ impl PartialEq<String> for Label {
 impl Problem {
     pub fn points(&self) -> &[Label] {
         &self.inner_points
+    }
+    pub fn circles(&self) -> &[Label] {
+        &self.inner_circles
     }
 }
 

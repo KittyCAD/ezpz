@@ -10,7 +10,7 @@ use super::{
 use kittycad_modeling_cmds::shared::Angle;
 use winnow::{
     ModalResult as WResult,
-    ascii::{alphanumeric1, digit1, newline, space0},
+    ascii::{digit1, newline, space0},
     combinator::{alt, delimited, opt, separated},
     error::{ContextError, ErrMode},
     prelude::*,
@@ -63,7 +63,7 @@ enum Guess {
     Scalar(ScalarGuess),
 }
 
-pub fn parse_guess(i: &mut &str) -> WResult<Guess> {
+fn parse_guess(i: &mut &str) -> WResult<Guess> {
     alt((
         parse_point_guess.map(Guess::Point),
         parse_scalar_guess.map(Guess::Scalar),
@@ -74,7 +74,12 @@ pub fn parse_guess(i: &mut &str) -> WResult<Guess> {
 // p roughly (0, 0)
 pub fn parse_point_guess(i: &mut &str) -> WResult<PointGuess> {
     ignore_ws(i);
-    let label = parse_label(i)?;
+    let mut label = parse_label(i)?;
+    let suffix = opt(('.', parse_label)).parse_next(i)?;
+    if let Some((a, b)) = suffix {
+        label.0.push(a);
+        label.0.push_str(&b.0);
+    }
     ws.parse_next(i)?;
     let _ = "roughly".parse_next(i)?;
     ws.parse_next(i)?;
@@ -88,7 +93,12 @@ pub fn parse_point_guess(i: &mut &str) -> WResult<PointGuess> {
 // c.radius roughly 4
 pub fn parse_scalar_guess(i: &mut &str) -> WResult<ScalarGuess> {
     ignore_ws(i);
-    let label = parse_label(i)?;
+    let mut label = parse_label(i)?;
+    let suffix = opt(('.', parse_label)).parse_next(i)?;
+    if let Some((a, b)) = suffix {
+        label.0.push(a);
+        label.0.push_str(&b.0);
+    }
     ws.parse_next(i)?;
     let _ = "roughly".parse_next(i)?;
     ws.parse_next(i)?;
@@ -306,7 +316,7 @@ fn parse_fix_point_component(i: &mut &str) -> WResult<FixPointComponent> {
 }
 
 fn parse_label(i: &mut &str) -> WResult<Label> {
-    take_while(1.., (AsChar::is_alphanum))
+    take_while(1.., AsChar::is_alphanum)
         .map(|s: &str| Label(s.to_owned()))
         .parse_next(i)
 }

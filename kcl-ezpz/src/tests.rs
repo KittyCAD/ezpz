@@ -28,10 +28,14 @@ fn tiny() {
 fn circle() {
     let txt = include_str!("../../test_cases/circle/problem.txt");
     let problem = parse_problem(txt);
-    assert_eq!(problem.points(), vec!["a.center"]);
+    assert_eq!(problem.points(), vec!["p"]);
+    assert_eq!(problem.circles(), vec!["a"]);
     let solved = problem.to_constraint_system().unwrap().solve().unwrap();
-    // assert_eq!(solved.get_point("p").unwrap(), Point { x: 0.0, y: 0.0 });
-    // assert_eq!(solved.get_point("q").unwrap(), Point { x: 0.0, y: 0.0 });
+    assert_eq!(solved.get_point("p").unwrap(), Point { x: 4.0, y: 3.0 });
+    let circle_a = solved.get_circle("a").unwrap();
+    assert_nearly_eq(circle_a.radius, 39.0);
+    assert_points_eq(circle_a.center, Point { x: 0.1, y: 0.2 });
+    // assert_eq!(solved.get_circle("a").unwrap(), Circle{radius:39.0, center:Point { x: 0.0, y: 0.0 });
 }
 
 #[test]
@@ -124,4 +128,13 @@ s roughly (5, 6)
 fn assert_points_eq(l: Point, r: Point) {
     let dist = l.euclidean_distance(r);
     assert!(dist < EPSILON, "LHS was {l}, RHS was {r}, dist was {dist}");
+}
+
+#[track_caller]
+fn assert_nearly_eq(l: f64, r: f64) {
+    let diff = (l - r).abs();
+    assert!(
+        diff < EPSILON,
+        "LHS was {l}, RHS was {r}, difference was {diff}"
+    );
 }

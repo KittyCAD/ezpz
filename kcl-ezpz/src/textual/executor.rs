@@ -16,7 +16,6 @@ use crate::datatypes::DatumPoint;
 use crate::datatypes::LineSegment;
 use crate::textual::Component;
 use crate::textual::Label;
-use crate::textual::Point;
 use crate::textual::instruction::AngleLine;
 use crate::textual::instruction::CircleRadius;
 use crate::textual::instruction::Distance;
@@ -25,6 +24,7 @@ use crate::textual::instruction::Horizontal;
 use crate::textual::instruction::Parallel;
 use crate::textual::instruction::Perpendicular;
 use crate::textual::instruction::Vertical;
+use crate::textual::{Circle, Point};
 
 use super::Instruction;
 use super::Problem;
@@ -222,6 +222,7 @@ impl Problem {
             constraints,
             initial_guesses,
             inner_points: &self.inner_points,
+            inner_circles: &self.inner_circles,
         })
     }
 }
@@ -231,6 +232,7 @@ pub struct ConstraintSystem<'a> {
     constraints: Vec<Constraint>,
     initial_guesses: Vec<(Id, f64)>,
     inner_points: &'a [Label],
+    inner_circles: &'a [Label],
 }
 
 impl ConstraintSystem<'_> {
@@ -243,7 +245,8 @@ impl ConstraintSystem<'_> {
             lints,
             final_values,
         } = crate::solve(&self.constraints, self.initial_guesses.to_owned())?;
-        let num_points = final_values.len();
+        let num_points = self.inner_points.len();
+        let num_circles = self.inner_circles.len();
 
         let mut final_points = IndexMap::with_capacity(num_points);
         for (i, point) in self.inner_points.iter().enumerate() {
@@ -255,10 +258,25 @@ impl ConstraintSystem<'_> {
             };
             final_points.insert(point.0.clone(), p);
         }
+        let start_of_circles = 2 * self.inner_points.len();
+        let mut final_circles = IndexMap::with_capacity(num_circles);
+        for (i, circle_label) in self.inner_circles.iter().enumerate() {
+            let cx = final_values[start_of_circles + 3 * i]; // center x
+            let cy = final_values[start_of_circles + 3 * i + 1]; // center y
+            let rd = final_values[start_of_circles + 3 * i + 2]; // radius
+            final_circles.insert(
+                circle_label.0.clone(),
+                Circle {
+                    radius: rd,
+                    center: Point { x: cx, y: cy },
+                },
+            );
+        }
         Ok(Outcome {
             iterations,
             lints,
             points: final_points,
+            circles: final_circles,
             num_vars,
             num_eqs,
         })
@@ -270,12 +288,19 @@ pub struct Outcome {
     pub iterations: usize,
     pub lints: Vec<Lint>,
     pub points: IndexMap<String, Point>,
+    pub circles: IndexMap<String, Circle>,
     pub num_vars: usize,
     pub num_eqs: usize,
 }
 
 impl Outcome {
+    #[cfg(test)]
     pub fn get_point(&self, label: &str) -> Option<Point> {
         self.points.get(label).copied()
+    }
+
+    #[cfg(test)]
+    pub fn get_circle(&self, label: &str) -> Option<Circle> {
+        self.circles.get(label).copied()
     }
 }
