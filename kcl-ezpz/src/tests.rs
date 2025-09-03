@@ -162,6 +162,36 @@ fn nonsquare() {
 }
 
 #[test]
+fn square() {
+    let txt = include_str!("../../test_cases/square/problem.txt");
+    let problem = Problem::from_str(txt).unwrap();
+    let solved = problem.to_constraint_system().unwrap().solve().unwrap();
+    assert_nearly_eq(
+        solved.get_point("a").unwrap().y - solved.get_point("c").unwrap().y,
+        solved.get_point("b").unwrap().y - solved.get_point("d").unwrap().y,
+    );
+    assert_nearly_eq(
+        solved.get_point("a").unwrap().x - solved.get_point("c").unwrap().x,
+        solved.get_point("d").unwrap().x - solved.get_point("b").unwrap().x,
+    );
+}
+
+#[test]
+fn parallelogram() {
+    let txt = include_str!("../../test_cases/parallelogram/problem.txt");
+    let problem = Problem::from_str(txt).unwrap();
+    let solved = problem.to_constraint_system().unwrap().solve().unwrap();
+    assert_nearly_eq(
+        solved.get_point("a").unwrap().y - solved.get_point("c").unwrap().y,
+        solved.get_point("b").unwrap().y - solved.get_point("d").unwrap().y,
+    );
+    assert_nearly_eq(
+        solved.get_point("a").unwrap().x - solved.get_point("c").unwrap().x,
+        solved.get_point("b").unwrap().x - solved.get_point("d").unwrap().x,
+    );
+}
+
+#[test]
 fn lints() {
     let txt = "# constraints
 point p
