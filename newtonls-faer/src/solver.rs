@@ -149,6 +149,10 @@ fn compute_gradient_norm_sparse<T: Float>(
     residual: &[T],
 ) -> T {
     // Compute ||J^T * r||_Inf (infinity norm of the gradient).
+    // We want the largest absolute component of the least-squares gradient g = J^T r.
+    // We do this by looking through each column of J, computing g_j = dot(J[:, j], residual),
+    // then tracking the maximum absolute value over all j.
+    // If the value is very small, we're at or around a stationary point.
     let mut max_grad = T::zero();
 
     for col in 0..jacobian.ncols() {
@@ -172,6 +176,10 @@ fn compute_gradient_norm_sparse<T: Float>(
 
 fn compute_gradient_norm_dense<T: Float>(jacobian: &Mat<T>, residual: &[T]) -> T {
     // Compute ||J^T * r||_Inf (infinity norm of the gradient).
+    // We want the largest absolute component of the least-squares gradient g = J^T r.
+    // We do this by looking through each column of J, computing g_j = dot(J[:, j], residual),
+    // then tracking the maximum absolute value over all j.
+    // If the value is very small, we're at or around a stationary point.
     let mut max_grad = T::zero();
 
     for col in 0..jacobian.ncols() {
@@ -189,20 +197,23 @@ fn compute_gradient_norm_dense<T: Float>(jacobian: &Mat<T>, residual: &[T]) -> T
     return max_grad;
 }
 
-fn compute_step_norm<T: Float>(step: &[T], x: &[T]) -> T {
-    // Compute ||dx|| / (||x|| + tol_step) similar to scipy's approach
+fn compute_step_norm<T: Float>(step: &[T], x: &[T], tol: T) -> T {
+    // Compute ||dx|| / (||x|| + tol) similar to scipy's approach.
+    // Basically, we want to check for very small steps relative to the current solution.
+    // We do this by checking the L2 norm of the step vector, then comparing that
+    // to the current solution vector... with some divide by zero guard using the tol.
     let step_norm = step
         .iter()
-        .map(|&v| v * v)
+        .map(|&v| v.powi(2))
         .fold(T::zero(), |a, b| a + b)
         .sqrt();
     let x_norm = x
         .iter()
-        .map(|&v| v * v)
+        .map(|&v| v.powi(2))
         .fold(T::zero(), |a, b| a + b)
         .sqrt();
 
-    return step_norm / (x_norm + T::from(1e-8).unwrap_or_else(|| T::zero()));
+    return step_norm / (x_norm + tol);
 }
 
 fn newton_iterate_sparse<M, L, Cb>(
@@ -281,7 +292,7 @@ where
 
         // Check step tolerance; xtol equivalent.
         if cfg.tol_step > M::Real::zero() {
-            let step_norm = compute_step_norm(&dx, x);
+            let step_norm = compute_step_norm(&dx, x, cfg.tol_step);
             if step_norm < cfg.tol_step {
                 return Ok(iter + 1);
             }
@@ -427,7 +438,7 @@ where
 
         // Check step tolerance (xtol equivalent)
         if cfg.tol_step > M::Real::zero() {
-            let step_norm = compute_step_norm(&dx, x);
+            let step_norm = compute_step_norm(&dx, x, cfg.tol_step);
             if step_norm < cfg.tol_step {
                 return Ok(iter + 1);
             }
