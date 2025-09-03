@@ -1,6 +1,7 @@
 ## Setting up your dev environment
 
 * We use `just` to run scripts, so please [install just](https://github.com/casey/just?tab=readme-ov-file#installation)
+* We use Rust, so please [install Rust via Rustup](https://rustup.rs/)
 * Install `cargo binstall` to make installing other deps easier: `cargo install cargo-binstall`
 * Then install other tools for development: `cargo binstall cargo-criterion typos-cli cargo-nextest cargo-llvm-cov flamegraph cargo-sort`
 
