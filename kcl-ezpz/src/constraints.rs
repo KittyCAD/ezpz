@@ -6,7 +6,7 @@ use crate::{EPSILON, datatypes::*, id::Id, solver::Layout};
 #[derive(Clone, Copy, Debug)]
 pub enum Constraint {
     /// These two points should be a given distance apart.
-    Distance(DatumPoint, DatumPoint, Distance),
+    Distance(DatumPoint, DatumPoint, f64),
     /// These two points have the same Y value.
     Vertical(LineSegment),
     /// These two points have the same X value.
@@ -15,6 +15,8 @@ pub enum Constraint {
     LinesAtAngle(LineSegment, LineSegment, AngleKind),
     /// Some scalar value is fixed.
     Fixed(Id, f64),
+    /// Constraint radius of a circle
+    CircleRadius(Circle, f64),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -74,6 +76,9 @@ impl Constraint {
                 line1.p1.id_y(),
             ]),
             Constraint::Fixed(id, _scalar) => row0.push(*id),
+            Constraint::CircleRadius(circle, _radius) => {
+                row0.extend([circle.center.id_x(), circle.center.id_y(), circle.radius.id])
+            }
         }
     }
 
@@ -165,6 +170,10 @@ impl Constraint {
                     }
                 }
             }
+            Constraint::CircleRadius(circle, expected_radius) => {
+                let actual_radius = current_assignments[layout.index_of(circle.radius.id)];
+                output.push(*expected_radius - actual_radius);
+            }
         }
     }
 
@@ -177,6 +186,7 @@ impl Constraint {
             Constraint::Horizontal(..) => 1,
             Constraint::Fixed(..) => 1,
             Constraint::LinesAtAngle(..) => 1,
+            Constraint::CircleRadius(..) => 1,
         }
     }
 
@@ -410,6 +420,14 @@ impl Constraint {
                 ];
                 row0.extend(jvars.as_slice());
             }
+            Constraint::CircleRadius(circle, _expected_radius) => {
+                // Residual is R = r_expected - r_actual
+                // Only partial derivative which is nonzero is ∂R/∂r_current, which is 1.
+                row0.push(JacobianVar {
+                    id: circle.radius.id,
+                    partial_derivative: 1.0,
+                })
+            }
         }
     }
 
@@ -421,6 +439,7 @@ impl Constraint {
             Constraint::Horizontal(..) => "Horizontal",
             Constraint::Fixed(..) => "Fixed",
             Constraint::LinesAtAngle(..) => "LinesAtAngle",
+            Constraint::CircleRadius(..) => "CircleRadius",
         }
     }
 }
