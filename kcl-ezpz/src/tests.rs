@@ -1,10 +1,12 @@
+use std::str::FromStr;
+
 use super::*;
 use crate::textual::{Point, Problem};
 
 #[test]
-fn simple() {
-    let mut txt = include_str!("../../test_cases/tiny/problem.txt");
-    let problem = Problem::parse(&mut txt).unwrap();
+fn tiny() {
+    let txt = include_str!("../../test_cases/tiny/problem.txt");
+    let problem = Problem::from_str(txt).unwrap();
     assert_eq!(problem.instructions.len(), 6);
     assert_eq!(problem.points(), vec!["p", "q"]);
     let solved = problem.to_constraint_system().unwrap().solve().unwrap();
@@ -14,8 +16,8 @@ fn simple() {
 
 #[test]
 fn rectangle() {
-    let mut txt = include_str!("../../test_cases/two_rectangles/problem.txt");
-    let problem = Problem::parse(&mut txt).unwrap();
+    let txt = include_str!("../../test_cases/two_rectangles/problem.txt");
+    let problem = Problem::from_str(txt).unwrap();
     let solved = problem.to_constraint_system().unwrap().solve().unwrap();
     // This forms two rectangles.
     assert_eq!(solved.get_point("p0").unwrap(), Point { x: 1.0, y: 1.0 });
@@ -31,11 +33,11 @@ fn rectangle() {
 
 #[test]
 fn angle_constraints() {
-    for mut file in [
+    for file in [
         include_str!("../../test_cases/angle_parallel/problem.txt"),
         include_str!("../../test_cases/angle_parallel_manual/problem.txt"),
     ] {
-        let problem = Problem::parse(&mut file).unwrap();
+        let problem = Problem::from_str(file).unwrap();
         let solved = problem.to_constraint_system().unwrap().solve().unwrap();
         assert_points_eq(solved.get_point("p0").unwrap(), Point { x: 0.0, y: 0.0 });
         assert_points_eq(solved.get_point("p1").unwrap(), Point { x: 4.0, y: 4.0 });
@@ -46,8 +48,8 @@ fn angle_constraints() {
 
 #[test]
 fn perpendiculars() {
-    let mut txt = include_str!("../../test_cases/perpendicular/problem.txt");
-    let problem = Problem::parse(&mut txt).unwrap();
+    let txt = include_str!("../../test_cases/perpendicular/problem.txt");
+    let problem = Problem::from_str(txt).unwrap();
     let solved = problem.to_constraint_system().unwrap().solve().unwrap();
     assert_points_eq(solved.get_point("p0").unwrap(), Point { x: 0.0, y: 0.0 });
     assert_points_eq(solved.get_point("p1").unwrap(), Point { x: 0.0, y: 4.0 });
@@ -57,8 +59,8 @@ fn perpendiculars() {
 
 #[test]
 fn nonsquare() {
-    let mut txt = include_str!("../../test_cases/nonsquare/problem.txt");
-    let problem = Problem::parse(&mut txt).unwrap();
+    let txt = include_str!("../../test_cases/nonsquare/problem.txt");
+    let problem = Problem::from_str(txt).unwrap();
     let solved = problem.to_constraint_system().unwrap().solve().unwrap();
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 0.0 });
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 0.0, y: 0.0 });
@@ -66,7 +68,7 @@ fn nonsquare() {
 
 #[test]
 fn lints() {
-    let mut txt = "# constraints
+    let txt = "# constraints
 point p
 point q
 p.x = 0
@@ -86,7 +88,7 @@ q roughly (5, 6)
 r roughly (3, 4)
 s roughly (5, 6)
 ";
-    let problem = Problem::parse(&mut txt).unwrap();
+    let problem = Problem::from_str(txt).unwrap();
     let solved = problem.to_constraint_system().unwrap().solve().unwrap();
     assert!(!solved.lints.is_empty());
     assert_eq!(

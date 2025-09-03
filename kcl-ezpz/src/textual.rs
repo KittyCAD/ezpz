@@ -2,8 +2,13 @@ mod executor;
 mod instruction;
 mod parser;
 
+use std::str::FromStr;
+
 pub use executor::Outcome;
 use instruction::Instruction;
+use winnow::Parser;
+
+use crate::textual::parser::parse_problem;
 
 #[derive(Debug, PartialEq)]
 pub struct PointGuess {
@@ -16,6 +21,14 @@ pub struct Problem {
     pub instructions: Vec<Instruction>,
     pub inner_points: Vec<Label>,
     pub point_guesses: Vec<PointGuess>,
+}
+
+impl FromStr for Problem {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        parse_problem.parse(s).map_err(|e| e.to_string())
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Debug, Default)]
