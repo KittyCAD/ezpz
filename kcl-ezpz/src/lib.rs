@@ -57,23 +57,54 @@ pub struct Lint {
     pub content: String,
 }
 
+#[derive(Debug)]
+pub struct FailureOutcome {
+    pub error: Error,
+    pub lints: Vec<Lint>,
+    pub num_vars: usize,
+    pub num_eqs: usize,
+}
+
 /// Given some initial guesses, constrain them.
 /// Returns the same variables in the same order, but constrained.
 pub fn solve(
     constraints: &[Constraint],
     initial_guesses: Vec<(Id, f64)>,
-) -> Result<SolveOutcome, Error> {
+) -> Result<SolveOutcome, FailureOutcome> {
+    let num_vars = initial_guesses.len();
+    let num_eqs = constraints.iter().map(|c| c.residual_dim()).sum();
     let (all_variables, mut final_values): (Vec<Id>, Vec<f64>) =
         initial_guesses.into_iter().unzip();
     let lints = lint(constraints);
 
-    let mut model = Model::new(constraints, all_variables)?;
-    let iterations = newton_faer::solve(
+    let mut model = match Model::new(constraints, all_variables) {
+        Ok(o) => o,
+        Err(e) => {
+            return Err(FailureOutcome {
+                error: e.into(),
+                lints,
+                num_vars,
+                num_eqs,
+            });
+        }
+    };
+    let iterations = match newton_faer::solve(
         &mut model,
         &mut final_values,
         newton_faer::NewtonCfg::sparse().with_adaptive(true),
     )
-    .map_err(|errs| Error::Solver(Box::new(errs.into_error())))?;
+    .map_err(|errs| Error::Solver(Box::new(errs.into_error())))
+    {
+        Ok(o) => o,
+        Err(e) => {
+            return Err(FailureOutcome {
+                error: e,
+                lints,
+                num_vars,
+                num_eqs,
+            });
+        }
+    };
 
     Ok(SolveOutcome {
         final_values,

@@ -54,3 +54,9 @@ fmt-check:
 # Generate an overconstraint system with varying number of lines.
 @regen-massive-test-overconstrained num_lines:
     python3 {{gen}} {{num_lines}} true > test_cases/massive_parallel_system/problem.txt
+
+# Install the ezpz CLI.
+# The output text will tell you where it got installed.
+# Probably in ~/.cargo/bin/ezpz
+install:
+    cargo install --path ezpz-cli

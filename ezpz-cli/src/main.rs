@@ -6,7 +6,10 @@ use std::{
 };
 
 use clap::Parser;
-use kcl_ezpz::textual::{Outcome, Point, Problem};
+use kcl_ezpz::{
+    FailureOutcome, Lint,
+    textual::{Outcome, Point, Problem},
+};
 
 #[derive(Parser)]
 #[command(name="ezpz", version, about, long_about = None)]
@@ -47,6 +50,13 @@ fn main() {
         Ok(soln) => soln,
         Err(e) => {
             eprintln!("Error: {e}");
+            std::process::exit(1);
+        }
+    };
+    let soln = match soln {
+        Ok(o) => o,
+        Err(outcome) => {
+            print_failure_output(outcome);
             std::process::exit(1);
         }
     };
@@ -173,28 +183,32 @@ replot
     )
 }
 
-fn main_inner(cli: &Cli) -> Result<(Outcome, Duration), String> {
+type RunResult = Result<(Outcome, Duration), FailureOutcome>;
+
+fn main_inner(cli: &Cli) -> Result<RunResult, String> {
     let constraint_txt = read_problem(cli)?;
     let parsed = Problem::parse(&mut constraint_txt.as_str()).map_err(|e| e.to_string())?;
 
     // Ensure problem can be solved
     let now = std::time::Instant::now();
     let constraint_system = parsed.to_constraint_system().map_err(|e| e.to_string())?;
-    let solved = constraint_system.solve().map_err(|e| e.to_string())?;
+    let solved = match constraint_system.solve() {
+        Ok(o) => o,
+        Err(e) => return Ok(Err(e)),
+    };
 
     // It succeeded. Benchmark its perf
     let constraint_system = parsed.to_constraint_system().map_err(|e| e.to_string())?;
     for _ in 0..NUM_ITERS_BENCHMARK {
-        let _ = black_box(constraint_system.solve().map_err(|e| e.to_string()))?;
+        black_box(constraint_system.solve()).unwrap();
     }
     let elapsed = now.elapsed();
     let duration_per_iter = elapsed / NUM_ITERS_BENCHMARK;
-    Ok((solved, duration_per_iter))
+    Ok(Ok((solved, duration_per_iter)))
 }
 
 /// Prints the output nicely to stdout.
 fn print_output((outcome, duration): &(Outcome, Duration), show_points: bool) {
-    use colored::Colorize;
     let Outcome {
         iterations,
         lints,
@@ -202,20 +216,20 @@ fn print_output((outcome, duration): &(Outcome, Duration), show_points: bool) {
         num_vars,
         num_eqs,
     } = outcome;
-    if !lints.is_empty() {
-        println!("Lints:");
-        for lint in lints {
-            println!("\t{}", lint.content);
+    print_lints(lints);
+    print_problem_size(*num_vars, *num_eqs);
+    println!("Iterations needed: {iterations}");
+    print_performance(*duration);
+    if show_points {
+        println!("Points:");
+        for (label, Point { x, y }) in points {
+            println!("\t{label}: ({x:.2}, {y:.2})",);
         }
     }
-    print!("Problem size: ");
-    if num_vars != num_eqs {
-        let l = format!("{num_eqs} rows, {num_vars} vars");
-        println!("{}", l.yellow());
-    } else {
-        println!("{num_eqs} rows, {num_vars} vars");
-    }
-    println!("Iterations needed: {iterations}");
+}
+
+fn print_performance(duration: Duration) {
+    use colored::Colorize;
     let time = format!("{}μs", duration.as_micros());
     println!("Solved in {time} (mean over {NUM_ITERS_BENCHMARK} iterations)");
     let solves_per_second = Duration::from_secs(1).as_micros() / duration.as_micros();
@@ -225,11 +239,44 @@ fn print_output((outcome, duration): &(Outcome, Duration), show_points: bool) {
         solves_per_second.to_string().normal()
     };
     println!("i.e. {solves_per_second} solves per second");
-    if show_points {
-        println!("Points:");
-        for (label, Point { x, y }) in points {
-            println!("\t{label}: ({x:.2}, {y:.2})",);
+}
+
+fn print_lints(lints: &[Lint]) {
+    use colored::Colorize;
+    if !lints.is_empty() {
+        println!("Lints:");
+        for lint in lints {
+            println!("\t{}", lint.content.yellow());
         }
+    }
+}
+
+fn print_problem_size(num_vars: usize, num_eqs: usize) {
+    use colored::Colorize;
+    print!("Problem size: ");
+    if num_vars != num_eqs {
+        let l = format!("{num_eqs} rows, {num_vars} vars");
+        println!("{}", l.yellow());
+    } else {
+        println!("{num_eqs} rows, {num_vars} vars");
+    }
+}
+
+fn print_failure_output(outcome: FailureOutcome) {
+    use colored::Colorize;
+    let FailureOutcome {
+        error: _,
+        lints,
+        num_vars,
+        num_eqs,
+    } = outcome;
+    print_lints(&lints);
+    print_problem_size(num_vars, num_eqs);
+    eprintln!("{}", "Could not solve system".red());
+    if num_eqs > num_vars {
+        eprintln!("Your system might be overconstrained. Try removing constraints.");
+    } else {
+        eprintln!("You might have contradictory constraints.");
     }
 }
 
