@@ -185,12 +185,7 @@ impl Constraint {
     /// `Vec<JacobianVar>` for each Jacobian row, instead takes the output rows as
     /// mutable arguments and writes out all nonzero variables for each row to
     /// one of them.
-    pub fn jacobian_rows(
-        &self,
-        layout: &Layout,
-        current_assignments: &[f64],
-        row0: &mut Vec<JacobianVar>,
-    ) {
+    pub fn jacobian_rows(&self, layout: &Layout, current_assignments: &[f64]) -> Vec<JacobianVar> {
         match self {
             Constraint::Distance(p0, p1, _expected_distance) => {
                 // Residual: R = sqrt((x1-x2)**2 + (y1-y2)**2) - d
@@ -207,34 +202,31 @@ impl Constraint {
 
                 let dist = euclidean_distance((x0, y0), (x1, y1));
                 if dist < EPSILON {
-                    return;
+                    return Vec::new();
                 }
                 let dr_dx0 = (x0 - x1) / dist;
                 let dr_dy0 = (y0 - y1) / dist;
                 let dr_dx1 = (-x0 + x1) / dist;
                 let dr_dy1 = (-y0 + y1) / dist;
 
-                row0.extend(
-                    [
-                        JacobianVar {
-                            id: p0.id_x(),
-                            partial_derivative: dr_dx0,
-                        },
-                        JacobianVar {
-                            id: p0.id_y(),
-                            partial_derivative: dr_dy0,
-                        },
-                        JacobianVar {
-                            id: p1.id_x(),
-                            partial_derivative: dr_dx1,
-                        },
-                        JacobianVar {
-                            id: p1.id_y(),
-                            partial_derivative: dr_dy1,
-                        },
-                    ]
-                    .as_slice(),
-                );
+                vec![
+                    JacobianVar {
+                        id: p0.id_x(),
+                        partial_derivative: dr_dx0,
+                    },
+                    JacobianVar {
+                        id: p0.id_y(),
+                        partial_derivative: dr_dy0,
+                    },
+                    JacobianVar {
+                        id: p1.id_x(),
+                        partial_derivative: dr_dx1,
+                    },
+                    JacobianVar {
+                        id: p1.id_y(),
+                        partial_derivative: dr_dy1,
+                    },
+                ]
             }
             Constraint::Vertical(line) => {
                 // Residual: R = x0 - x1
@@ -246,19 +238,16 @@ impl Constraint {
                 let p0_x_id = line.p0.id_x();
                 let p1_x_id = line.p1.id_x();
 
-                row0.extend(
-                    [
-                        JacobianVar {
-                            id: p0_x_id,
-                            partial_derivative: dr_dx0,
-                        },
-                        JacobianVar {
-                            id: p1_x_id,
-                            partial_derivative: dr_dx1,
-                        },
-                    ]
-                    .as_slice(),
-                );
+                vec![
+                    JacobianVar {
+                        id: p0_x_id,
+                        partial_derivative: dr_dx0,
+                    },
+                    JacobianVar {
+                        id: p1_x_id,
+                        partial_derivative: dr_dx1,
+                    },
+                ]
             }
             Constraint::Horizontal(line) => {
                 // Residual: R = y1 - y2
@@ -270,28 +259,22 @@ impl Constraint {
                 let p0_y_id = line.p0.id_y();
                 let p1_y_id = line.p1.id_y();
 
-                row0.extend(
-                    [
-                        JacobianVar {
-                            id: p0_y_id,
-                            partial_derivative: dr_dy0,
-                        },
-                        JacobianVar {
-                            id: p1_y_id,
-                            partial_derivative: dr_dy1,
-                        },
-                    ]
-                    .as_slice(),
-                );
+                vec![
+                    JacobianVar {
+                        id: p0_y_id,
+                        partial_derivative: dr_dy0,
+                    },
+                    JacobianVar {
+                        id: p1_y_id,
+                        partial_derivative: dr_dy1,
+                    },
+                ]
             }
             Constraint::Fixed(id, _expected) => {
-                row0.extend(
-                    [JacobianVar {
-                        id: *id,
-                        partial_derivative: 1.0,
-                    }]
-                    .as_slice(),
-                );
+                vec![JacobianVar {
+                    id: *id,
+                    partial_derivative: 1.0,
+                }]
             }
             Constraint::LinesAtAngle(line0, line1, expected_angle) => {
                 // Residual: R = atan2(v1×v2, v1·v2) - α
@@ -349,7 +332,7 @@ impl Constraint {
                         let is_invalid = (mag0 < EPSILON) || (mag1 < EPSILON);
                         if is_invalid {
                             // All zeroes
-                            return;
+                            return Vec::new();
                         }
 
                         // Calculate derivatives.
@@ -408,7 +391,7 @@ impl Constraint {
                         partial_derivative: pds.dr_dy3,
                     },
                 ];
-                row0.extend(jvars.as_slice());
+                jvars.to_vec()
             }
         }
     }

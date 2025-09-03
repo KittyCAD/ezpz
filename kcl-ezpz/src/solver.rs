@@ -202,14 +202,10 @@ impl<'c> NonlinearSystem for Model<'c> {
     fn refresh_jacobian(&mut self, current_assignments: &[Self::Real]) {
         let mut jacobian_values = Vec::with_capacity(self.jc.vals.len());
         let mut row_num = 0;
-        // Allocate some scratch space for the Jacobian calculations, so that we can
-        // do one allocation here and then won't need any allocations per-row or per-column.
-        let mut row0_scratch = Vec::with_capacity(NONZEROES_PER_ROW);
 
         // Note: this is iterating in row-major order.
         for constraint in self.constraints {
-            row0_scratch.clear();
-            constraint.jacobian_rows(&self.layout, current_assignments, &mut row0_scratch);
+            let row0_scratch = constraint.jacobian_rows(&self.layout, current_assignments);
             let jacobian_rows = [&row0_scratch];
             debug_assert_eq!(
                 1,
