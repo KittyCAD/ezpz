@@ -29,5 +29,8 @@ jobs:
       - name: Run the benchmarks
         uses: CodSpeedHQ/action@v3
         with:
-          run: cargo codspeed run -p kcl-ezpz
+          run: |
+            cp -r test_cases kcl-ezpz
+            cp justfile kcl-ezpz
+            cargo codspeed run -p kcl-ezpz
           token: ${{ secrets.CODSPEED_TOKEN }}
