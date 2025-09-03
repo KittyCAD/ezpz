@@ -520,6 +520,10 @@ where
     let n_vars = model.layout().n_variables();
     let n_res = model.layout().n_residuals();
 
+    // TODO: We need better logic here. We probably always want sparse for our
+    // use case, but exposing a smarter way of handling this could be possible.
+    // Our system might also be square but not have all rows linearly independent,
+    // which I think will tank LU decomp... so we might need a fallback to QR.
     let use_dense = match cfg.format {
         super::MatrixFormat::Dense => true,
         super::MatrixFormat::Sparse => false,
