@@ -2,6 +2,7 @@ use std::{
     hint::black_box,
     io::{self, Read},
     path::PathBuf,
+    str::FromStr,
     time::Duration,
 };
 
@@ -187,7 +188,7 @@ type RunResult = Result<(Outcome, Duration), FailureOutcome>;
 
 fn main_inner(cli: &Cli) -> Result<RunResult, String> {
     let constraint_txt = read_problem(cli)?;
-    let parsed = Problem::parse(&mut constraint_txt.as_str()).map_err(|e| e.to_string())?;
+    let parsed = Problem::from_str(&constraint_txt)?;
 
     // Ensure problem can be solved
     let now = std::time::Instant::now();
