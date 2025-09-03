@@ -121,13 +121,7 @@ pub fn parse_angle_line(i: &mut &str) -> WResult<AngleLine> {
     ignore_ws(i);
     let _ = '('.parse_next(i)?;
     ignore_ws(i);
-    let p0 = parse_label(i)?;
-    commasep(i)?;
-    let p1 = parse_label(i)?;
-    commasep(i)?;
-    let p2 = parse_label(i)?;
-    commasep(i)?;
-    let p3 = parse_label(i)?;
+    let [p0, p1, p2, p3] = four_points(i)?;
     commasep(i)?;
     let angle = parse_angle(i)?;
     ignore_ws(i);
@@ -156,14 +150,7 @@ pub fn parse_parallel(i: &mut &str) -> WResult<Parallel> {
     ignore_ws(i);
     let _ = '('.parse_next(i)?;
     ignore_ws(i);
-    let p0 = parse_label(i)?;
-    commasep(i)?;
-    let p1 = parse_label(i)?;
-    commasep(i)?;
-    let p2 = parse_label(i)?;
-    commasep(i)?;
-    let p3 = parse_label(i)?;
-    ignore_ws(i);
+    let [p0, p1, p2, p3] = four_points(i)?;
     let _ = ')'.parse_next(i)?;
     let line0 = (p0, p1);
     let line1 = (p2, p3);
@@ -175,6 +162,14 @@ pub fn parse_perpendicular(i: &mut &str) -> WResult<Perpendicular> {
     ignore_ws(i);
     let _ = '('.parse_next(i)?;
     ignore_ws(i);
+    let [p0, p1, p2, p3] = four_points(i)?;
+    let _ = ')'.parse_next(i)?;
+    let line0 = (p0, p1);
+    let line1 = (p2, p3);
+    Ok(Perpendicular { line0, line1 })
+}
+
+fn four_points(i: &mut &str) -> WResult<[Label; 4]> {
     let p0 = parse_label(i)?;
     commasep(i)?;
     let p1 = parse_label(i)?;
@@ -183,12 +178,10 @@ pub fn parse_perpendicular(i: &mut &str) -> WResult<Perpendicular> {
     commasep(i)?;
     let p3 = parse_label(i)?;
     ignore_ws(i);
-    let _ = ')'.parse_next(i)?;
-    let line0 = (p0, p1);
-    let line1 = (p2, p3);
-    Ok(Perpendicular { line0, line1 })
+    Ok([p0, p1, p2, p3])
 }
 
+/// Single-element vector
 fn sv<T>(t: T) -> Vec<T> {
     vec![t]
 }
