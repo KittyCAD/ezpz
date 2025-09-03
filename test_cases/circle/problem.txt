@@ -1,0 +1,8 @@
+# constraints
+point p
+circle a
+
+# guesses
+p roughly (4, 3)
+a.center roughly (0.1, 0.1)
+a.radius roughly 39

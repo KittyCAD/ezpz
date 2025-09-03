@@ -3,15 +3,35 @@ use std::str::FromStr;
 use super::*;
 use crate::textual::{Point, Problem};
 
+fn parse_problem(txt: &str) -> Problem {
+    match Problem::from_str(txt) {
+        Ok(x) => x,
+        Err(e) => {
+            eprintln!("{e}");
+            panic!("Could not parse");
+        }
+    }
+}
+
 #[test]
 fn tiny() {
     let txt = include_str!("../../test_cases/tiny/problem.txt");
-    let problem = Problem::from_str(txt).unwrap();
+    let problem = parse_problem(txt);
     assert_eq!(problem.instructions.len(), 6);
     assert_eq!(problem.points(), vec!["p", "q"]);
     let solved = problem.to_constraint_system().unwrap().solve().unwrap();
     assert_eq!(solved.get_point("p").unwrap(), Point { x: 0.0, y: 0.0 });
     assert_eq!(solved.get_point("q").unwrap(), Point { x: 0.0, y: 0.0 });
+}
+
+#[test]
+fn circle() {
+    let txt = include_str!("../../test_cases/circle/problem.txt");
+    let problem = parse_problem(txt);
+    assert_eq!(problem.points(), vec!["a.center"]);
+    let solved = problem.to_constraint_system().unwrap().solve().unwrap();
+    // assert_eq!(solved.get_point("p").unwrap(), Point { x: 0.0, y: 0.0 });
+    // assert_eq!(solved.get_point("q").unwrap(), Point { x: 0.0, y: 0.0 });
 }
 
 #[test]

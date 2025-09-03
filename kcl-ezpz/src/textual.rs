@@ -16,11 +16,19 @@ pub struct PointGuess {
     pub guess: Point,
 }
 
+#[derive(Debug, PartialEq)]
+pub struct ScalarGuess {
+    pub scalar: Label,
+    pub guess: f64,
+}
+
 #[derive(Debug)]
 pub struct Problem {
     pub instructions: Vec<Instruction>,
     pub inner_points: Vec<Label>,
+    pub inner_circles: Vec<Label>,
     pub point_guesses: Vec<PointGuess>,
+    pub scalar_guesses: Vec<ScalarGuess>,
 }
 
 impl FromStr for Problem {
