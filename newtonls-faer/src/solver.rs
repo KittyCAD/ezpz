@@ -478,39 +478,43 @@ where
     )
 }
 
-fn solve_sparse_lu<M, Cb>(
+fn solve_sparse<M, S, Cb>(
     model: &mut M,
     x: &mut [M::Real],
     cfg: NewtonCfg<M::Real>,
+    norm_type: NormType,
+    mut solver: S,
     on_iter: Cb,
 ) -> SolverResult<Iterations>
 where
     M: NonlinearSystem,
     M::Real: ComplexField<Real = M::Real> + Float + Zero + One + ToPrimitive,
+    S: for<'a> LinearSolver<M::Real, SparseColMatRef<'a, usize, M::Real>>,
     Cb: FnMut(&IterationStats<M::Real>) -> Control,
 {
     let n_vars = model.layout().n_variables();
     let n_res = model.layout().n_residuals();
-    let mut lu = FaerLu::<M::Real>::default();
     let mut rhs = FaerMat::<M::Real>::zeros(n_res, 1);
 
-    fn solve_inner<T>(
+    fn solve_inner<T, S>(
         model: &mut impl NonlinearSystem<Real = T>,
         x: &[T],
         f: &[T],
         dx: &mut [T],
-        lu: &mut FaerLu<T>,
+        solver: &mut S,
         rhs: &mut FaerMat<T>,
         cfg: &NewtonCfg<T>,
+        norm_type: NormType,
         n_vars: usize,
     ) -> SolverResult<bool>
     where
         T: ComplexField<Real = T> + Float + Zero + One + ToPrimitive,
+        S: for<'a> LinearSolver<T, SparseColMatRef<'a, usize, T>>,
     {
         // Update Jacobian and solve.
         model.refresh_jacobian(x);
         let jac_ref = model.jacobian().attach();
-        lu.factor(&jac_ref)?;
+        solver.factor(&jac_ref)?;
 
         rhs.col_mut(0)
             .as_mut()
@@ -518,14 +522,14 @@ where
             .zip(f.iter())
             .for_each(|(dst, &src)| *dst = -src);
 
-        lu.solve_in_place(rhs.as_mut())?;
+        solver.solve_in_place(rhs.as_mut())?;
 
         for (i, &val) in rhs.col(0).iter().take(n_vars).enumerate() {
             dx[i] = val;
         }
 
         // Check convergence with fresh Jacobian.
-        let converged = check_convergence(f, dx, x, cfg, NormType::LInf, || {
+        let converged = check_convergence(f, dx, x, cfg, norm_type, || {
             compute_gradient_norm_sparse(&jac_ref, f)
         });
 
@@ -537,8 +541,41 @@ where
         model,
         x,
         cfg,
+        norm_type,
+        |model, x, f, dx| {
+            solve_inner(
+                model,
+                x,
+                f,
+                dx,
+                &mut solver,
+                &mut rhs,
+                &cfg,
+                norm_type,
+                n_vars,
+            )
+        },
+        on_iter,
+    )
+}
+
+fn solve_sparse_lu<M, Cb>(
+    model: &mut M,
+    x: &mut [M::Real],
+    cfg: NewtonCfg<M::Real>,
+    on_iter: Cb,
+) -> SolverResult<Iterations>
+where
+    M: NonlinearSystem,
+    M::Real: ComplexField<Real = M::Real> + Float + Zero + One + ToPrimitive,
+    Cb: FnMut(&IterationStats<M::Real>) -> Control,
+{
+    solve_sparse(
+        model,
+        x,
+        cfg,
         NormType::LInf,
-        |model, x, f, dx| solve_inner(model, x, f, dx, &mut lu, &mut rhs, &cfg, n_vars),
+        FaerLu::<M::Real>::default(),
         on_iter,
     )
 }
@@ -554,56 +591,12 @@ where
     M::Real: ComplexField<Real = M::Real> + Float + Zero + One + ToPrimitive,
     Cb: FnMut(&IterationStats<M::Real>) -> Control,
 {
-    let n_vars = model.layout().n_variables();
-    let n_res = model.layout().n_residuals();
-    let mut qr = SparseQr::<M::Real>::default();
-    let mut rhs = FaerMat::<M::Real>::zeros(n_res, 1);
-
-    fn solve_inner<T>(
-        model: &mut impl NonlinearSystem<Real = T>,
-        x: &[T],
-        f: &[T],
-        dx: &mut [T],
-        qr: &mut SparseQr<T>,
-        rhs: &mut FaerMat<T>,
-        cfg: &NewtonCfg<T>,
-        n_vars: usize,
-    ) -> SolverResult<bool>
-    where
-        T: ComplexField<Real = T> + Float + Zero + One + ToPrimitive,
-    {
-        // Update Jacobian and solve.
-        model.refresh_jacobian(x);
-        let jac_ref = model.jacobian().attach();
-        qr.factor(&jac_ref)?;
-
-        rhs.col_mut(0)
-            .as_mut()
-            .iter_mut()
-            .zip(f.iter())
-            .for_each(|(dst, &src)| *dst = -src);
-
-        qr.solve_in_place(rhs.as_mut())?;
-
-        for (i, &val) in rhs.col(0).iter().take(n_vars).enumerate() {
-            dx[i] = val;
-        }
-
-        // Check convergence with fresh Jacobian.
-        let converged = check_convergence(f, dx, x, cfg, NormType::L2, || {
-            compute_gradient_norm_sparse(&jac_ref, f)
-        });
-
-        Ok(converged)
-    }
-
-    // Run iterative loop.
-    newton_iterate(
+    solve_sparse(
         model,
         x,
         cfg,
         NormType::L2,
-        |model, x, f, dx| solve_inner(model, x, f, dx, &mut qr, &mut rhs, &cfg, n_vars),
+        SparseQr::<M::Real>::default(),
         on_iter,
     )
 }
