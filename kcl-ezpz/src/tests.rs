@@ -35,9 +35,9 @@ fn circle() {
     let circle_a = solved.get_circle("a").unwrap();
     // From the problem:
     // circle a
-    // radius(a, 40)
+    // radius(a, 3.4)
     // a.center = (0.1, 0.2)
-    assert_nearly_eq(circle_a.radius, 40.0);
+    assert_nearly_eq(circle_a.radius, 3.4);
     assert_points_eq(circle_a.center, Point { x: 0.1, y: 0.2 });
 }
 

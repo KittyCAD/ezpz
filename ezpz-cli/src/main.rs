@@ -9,8 +9,14 @@ use std::{
 use clap::Parser;
 use kcl_ezpz::{
     FailureOutcome, Lint,
-    textual::{Outcome, Point, Problem},
+    textual::{Circle, Outcome, Point, Problem},
 };
+
+const NUM_ITERS_BENCHMARK: u32 = 100;
+const NORMAL_POINT: &str = "0x6CA6C1";
+const CIRCLE_POINT: &str = "0x000000";
+
+type PointToDraw = (f64, f64, &'static str);
 
 #[derive(Parser)]
 #[command(name="ezpz", version, about, long_about = None)]
@@ -43,8 +49,6 @@ impl Cli {
     }
 }
 
-const NUM_ITERS_BENCHMARK: u32 = 100;
-
 fn main() {
     let cli = Cli::parse();
     let soln = match main_inner(&cli) {
@@ -74,14 +78,12 @@ fn main() {
 fn save_gnuplot_png(cli: &Cli, soln: &Outcome, output_path: String) {
     let mut gnuplot_program = String::new();
     let chart_name = cli.chart_name();
-    let points = soln
-        .points
-        .iter()
-        .map(|(label, pt)| ((pt.x, pt.y), label.as_str()))
-        .collect();
+    let points = points_from_soln(soln);
+    let circles = circles_from_soln(soln);
     gnuplot_program.push_str(&gnuplot(
         &chart_name,
         points,
+        circles,
         GnuplotMode::WriteFile(output_path),
     ));
     gnuplot_program.push_str("unset output"); // closes file
@@ -101,15 +103,34 @@ fn save_gnuplot_png(cli: &Cli, soln: &Outcome, output_path: String) {
     let _ = child.wait();
 }
 
+fn points_from_soln(soln: &Outcome) -> Vec<(PointToDraw, String)> {
+    let mut points: Vec<_> = soln
+        .points
+        .iter()
+        .map(|(label, pt)| ((pt.x, pt.y, NORMAL_POINT), label.clone()))
+        .collect();
+    points.extend(soln.circles.iter().map(|(label, circle)| {
+        (
+            (circle.center.x, circle.center.y, CIRCLE_POINT),
+            format!("{}.center", label),
+        )
+    }));
+    points
+}
+
+fn circles_from_soln(soln: &Outcome) -> Vec<(Circle, String)> {
+    soln.circles
+        .iter()
+        .map(|(label, pt)| (*pt, label.clone()))
+        .collect()
+}
+
 /// Open a `gnuplot` window displaying these points in a 2D scatter plot.
 fn pop_gnuplot_window(cli: &Cli, soln: &Outcome) {
     let chart_name = cli.chart_name();
-    let points = soln
-        .points
-        .iter()
-        .map(|(label, pt)| ((pt.x, pt.y), label.as_str()))
-        .collect();
-    let gnuplot_program = gnuplot(&chart_name, points, GnuplotMode::PopWindow);
+    let points = points_from_soln(soln);
+    let circles = circles_from_soln(soln);
+    let gnuplot_program = gnuplot(&chart_name, points, circles, GnuplotMode::PopWindow);
     let mut child = std::process::Command::new("gnuplot")
         .args(["-persist", "-"])
         .stdin(std::process::Stdio::piped())
@@ -132,22 +153,38 @@ enum GnuplotMode {
 }
 
 /// Write a gnuplot program to show these points in a 2D scatter plot.
-fn gnuplot(chart_name: &str, points: Vec<((f64, f64), &str)>, mode: GnuplotMode) -> String {
+fn gnuplot(
+    chart_name: &str,
+    points: Vec<(PointToDraw, String)>,
+    circles: Vec<(Circle, String)>,
+    mode: GnuplotMode,
+) -> String {
     let all_points = points
         .iter()
-        .map(|((x, y), _label)| format!("{x:.2} {y:.2}"))
+        .map(|((x, y, color), _label)| format!("{x:.2} {y:.2} {color}"))
         .collect::<Vec<_>>()
         .join("\n");
     let all_labels = points
         .iter()
-        .map(|((x, y), label)| {
+        .map(|((x, y, _color), label)| {
             format!("set label \"{label} ({x:.2}, {y:.2})\" at {x:.2},{y:.2} offset 1,1")
         })
         .collect::<Vec<_>>()
         .join("\n");
+    let circles: String = circles
+        .into_iter()
+        .enumerate()
+        .map(|(i, (circ, _label))| {
+            let cx=circ.center.x;
+            let cy=circ.center.y;
+            let radius=circ.radius;
+            let i=i+1;
+            format!("set object {i} circle at {cx},{cy} size {radius} front lw 2 lc rgb {CIRCLE_POINT} fillstyle empty\n")
+        })
+        .collect();
     let components = points
         .into_iter()
-        .flat_map(|((x, y), _label)| [x, y])
+        .flat_map(|((x, y, _), _label)| [x, y])
         .collect::<Vec<_>>();
     let min = components.iter().cloned().fold(f64::NAN, f64::min) - 1.0;
     let max = components.iter().cloned().fold(f64::NAN, f64::max) + 1.0;
@@ -167,11 +204,13 @@ set ylabel \"Y\"
 set grid
 unset key
 
+{circles}
+
 set xrange [{min}:{max}]
 set yrange [{min}:{max}]
 
 # Plot the points
-plot \"-\" with points pointtype 7 pointsize 2 title \"Points\"
+plot \"-\" using 1:2:3 with points pointtype 7 pointsize 2 lc rgb variable title \"Points\"
 {all_points}
 e
 

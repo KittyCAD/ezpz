@@ -60,3 +60,9 @@ fmt-check:
 # Probably in ~/.cargo/bin/ezpz
 install:
     cargo install --path ezpz-cli
+
+# Install the ezpz CLI.
+# The output text will tell you where it got installed.
+# Probably in ~/.cargo/bin/ezpz
+@reinstall:
+    cargo install --path ezpz-cli --quiet --offline
