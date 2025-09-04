@@ -21,7 +21,7 @@ mod tests;
 /// Parser for textual representation of these problems.
 pub mod textual;
 
-const EPSILON: f64 = 0.001;
+const EPSILON: f64 = 1e-5;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
