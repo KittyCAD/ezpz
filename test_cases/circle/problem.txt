@@ -3,7 +3,7 @@ point p
 circle a
 radius(a, 40)
 p = (5, 5)
-a.center = (0, 0)
+a.center = (0.1, 0.2)
 
 # guesses
 p roughly (4, 3)

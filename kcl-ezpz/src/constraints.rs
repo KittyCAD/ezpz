@@ -176,7 +176,7 @@ impl Constraint {
             }
             Constraint::CircleRadius(circle, expected_radius) => {
                 let actual_radius = current_assignments[layout.index_of(circle.radius.id)];
-                output.push(*expected_radius - actual_radius);
+                output.push(actual_radius - *expected_radius);
             }
         }
     }

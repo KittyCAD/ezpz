@@ -274,7 +274,7 @@ fn ignore_ws(i: &mut &str) {
 
 fn assign_point(i: &mut &str) -> WResult<Vec<Instruction>> {
     // p0 = (0, 0)
-    let label = parse_label(i)?;
+    let label = parse_label_opt_suffix(i)?;
     ignore_ws(i);
     '='.parse_next(i)?;
     ignore_ws(i);
@@ -319,6 +319,16 @@ fn parse_label(i: &mut &str) -> WResult<Label> {
     take_while(1.., AsChar::is_alphanum)
         .map(|s: &str| Label(s.to_owned()))
         .parse_next(i)
+}
+
+fn parse_label_opt_suffix(i: &mut &str) -> WResult<Label> {
+    let mut label = parse_label(i)?;
+    let suffix = opt(('.', parse_label)).parse_next(i)?;
+    if let Some((a, b)) = suffix {
+        label.0.push(a);
+        label.0.push_str(&b.0);
+    }
+    Ok(label)
 }
 
 pub fn parse_point(input: &mut &str) -> WResult<Point> {

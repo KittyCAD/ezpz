@@ -31,11 +31,14 @@ fn circle() {
     assert_eq!(problem.points(), vec!["p"]);
     assert_eq!(problem.circles(), vec!["a"]);
     let solved = problem.to_constraint_system().unwrap().solve().unwrap();
-    assert_eq!(solved.get_point("p").unwrap(), Point { x: 4.0, y: 3.0 });
+    assert_points_eq(solved.get_point("p").unwrap(), Point { x: 5.0, y: 5.0 });
     let circle_a = solved.get_circle("a").unwrap();
-    assert_nearly_eq(circle_a.radius, 39.0);
+    // From the problem:
+    // circle a
+    // radius(a, 40)
+    // a.center = (0.1, 0.2)
+    assert_nearly_eq(circle_a.radius, 40.0);
     assert_points_eq(circle_a.center, Point { x: 0.1, y: 0.2 });
-    // assert_eq!(solved.get_circle("a").unwrap(), Circle{radius:39.0, center:Point { x: 0.0, y: 0.0 });
 }
 
 #[test]
