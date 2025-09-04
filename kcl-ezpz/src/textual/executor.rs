@@ -100,6 +100,7 @@ impl Problem {
             let labels: Vec<String> = guessmap_scalars.keys().cloned().collect();
             return Err(Error::UnusedGuesses { labels });
         }
+        let start_of_circles = 2 * self.inner_points.len();
 
         // Good. Now we can define all the constraints, referencing the solver variables that
         // were defined in the previous step.
@@ -115,9 +116,8 @@ impl Problem {
                 .iter()
                 .position(|circ| format!("{}.center", circ.0) == label.0.as_str())
             {
-                let circle_section_start = self.inner_points.len() * 2;
-                let x_id = initial_guesses[circle_section_start + 3 * circle_id].0;
-                let y_id = initial_guesses[circle_section_start + 3 * circle_id + 1].0;
+                let x_id = initial_guesses[start_of_circles + 3 * circle_id].0;
+                let y_id = initial_guesses[start_of_circles + 3 * circle_id + 1].0;
                 return Ok(DatumPoint { x_id, y_id });
             }
             Err(Error::UndefinedPoint {
@@ -130,8 +130,7 @@ impl Problem {
                 .iter()
                 .position(|circ| format!("{}.radius", circ.0) == label.0.as_str())
             {
-                let circle_section_start = self.inner_points.len() * 2;
-                let this_circles_variables_start = circle_section_start + 3 * circle_id;
+                let this_circles_variables_start = start_of_circles + 3 * circle_id;
                 // +0 would be circle's center's X,
                 // +1 would be circle's center's Y,
                 // +2 is the radius.
@@ -177,7 +176,6 @@ impl Problem {
                         if let Some(circle_id) =
                             self.inner_circles.iter().position(|p| p.0 == circle_label)
                         {
-                            let start_of_circles = 2 * self.inner_points.len();
                             let index = match component {
                                 Component::X => start_of_circles + 3 * circle_id,
                                 Component::Y => start_of_circles + 3 * circle_id + 1,
@@ -200,8 +198,8 @@ impl Problem {
                         self.inner_circles.iter().position(|label| label == circle)
                     {
                         let index = match center_component {
-                            Component::X => 3 * circle_id,
-                            Component::Y => 3 * circle_id + 1,
+                            Component::X => start_of_circles + 3 * circle_id,
+                            Component::Y => start_of_circles + 3 * circle_id + 1,
                         };
                         let id = initial_guesses[index].0;
                         constraints.push(Constraint::Fixed(id, *value));
