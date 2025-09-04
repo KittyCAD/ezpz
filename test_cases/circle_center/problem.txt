@@ -1,8 +1,8 @@
 # constraints
 circle a
 radius(a, 1)
-a.center.x = 0.1
-a.center.y = 0.2
+a.center.x = 0
+a.center.y = 0
 
 # guesses
 a.center roughly (0.1, 0.2)
