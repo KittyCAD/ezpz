@@ -7,6 +7,7 @@ use error_stack::Report;
 use faer::mat::Mat as FaerMat;
 use faer_traits::ComplexField;
 use num_traits::{Float, One, ToPrimitive, Zero};
+use std::panic;
 
 const AUTO_DENSE_THRESHOLD: usize = 100;
 const FTOL_DEFAULT: f64 = 1e-8;
@@ -411,7 +412,8 @@ where
     if use_dense {
         solve_dense_lu(model, x, cfg, on_iter)
     } else if is_square {
-        solve_sparse_lu(model, x, cfg, on_iter)
+        // TODO: This should be sparse LU with fallback to QR.
+        solve_sparse_lu_with_qr_fallback(model, x, cfg, on_iter)
     } else {
         solve_sparse_qr(model, x, cfg, on_iter)
     }
@@ -599,4 +601,30 @@ where
         SparseQr::<M::Real>::default(),
         on_iter,
     )
+}
+
+fn solve_sparse_lu_with_qr_fallback<M, Cb>(
+    model: &mut M,
+    x: &mut [M::Real],
+    cfg: NewtonCfg<M::Real>,
+    mut on_iter: Cb,
+) -> SolverResult<Iterations>
+where
+    M: NonlinearSystem,
+    M::Real: ComplexField<Real = M::Real> + Float + Zero + One + ToPrimitive,
+    Cb: FnMut(&IterationStats<M::Real>) -> Control,
+{
+    // Try LU with panic catching.
+    let lu_result = panic::catch_unwind(panic::AssertUnwindSafe(|| {
+        solve_sparse_lu(model, x, cfg, |stats| on_iter(stats))
+    }));
+
+    match lu_result {
+        Ok(Ok(iterations)) => Ok(iterations),
+        Ok(Err(lu_error)) => Err(lu_error), // Normal error
+        Err(_panic) => {
+            // Panic occurred (likely singular matrix), try QR.
+            solve_sparse_qr(model, x, cfg, on_iter)
+        }
+    }
 }
