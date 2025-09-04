@@ -27,13 +27,19 @@ pub enum AngleKind {
 }
 
 /// Describes one value in one row of the Jacobian matrix.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
 pub struct JacobianVar {
     /// Which variable are we talking about?
     /// Corresponds to one column in the row.
     pub id: Id,
     /// What value is its partial derivative?
     pub partial_derivative: f64,
+}
+
+impl std::fmt::Debug for JacobianVar {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "∂ id{}={}", self.id, self.partial_derivative)
+    }
 }
 
 /// One row of the Jacobian matrix.
@@ -76,9 +82,7 @@ impl Constraint {
                 line1.p1.id_y(),
             ]),
             Constraint::Fixed(id, _scalar) => row0.push(*id),
-            Constraint::CircleRadius(circle, _radius) => {
-                row0.extend([circle.center.id_x(), circle.center.id_y(), circle.radius.id])
-            }
+            Constraint::CircleRadius(circle, _radius) => row0.extend([circle.radius.id]),
         }
     }
 

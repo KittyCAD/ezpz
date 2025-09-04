@@ -1,6 +1,9 @@
 # constraints
 point p
 circle a
+radius(a, 40)
+p = (5, 5)
+a.center = (0, 0)
 
 # guesses
 p roughly (4, 3)
