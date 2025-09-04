@@ -171,8 +171,8 @@ fn gnuplot(
         })
         .collect::<Vec<_>>()
         .join("\n");
-    let circles: String = circles
-        .into_iter()
+    let all_circles: String = circles
+        .iter()
         .enumerate()
         .map(|(i, (circ, _label))| {
             let cx=circ.center.x;
@@ -182,12 +182,22 @@ fn gnuplot(
             format!("set object {i} circle at {cx},{cy} size {radius} front lw 2 lc rgb {CIRCLE_POINT} fillstyle empty\n")
         })
         .collect();
-    let components = points
+
+    // Get the furthest X and Y component in each direction,
+    // so we can establish the span of the graph.
+    let mut components = points
         .into_iter()
         .flat_map(|((x, y, _), _label)| [x, y])
         .collect::<Vec<_>>();
+    for circle in circles {
+        components.push(circle.0.center.x + circle.0.radius);
+        components.push(circle.0.center.y + circle.0.radius);
+        components.push(circle.0.center.x - circle.0.radius);
+        components.push(circle.0.center.y - circle.0.radius);
+    }
     let min = components.iter().cloned().fold(f64::NAN, f64::min) - 1.0;
     let max = components.iter().cloned().fold(f64::NAN, f64::max) + 1.0;
+
     let display = match mode {
         GnuplotMode::PopWindow => "set term qt font \"Verdana\"\n".to_owned(),
         GnuplotMode::WriteFile(output_path) => format!(
@@ -204,7 +214,7 @@ set ylabel \"Y\"
 set grid
 unset key
 
-{circles}
+{all_circles}
 
 set xrange [{min}:{max}]
 set yrange [{min}:{max}]

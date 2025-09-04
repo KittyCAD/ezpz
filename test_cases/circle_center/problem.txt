@@ -1,6 +1,6 @@
 # constraints
 circle a
-radius(a, 3.4)
+radius(a, 1)
 a.center.x = 0.1
 a.center.y = 0.2
 
