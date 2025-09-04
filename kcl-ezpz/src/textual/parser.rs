@@ -1,6 +1,9 @@
 use crate::textual::{
     ScalarGuess,
-    instruction::{AngleLine, CircleRadius, DeclareCircle, Distance, Parallel, Perpendicular},
+    instruction::{
+        AngleLine, CircleRadius, DeclareCircle, Distance, FixCenterPointComponent, Parallel,
+        Perpendicular,
+    },
 };
 
 use super::{
@@ -252,6 +255,9 @@ fn parse_instruction(i: &mut &str) -> WResult<Vec<Instruction>> {
         parse_fix_point_component
             .map(Instruction::FixPointComponent)
             .map(sv),
+        parse_fix_center_point_component
+            .map(Instruction::FixCenterPointComponent)
+            .map(sv),
         assign_point,
         parse_horizontal.map(Instruction::Horizontal).map(sv),
         parse_vertical.map(Instruction::Vertical).map(sv),
@@ -336,6 +342,24 @@ pub fn parse_point(input: &mut &str) -> WResult<Point> {
         (parse_number, ',', space0, parse_number).map(|(x, _comma, _space, y)| Point { x, y }),
         input,
     )
+}
+
+fn parse_fix_center_point_component(i: &mut &str) -> WResult<FixCenterPointComponent> {
+    (
+        parse_label,
+        ".center.",
+        parse_component,
+        delimited(space0, '=', space0),
+        parse_number,
+    )
+        .map(
+            |(label, _dot, component, _equals, value)| FixCenterPointComponent {
+                circle: label,
+                center_component: component,
+                value,
+            },
+        )
+        .parse_next(i)
 }
 
 fn parse_number(i: &mut &str) -> WResult<f64> {

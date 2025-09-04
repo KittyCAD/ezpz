@@ -14,6 +14,7 @@ pub enum Instruction {
     Perpendicular(Perpendicular),
     AngleLine(AngleLine),
     CircleRadius(CircleRadius),
+    FixCenterPointComponent(FixCenterPointComponent),
 }
 
 #[derive(Debug)]
@@ -71,5 +72,12 @@ pub struct DeclareCircle {
 pub struct FixPointComponent {
     pub point: Label,
     pub component: Component,
+    pub value: f64,
+}
+
+#[derive(Debug)]
+pub struct FixCenterPointComponent {
+    pub circle: Label,
+    pub center_component: Component,
     pub value: f64,
 }
