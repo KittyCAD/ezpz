@@ -66,3 +66,8 @@ install:
 # Probably in ~/.cargo/bin/ezpz
 @reinstall:
     cargo install --path ezpz-cli --quiet --offline
+
+# Create a new test case
+new-test name:
+    mkdir test_cases/{{name}}
+    touch test_cases/{{name}}/problem.txt
