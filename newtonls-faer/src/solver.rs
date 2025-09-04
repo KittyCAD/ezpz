@@ -435,6 +435,7 @@ where
     let mut jac = FaerMat::<M::Real>::zeros(n, n);
     let mut rhs = FaerMat::<M::Real>::zeros(n, 1);
 
+    #[allow(clippy::too_many_arguments)]
     fn solve_inner<T>(
         model: &mut impl NonlinearSystem<Real = T>,
         x: &[T],
@@ -498,6 +499,7 @@ where
     let n_res = model.layout().n_residuals();
     let mut rhs = FaerMat::<M::Real>::zeros(n_res, 1);
 
+    #[allow(clippy::too_many_arguments)]
     fn solve_inner<T, S>(
         model: &mut impl NonlinearSystem<Real = T>,
         x: &[T],
