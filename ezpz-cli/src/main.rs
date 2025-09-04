@@ -13,8 +13,8 @@ use kcl_ezpz::{
 };
 
 const NUM_ITERS_BENCHMARK: u32 = 100;
-const NORMAL_POINT: &str = "0x6CA6C1";
-const CIRCLE_POINT: &str = "0x000000";
+const NORMAL_POINT: &str = "0x0B5563";
+const CIRCLE_COLOR: &str = "0x700548";
 
 type PointToDraw = (f64, f64, &'static str);
 
@@ -111,7 +111,7 @@ fn points_from_soln(soln: &Outcome) -> Vec<(PointToDraw, String)> {
         .collect();
     points.extend(soln.circles.iter().map(|(label, circle)| {
         (
-            (circle.center.x, circle.center.y, CIRCLE_POINT),
+            (circle.center.x, circle.center.y, CIRCLE_COLOR),
             format!("{}.center", label),
         )
     }));
@@ -131,6 +131,7 @@ fn pop_gnuplot_window(cli: &Cli, soln: &Outcome) {
     let points = points_from_soln(soln);
     let circles = circles_from_soln(soln);
     let gnuplot_program = gnuplot(&chart_name, points, circles, GnuplotMode::PopWindow);
+    eprintln!("{}", gnuplot_program);
     let mut child = std::process::Command::new("gnuplot")
         .args(["-persist", "-"])
         .stdin(std::process::Stdio::piped())
@@ -171,23 +172,35 @@ fn gnuplot(
         })
         .collect::<Vec<_>>()
         .join("\n");
-    let circles: String = circles
-        .into_iter()
+    let all_circles: String = circles
+        .iter()
         .enumerate()
         .map(|(i, (circ, _label))| {
             let cx=circ.center.x;
             let cy=circ.center.y;
             let radius=circ.radius;
             let i=i+1;
-            format!("set object {i} circle at {cx},{cy} size {radius} front lw 2 lc rgb {CIRCLE_POINT} fillstyle empty\n")
+            format!("set object {i} circle at {cx},{cy} size first {radius} front lw 2 fc rgb {CIRCLE_COLOR} fs empty border rgb {CIRCLE_COLOR}\n")
         })
         .collect();
-    let components = points
-        .into_iter()
-        .flat_map(|((x, y, _), _label)| [x, y])
-        .collect::<Vec<_>>();
-    let min = components.iter().cloned().fold(f64::NAN, f64::min) - 1.0;
-    let max = components.iter().cloned().fold(f64::NAN, f64::max) + 1.0;
+
+    // Get the furthest X and Y component in each direction,
+    // so we can establish the span of the graph.
+    let (mut xs, mut ys): (Vec<_>, Vec<_>) =
+        points.into_iter().map(|((x, y, _), _label)| (x, y)).unzip();
+    for circle in circles {
+        eprintln!("{circle:?}");
+        xs.push(circle.0.center.x + circle.0.radius);
+        ys.push(circle.0.center.y + circle.0.radius);
+        xs.push(circle.0.center.x - circle.0.radius);
+        ys.push(circle.0.center.y - circle.0.radius);
+    }
+    let min_x = xs.iter().cloned().fold(f64::NAN, f64::min) - 1.0;
+    let max_x = xs.iter().cloned().fold(f64::NAN, f64::max) + 1.0;
+    let min_y = ys.iter().cloned().fold(f64::NAN, f64::min) - 1.0;
+    let max_y = ys.iter().cloned().fold(f64::NAN, f64::max) + 1.0;
+    dbg!(min_x, max_x, min_y, max_y);
+
     let display = match mode {
         GnuplotMode::PopWindow => "set term qt font \"Verdana\"\n".to_owned(),
         GnuplotMode::WriteFile(output_path) => format!(
@@ -198,16 +211,17 @@ fn gnuplot(
         "\
 {display}
 # `noenhance` stops _ in path names being interpreted as subscript
-set title \"{chart_name}\" noenhance 
+set title \"Solution to {chart_name}\" noenhance 
 set xlabel \"X\"
 set ylabel \"Y\"
 set grid
+set size ratio -1
 unset key
 
-{circles}
+{all_circles}
 
-set xrange [{min}:{max}]
-set yrange [{min}:{max}]
+set xrange [{min_x}:{max_x}]
+set yrange [{min_y}:{max_y}]
 
 # Plot the points
 plot \"-\" using 1:2:3 with points pointtype 7 pointsize 2 lc rgb variable title \"Points\"

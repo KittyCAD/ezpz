@@ -19,6 +19,7 @@ use crate::textual::Label;
 use crate::textual::instruction::AngleLine;
 use crate::textual::instruction::CircleRadius;
 use crate::textual::instruction::Distance;
+use crate::textual::instruction::FixCenterPointComponent;
 use crate::textual::instruction::FixPointComponent;
 use crate::textual::instruction::Horizontal;
 use crate::textual::instruction::Parallel;
@@ -163,7 +164,9 @@ impl Problem {
                     component,
                     value,
                 }) => {
-                    if let Some(point_id) = self.inner_points.iter().position(|p| p == point) {
+                    if let Some(point_id) =
+                        self.inner_points.iter().position(|label| label == point)
+                    {
                         let index = match component {
                             Component::X => 2 * point_id,
                             Component::Y => 2 * point_id + 1,
@@ -185,6 +188,26 @@ impl Problem {
                     } else {
                         return Err(Error::UndefinedPoint {
                             label: point.0.clone(),
+                        });
+                    }
+                }
+                Instruction::FixCenterPointComponent(FixCenterPointComponent {
+                    circle,
+                    center_component,
+                    value,
+                }) => {
+                    if let Some(circle_id) =
+                        self.inner_circles.iter().position(|label| label == circle)
+                    {
+                        let index = match center_component {
+                            Component::X => 3 * circle_id,
+                            Component::Y => 3 * circle_id + 1,
+                        };
+                        let id = initial_guesses[index].0;
+                        constraints.push(Constraint::Fixed(id, *value));
+                    } else {
+                        return Err(Error::UndefinedPoint {
+                            label: circle.0.clone(),
                         });
                     }
                 }

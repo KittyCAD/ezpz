@@ -42,6 +42,18 @@ fn circle() {
 }
 
 #[test]
+fn circle_center() {
+    // Very similar to test `circle` above,
+    // except it gives each constraint on the center separately.
+    let txt = include_str!("../../test_cases/circle_center/problem.txt");
+    let problem = parse_problem(txt);
+    let solved = problem.to_constraint_system().unwrap().solve().unwrap();
+    let circle_a = solved.get_circle("a").unwrap();
+    assert_nearly_eq(circle_a.radius, 1.0);
+    assert_points_eq(circle_a.center, Point { x: 0.0, y: 0.0 });
+}
+
+#[test]
 fn rectangle() {
     let txt = include_str!("../../test_cases/two_rectangles/problem.txt");
     let problem = Problem::from_str(txt).unwrap();
