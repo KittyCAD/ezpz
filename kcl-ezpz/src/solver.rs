@@ -221,6 +221,10 @@ impl<'c> NonlinearSystem for Model<'c> {
 
             for jacobian_row in jacobian_rows {
                 let row = row_num;
+                // eprintln!(
+                //     "Row {row} ({}): {jacobian_row:?}",
+                //     constraint.constraint_kind()
+                // );
                 row_num += 1;
                 for jacobian_var in jacobian_row {
                     let col = self.layout.index_of(jacobian_var.id);

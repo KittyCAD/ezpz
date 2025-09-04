@@ -63,7 +63,9 @@ fn circle_tangent() {
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 3.0 });
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 5.0, y: 3.0 });
     let circle_a = solved.get_circle("a").unwrap();
-    assert_points_eq(circle_a.center, Point { x: 2.5, y: 1.5 });
+    // The circle could either be above the p-q line (i.e. y is 4.5)
+    // or below it (i.e. y is 1.5)
+    assert_nearly_eq((circle_a.center.y - 3.0).abs(), 1.5);
 }
 
 #[test]

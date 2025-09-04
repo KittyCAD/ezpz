@@ -42,7 +42,7 @@ pub struct JacobianVar {
 
 impl std::fmt::Debug for JacobianVar {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "∂ id{}={}", self.id, self.partial_derivative)
+        write!(f, "∂ col={} pd={:.3}", self.id, self.partial_derivative)
     }
 }
 
@@ -122,6 +122,7 @@ impl Constraint {
                 // Formula: distance = (v × w) / |v|
                 // where v is the line vector and w is the vector from p1 to the center.
                 let v = p1 - p0;
+                // let v = p0 - p1;
                 let mag_v = v.length();
                 if mag_v < EPSILON {
                     // If line has no length, then the residual is 0, regardless of anything else.
@@ -135,7 +136,8 @@ impl Constraint {
                 // Div-by-zero check:
                 // already handled case where mag_v < EPSILON above and early-returned.
                 let signed_distance_to_line = cross_2d / mag_v;
-                output.push(signed_distance_to_line - radius);
+                let residual = signed_distance_to_line - radius;
+                output.push(residual);
             }
             Constraint::Distance(p0, p1, expected_distance) => {
                 let p0_x = current_assignments[layout.index_of(p0.id_x())];
@@ -242,13 +244,13 @@ impl Constraint {
     ) {
         match self {
             Constraint::LineTangentToCircle(line, circle) => {
-                // Residual: R = ((x2-x1)*(yc-y1) - (y2-y1)*(xc-x1)) / sqrt((x2-x1)**2 + (y2-y1)**2) - r
-                // ∂R/∂x1 = (-(x1 - x2)*((x1 - x2)*(y1 - yc) - (x1 - xc)*(y1 - y2)) + (y2 - yc)*((x1 - x2)**2 + (y1 - y2)**2))/((x1 - x2)**2 + (y1 - y2)**2)**(3/2)
-                // ∂R/∂y1 = ((-x2 + xc)*((x1 - x2)**2 + (y1 - y2)**2) - (y1 - y2)*((x1 - x2)*(y1 - yc) - (x1 - xc)*(y1 - y2)))/((x1 - x2)**2 + (y1 - y2)**2)**(3/2)
-                // ∂R/∂x2 = ((x1 - x2)*((x1 - x2)*(y1 - yc) - (x1 - xc)*(y1 - y2)) + (-y1 + yc)*((x1 - x2)**2 + (y1 - y2)**2))/((x1 - x2)**2 + (y1 - y2)**2)**(3/2)
-                // ∂R/∂y2 = ((x1 - xc)*((x1 - x2)**2 + (y1 - y2)**2) + (y1 - y2)*((x1 - x2)*(y1 - yc) - (x1 - xc)*(y1 - y2)))/((x1 - x2)**2 + (y1 - y2)**2)**(3/2)
-                // ∂R/∂xc = (y1 - y2)/sqrt((x1 - x2)**2 + (y1 - y2)**2)
-                // ∂R/∂yc = (-x1 + x2)/sqrt((x1 - x2)**2 + (y1 - y2)**2)
+                // Residual: R = ((x1-x0)*(yc-y0) - (y1-y0)*(xc-x0)) / sqrt((x1-x0)**2 + (y1-y0)**2) - r
+                // ∂R/∂x0 = (-(x0 - x1)*((x0 - x1)*(y0 - yc) - (x0 - xc)*(y0 - y1)) + (y1 - yc)*((x0 - x1)**2 + (y0 - y1)**2))/((x0 - x1)**2 + (y0 - y1)**2)**(3/2)
+                // ∂R/∂y0 = ((-x1 + xc)*((x0 - x1)**2 + (y0 - y1)**2) - (y0 - y1)*((x0 - x1)*(y0 - yc) - (x0 - xc)*(y0 - y1)))/((x0 - x1)**2 + (y0 - y1)**2)**(3/2)
+                // ∂R/∂x1 = ((x0 - x1)*((x0 - x1)*(y0 - yc) - (x0 - xc)*(y0 - y1)) + (-y0 + yc)*((x0 - x1)**2 + (y0 - y1)**2))/((x0 - x1)**2 + (y0 - y1)**2)**(3/2)
+                // ∂R/∂y1 = ((x0 - xc)*((x0 - x1)**2 + (y0 - y1)**2) + (y0 - y1)*((x0 - x1)*(y0 - yc) - (x0 - xc)*(y0 - y1)))/((x0 - x1)**2 + (y0 - y1)**2)**(3/2)
+                // ∂R/∂xc = (y0 - y1)/sqrt((x0 - x1)**2 + (y0 - y1)**2)
+                // ∂R/∂yc = (-x0 + x1)/sqrt((x0 - x1)**2 + (y0 - y1)**2)
                 // ∂R/∂r = -1
                 let x0 = current_assignments[layout.index_of(line.p0.id_x())];
                 let y0 = current_assignments[layout.index_of(line.p0.id_y())];
@@ -276,8 +278,10 @@ impl Constraint {
                 let dr_dy0 = ((-x1 + xc) * mag_v_sq - d.y * cross_term) / mag_v_cubed;
                 let dr_dx1 = (d.x * cross_term + (-y0 + yc) * mag_v_sq) / mag_v_cubed;
                 let dr_dy1 = ((x0 - xc) * mag_v_sq + d.y * cross_term) / mag_v_cubed;
-                let dr_dxc = (y0 - y1) / mag_v;
-                let dr_dyc = (-x0 + x1) / mag_v;
+
+                let dr_dxc = (y0 - y1) / mag_v + (y0 - y1).powi(2);
+                let dr_dyc = (-x0 + x1) / mag_v + (y0 - y1).powi(2);
+
                 let dr_dr = -1.0;
 
                 let jvars = [
