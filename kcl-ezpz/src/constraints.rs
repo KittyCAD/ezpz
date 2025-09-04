@@ -1,3 +1,4 @@
+use euler::DVec2;
 use kittycad_modeling_cmds::shared::Angle;
 
 use crate::{EPSILON, datatypes::*, id::Id, solver::Layout};
@@ -5,6 +6,9 @@ use crate::{EPSILON, datatypes::*, id::Id, solver::Layout};
 /// Each geometric constraint we support.
 #[derive(Clone, Copy, Debug)]
 pub enum Constraint {
+    /// This line must be tangent to the circle
+    /// (i.e. touches its perimeter in exactly one place)
+    LineTangentToCircle(LineSegment, Circle),
     /// These two points should be a given distance apart.
     Distance(DatumPoint, DatumPoint, f64),
     /// These two points have the same Y value.
@@ -66,21 +70,19 @@ impl Constraint {
     /// For each row of the Jacobian matrix, which variables are involved in them?
     pub fn nonzeroes(&self, row0: &mut Vec<Id>) {
         match self {
+            Constraint::LineTangentToCircle(line, circle) => {
+                row0.extend(line.all_variables());
+                row0.extend(circle.all_variables());
+            }
             Constraint::Distance(p0, p1, _dist) => {
                 row0.extend([p0.id_x(), p0.id_y(), p1.id_x(), p1.id_y()])
             }
             Constraint::Vertical(line) => row0.extend([line.p0.id_x(), line.p1.id_x()]),
             Constraint::Horizontal(line) => row0.extend([line.p0.id_y(), line.p1.id_y()]),
-            Constraint::LinesAtAngle(line0, line1, _angle) => row0.extend([
-                line0.p0.id_x(),
-                line0.p0.id_y(),
-                line0.p1.id_x(),
-                line0.p1.id_y(),
-                line1.p0.id_x(),
-                line1.p0.id_y(),
-                line1.p1.id_x(),
-                line1.p1.id_y(),
-            ]),
+            Constraint::LinesAtAngle(line0, line1, _angle) => {
+                row0.extend(line0.all_variables());
+                row0.extend(line1.all_variables());
+            }
             Constraint::Fixed(id, _scalar) => row0.push(*id),
             Constraint::CircleRadius(circle, _radius) => row0.extend([circle.radius.id]),
         }
@@ -103,6 +105,38 @@ impl Constraint {
     /// instead it takes one as a mutable argument and writes out all residuals to that.
     pub fn residual(&self, layout: &Layout, current_assignments: &[f64], output: &mut Vec<f64>) {
         match self {
+            Constraint::LineTangentToCircle(line, circle) => {
+                // Get current state of the entities.
+                let p0_x = current_assignments[layout.index_of(line.p0.id_x())];
+                let p0_y = current_assignments[layout.index_of(line.p0.id_y())];
+                let p0 = DVec2::new(p0_x, p0_y);
+                let p1_x = current_assignments[layout.index_of(line.p1.id_x())];
+                let p1_y = current_assignments[layout.index_of(line.p1.id_y())];
+                let p1 = DVec2::new(p1_x, p1_y);
+                let center_x = current_assignments[layout.index_of(circle.center.id_x())];
+                let center_y = current_assignments[layout.index_of(circle.center.id_y())];
+                let radius = current_assignments[layout.index_of(circle.radius.id)];
+                let circle_center = DVec2::new(center_x, center_y);
+
+                // Calculate the signed distance from the circle's center to the line
+                // Formula: distance = (v × w) / |v|
+                // where v is the line vector and w is the vector from p1 to the center.
+                let v = p1 - p0;
+                let mag_v = v.length();
+                if mag_v < EPSILON {
+                    // If line has no length, then the residual is 0, regardless of anything else.
+                    output.push(0.0);
+                    return;
+                }
+                let w = circle_center - p1;
+
+                // Signed cross product (no absolute value).
+                let cross_2d = cross_vec(v, w);
+                // Div-by-zero check:
+                // already handled case where mag_v < EPSILON above and early-returned.
+                let signed_distance_to_line = cross_2d / mag_v;
+                output.push(signed_distance_to_line - radius);
+            }
             Constraint::Distance(p0, p1, expected_distance) => {
                 let p0_x = current_assignments[layout.index_of(p0.id_x())];
                 let p0_y = current_assignments[layout.index_of(p0.id_y())];
@@ -185,6 +219,7 @@ impl Constraint {
     /// Each equation is a residual function (a measure of error)
     pub fn residual_dim(&self) -> usize {
         match self {
+            Constraint::LineTangentToCircle(..) => 1,
             Constraint::Distance(..) => 1,
             Constraint::Vertical(..) => 1,
             Constraint::Horizontal(..) => 1,
@@ -206,6 +241,77 @@ impl Constraint {
         row0: &mut Vec<JacobianVar>,
     ) {
         match self {
+            Constraint::LineTangentToCircle(line, circle) => {
+                // Residual: R = ((x2-x1)*(yc-y1) - (y2-y1)*(xc-x1)) / sqrt((x2-x1)**2 + (y2-y1)**2) - r
+                // ∂R/∂x1 = (-(x1 - x2)*((x1 - x2)*(y1 - yc) - (x1 - xc)*(y1 - y2)) + (y2 - yc)*((x1 - x2)**2 + (y1 - y2)**2))/((x1 - x2)**2 + (y1 - y2)**2)**(3/2)
+                // ∂R/∂y1 = ((-x2 + xc)*((x1 - x2)**2 + (y1 - y2)**2) - (y1 - y2)*((x1 - x2)*(y1 - yc) - (x1 - xc)*(y1 - y2)))/((x1 - x2)**2 + (y1 - y2)**2)**(3/2)
+                // ∂R/∂x2 = ((x1 - x2)*((x1 - x2)*(y1 - yc) - (x1 - xc)*(y1 - y2)) + (-y1 + yc)*((x1 - x2)**2 + (y1 - y2)**2))/((x1 - x2)**2 + (y1 - y2)**2)**(3/2)
+                // ∂R/∂y2 = ((x1 - xc)*((x1 - x2)**2 + (y1 - y2)**2) + (y1 - y2)*((x1 - x2)*(y1 - yc) - (x1 - xc)*(y1 - y2)))/((x1 - x2)**2 + (y1 - y2)**2)**(3/2)
+                // ∂R/∂xc = (y1 - y2)/sqrt((x1 - x2)**2 + (y1 - y2)**2)
+                // ∂R/∂yc = (-x1 + x2)/sqrt((x1 - x2)**2 + (y1 - y2)**2)
+                // ∂R/∂r = -1
+                let x0 = current_assignments[layout.index_of(line.p0.id_x())];
+                let y0 = current_assignments[layout.index_of(line.p0.id_y())];
+                let p0 = DVec2::new(x0, y0);
+                let x1 = current_assignments[layout.index_of(line.p1.id_x())];
+                let y1 = current_assignments[layout.index_of(line.p1.id_y())];
+                let p1 = DVec2::new(x1, y1);
+                let xc = current_assignments[layout.index_of(circle.center.id_x())];
+                let yc = current_assignments[layout.index_of(circle.center.id_y())];
+
+                // Calculate common terms.
+                let d = p0 - p1;
+                let mag_v = d.length();
+                let mag_v_sq = d.squared_length();
+                let mag_v_cubed = mag_v.powi(3);
+
+                if mag_v_sq < EPSILON {
+                    return;
+                }
+
+                // Cross product term that appears in the derivatives.
+                let cross_term = d.x * (p0.y - yc) - (p0.x - xc) * d.y;
+
+                let dr_dx0 = (-d.x * cross_term + (y1 - yc) * mag_v_sq) / mag_v_cubed;
+                let dr_dy0 = ((-x1 + xc) * mag_v_sq - d.y * cross_term) / mag_v_cubed;
+                let dr_dx1 = (d.x * cross_term + (-y0 + yc) * mag_v_sq) / mag_v_cubed;
+                let dr_dy1 = ((x0 - xc) * mag_v_sq + d.y * cross_term) / mag_v_cubed;
+                let dr_dxc = (y0 - y1) / mag_v;
+                let dr_dyc = (-x0 + x1) / mag_v;
+                let dr_dr = -1.0;
+
+                let jvars = [
+                    JacobianVar {
+                        id: line.p0.id_x(),
+                        partial_derivative: dr_dx0,
+                    },
+                    JacobianVar {
+                        id: line.p0.id_y(),
+                        partial_derivative: dr_dy0,
+                    },
+                    JacobianVar {
+                        id: line.p1.id_x(),
+                        partial_derivative: dr_dx1,
+                    },
+                    JacobianVar {
+                        id: line.p1.id_y(),
+                        partial_derivative: dr_dy1,
+                    },
+                    JacobianVar {
+                        id: circle.center.id_x(),
+                        partial_derivative: dr_dxc,
+                    },
+                    JacobianVar {
+                        id: circle.center.id_y(),
+                        partial_derivative: dr_dyc,
+                    },
+                    JacobianVar {
+                        id: circle.radius.id,
+                        partial_derivative: dr_dr,
+                    },
+                ];
+                row0.extend(jvars.as_slice());
+            }
             Constraint::Distance(p0, p1, _expected_distance) => {
                 // Residual: R = sqrt((x1-x2)**2 + (y1-y2)**2) - d
                 // ∂R/∂x0 = (x0 - x1) / sqrt((x0 - x1)**2 + (y0 - y1)**2)
@@ -438,6 +544,7 @@ impl Constraint {
     /// Human-readable constraint name, useful for debugging.
     pub fn constraint_kind(&self) -> &'static str {
         match self {
+            Constraint::LineTangentToCircle(..) => "LineTangentToCircle",
             Constraint::Distance(..) => "Distance",
             Constraint::Vertical(..) => "Vertical",
             Constraint::Horizontal(..) => "Horizontal",
@@ -462,6 +569,10 @@ fn euclidean_distance_line(line: ((f64, f64), (f64, f64))) -> f64 {
 
 fn cross(p0: (f64, f64), p1: (f64, f64)) -> f64 {
     p0.0 * p1.1 - p0.1 * p1.0
+}
+
+fn cross_vec(v: DVec2, w: DVec2) -> f64 {
+    v.x * w.y - v.y * w.x
 }
 
 fn dot(p0: (f64, f64), p1: (f64, f64)) -> f64 {

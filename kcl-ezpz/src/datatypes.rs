@@ -77,6 +77,16 @@ impl LineSegment {
     pub fn new(p0: DatumPoint, p1: DatumPoint) -> Self {
         Self { p0, p1 }
     }
+
+    /// Get all IDs of all variables, i.e. p0.x, p0.y, p1.x, p1.y
+    pub fn all_variables(&self) -> [Id; 4] {
+        [
+            self.p0.id_x(),
+            self.p0.id_y(),
+            self.p1.id_x(),
+            self.p1.id_y(),
+        ]
+    }
 }
 
 /// A circle.
@@ -84,6 +94,13 @@ impl LineSegment {
 pub struct Circle {
     pub center: DatumPoint,
     pub radius: DatumDistance,
+}
+
+impl Circle {
+    /// Get all IDs of all variables, i.e. center components and radius.
+    pub fn all_variables(&self) -> [Id; 3] {
+        [self.center.id_x(), self.center.id_y(), self.radius.id]
+    }
 }
 
 /// Arc on the perimeter of a circle.
