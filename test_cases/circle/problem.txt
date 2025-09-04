@@ -1,7 +1,7 @@
 # constraints
 point p
 circle a
-radius(a, 40)
+radius(a, 3.4)
 p = (5, 5)
 a.center = (0.1, 0.2)
 
