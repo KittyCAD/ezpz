@@ -16,11 +16,19 @@ pub struct PointGuess {
     pub guess: Point,
 }
 
+#[derive(Debug, PartialEq)]
+pub struct ScalarGuess {
+    pub scalar: Label,
+    pub guess: f64,
+}
+
 #[derive(Debug)]
 pub struct Problem {
     pub instructions: Vec<Instruction>,
     pub inner_points: Vec<Label>,
+    pub inner_circles: Vec<Label>,
     pub point_guesses: Vec<PointGuess>,
+    pub scalar_guesses: Vec<ScalarGuess>,
 }
 
 impl FromStr for Problem {
@@ -35,6 +43,12 @@ impl FromStr for Problem {
 pub struct Point {
     pub x: f64,
     pub y: f64,
+}
+
+#[derive(Clone, Copy, PartialEq, Debug, Default)]
+pub struct Circle {
+    pub radius: f64,
+    pub center: Point,
 }
 
 impl std::fmt::Display for Point {
@@ -80,6 +94,9 @@ impl PartialEq<String> for Label {
 impl Problem {
     pub fn points(&self) -> &[Label] {
         &self.inner_points
+    }
+    pub fn circles(&self) -> &[Label] {
+        &self.inner_circles
     }
 }
 

@@ -214,6 +214,7 @@ fn print_output((outcome, duration): &(Outcome, Duration), show_points: bool) {
         iterations,
         lints,
         points,
+        circles,
         num_vars,
         num_eqs,
     } = outcome;
@@ -225,6 +226,11 @@ fn print_output((outcome, duration): &(Outcome, Duration), show_points: bool) {
         println!("Points:");
         for (label, Point { x, y }) in points {
             println!("\t{label}: ({x:.2}, {y:.2})",);
+        }
+        println!("Circles:");
+        for (label, kcl_ezpz::textual::Circle { radius, center }) in circles {
+            let Point { x, y } = center;
+            println!("\t{label}: center = ({x:.2}, {y:.2}), radius = {radius:.2}",);
         }
     }
 }

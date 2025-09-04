@@ -5,6 +5,7 @@ use super::{Component, Label};
 #[derive(Debug)]
 pub enum Instruction {
     DeclarePoint(DeclarePoint),
+    DeclareCircle(DeclareCircle),
     FixPointComponent(FixPointComponent),
     Vertical(Vertical),
     Horizontal(Horizontal),
@@ -12,6 +13,7 @@ pub enum Instruction {
     Parallel(Parallel),
     Perpendicular(Perpendicular),
     AngleLine(AngleLine),
+    CircleRadius(CircleRadius),
 }
 
 #[derive(Debug)]
@@ -24,6 +26,12 @@ pub struct Distance {
 pub struct Parallel {
     pub line0: (Label, Label),
     pub line1: (Label, Label),
+}
+
+#[derive(Debug)]
+pub struct CircleRadius {
+    pub circle: Label,
+    pub radius: f64,
 }
 
 #[derive(Debug)]
@@ -51,6 +59,11 @@ pub struct Horizontal {
 
 #[derive(Debug)]
 pub struct DeclarePoint {
+    pub label: Label,
+}
+
+#[derive(Debug)]
+pub struct DeclareCircle {
     pub label: Label,
 }
 

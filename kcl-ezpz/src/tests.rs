@@ -3,15 +3,42 @@ use std::str::FromStr;
 use super::*;
 use crate::textual::{Point, Problem};
 
+fn parse_problem(txt: &str) -> Problem {
+    match Problem::from_str(txt) {
+        Ok(x) => x,
+        Err(e) => {
+            eprintln!("{e}");
+            panic!("Could not parse");
+        }
+    }
+}
+
 #[test]
 fn tiny() {
     let txt = include_str!("../../test_cases/tiny/problem.txt");
-    let problem = Problem::from_str(txt).unwrap();
+    let problem = parse_problem(txt);
     assert_eq!(problem.instructions.len(), 6);
     assert_eq!(problem.points(), vec!["p", "q"]);
     let solved = problem.to_constraint_system().unwrap().solve().unwrap();
     assert_eq!(solved.get_point("p").unwrap(), Point { x: 0.0, y: 0.0 });
     assert_eq!(solved.get_point("q").unwrap(), Point { x: 0.0, y: 0.0 });
+}
+
+#[test]
+fn circle() {
+    let txt = include_str!("../../test_cases/circle/problem.txt");
+    let problem = parse_problem(txt);
+    assert_eq!(problem.points(), vec!["p"]);
+    assert_eq!(problem.circles(), vec!["a"]);
+    let solved = problem.to_constraint_system().unwrap().solve().unwrap();
+    assert_points_eq(solved.get_point("p").unwrap(), Point { x: 5.0, y: 5.0 });
+    let circle_a = solved.get_circle("a").unwrap();
+    // From the problem:
+    // circle a
+    // radius(a, 40)
+    // a.center = (0.1, 0.2)
+    assert_nearly_eq(circle_a.radius, 40.0);
+    assert_points_eq(circle_a.center, Point { x: 0.1, y: 0.2 });
 }
 
 #[test]
@@ -104,4 +131,13 @@ s roughly (5, 6)
 fn assert_points_eq(l: Point, r: Point) {
     let dist = l.euclidean_distance(r);
     assert!(dist < EPSILON, "LHS was {l}, RHS was {r}, dist was {dist}");
+}
+
+#[track_caller]
+fn assert_nearly_eq(l: f64, r: f64) {
+    let diff = (l - r).abs();
+    assert!(
+        diff < EPSILON,
+        "LHS was {l}, RHS was {r}, difference was {diff}"
+    );
 }

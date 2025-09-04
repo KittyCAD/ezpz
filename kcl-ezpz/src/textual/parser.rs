@@ -1,4 +1,7 @@
-use crate::textual::instruction::{AngleLine, Distance, Parallel, Perpendicular};
+use crate::textual::{
+    ScalarGuess,
+    instruction::{AngleLine, CircleRadius, DeclareCircle, Distance, Parallel, Perpendicular},
+};
 
 use super::{
     Component, Label, Point, PointGuess, Problem,
@@ -7,45 +10,101 @@ use super::{
 use kittycad_modeling_cmds::shared::Angle;
 use winnow::{
     ModalResult as WResult,
-    ascii::{alphanumeric1, digit1, newline, space0},
+    ascii::{digit1, newline, space0},
     combinator::{alt, delimited, opt, separated},
     error::{ContextError, ErrMode},
     prelude::*,
+    stream::AsChar,
+    token::take_while,
 };
 
 pub fn parse_problem(i: &mut &str) -> WResult<Problem> {
     constraint_header.parse_next(i)?;
     let instructions: Vec<_> = separated(1.., parse_instruction, newline).parse_next(i)?;
     let mut inner_points = Vec::new();
+    let mut inner_circles = Vec::new();
     for instr in instructions.iter().flatten() {
         if let Instruction::DeclarePoint(dp) = instr {
             inner_points.push(dp.label.clone());
+        }
+        if let Instruction::DeclareCircle(dc) = instr {
+            inner_circles.push(dc.label.clone());
         }
     }
     newline.parse_next(i)?;
     newline.parse_next(i)?;
     ignore_ws(i);
     guesses_header.parse_next(i)?;
-    let point_guesses: Vec<_> = separated(1.., parse_point_guess, newline).parse_next(i)?;
+    let guesses: Vec<_> = separated(1.., parse_guess, newline).parse_next(i)?;
+    let (scalar_guesses, point_guesses): (Vec<_>, Vec<_>) = guesses.into_iter().fold(
+        (Vec::new(), Vec::new()),
+        |(mut scalars, mut points), guess| {
+            match guess {
+                Guess::Point(point_guess) => points.push(point_guess),
+                Guess::Scalar(scalar_guess) => scalars.push(scalar_guess),
+            };
+            (scalars, points)
+        },
+    );
     opt(newline).parse_next(i)?;
     ignore_ws(i);
     Ok(Problem {
         instructions: instructions.into_iter().flatten().collect(),
         inner_points,
+        inner_circles,
         point_guesses,
+        scalar_guesses,
     })
+}
+
+#[derive(Debug)]
+enum Guess {
+    Point(PointGuess),
+    Scalar(ScalarGuess),
+}
+
+fn parse_guess(i: &mut &str) -> WResult<Guess> {
+    alt((
+        parse_point_guess.map(Guess::Point),
+        parse_scalar_guess.map(Guess::Scalar),
+    ))
+    .parse_next(i)
 }
 
 // p roughly (0, 0)
 pub fn parse_point_guess(i: &mut &str) -> WResult<PointGuess> {
     ignore_ws(i);
-    let label = parse_label(i)?;
+    let mut label = parse_label(i)?;
+    let suffix = opt(('.', parse_label)).parse_next(i)?;
+    if let Some((a, b)) = suffix {
+        label.0.push(a);
+        label.0.push_str(&b.0);
+    }
     ws.parse_next(i)?;
     let _ = "roughly".parse_next(i)?;
     ws.parse_next(i)?;
     let guess = parse_point(i)?;
     Ok(PointGuess {
         point: label,
+        guess,
+    })
+}
+
+// c.radius roughly 4
+pub fn parse_scalar_guess(i: &mut &str) -> WResult<ScalarGuess> {
+    ignore_ws(i);
+    let mut label = parse_label(i)?;
+    let suffix = opt(('.', parse_label)).parse_next(i)?;
+    if let Some((a, b)) = suffix {
+        label.0.push(a);
+        label.0.push_str(&b.0);
+    }
+    ws.parse_next(i)?;
+    let _ = "roughly".parse_next(i)?;
+    ws.parse_next(i)?;
+    let guess = parse_number(i)?;
+    Ok(ScalarGuess {
+        scalar: label,
         guess,
     })
 }
@@ -60,6 +119,12 @@ fn guesses_header(i: &mut &str) -> WResult<()> {
 pub fn parse_declare_point(i: &mut &str) -> WResult<DeclarePoint> {
     ("point", ws, parse_label)
         .map(|(_, _, label)| DeclarePoint { label })
+        .parse_next(i)
+}
+
+pub fn parse_declare_circle(i: &mut &str) -> WResult<DeclareCircle> {
+    ("circle", ws, parse_label)
+        .map(|(_, _, label)| DeclareCircle { label })
         .parse_next(i)
 }
 
@@ -126,6 +191,13 @@ pub fn parse_parallel(i: &mut &str) -> WResult<Parallel> {
     Ok(Parallel { line0, line1 })
 }
 
+pub fn parse_circle_radius(i: &mut &str) -> WResult<CircleRadius> {
+    let _ = "radius".parse_next(i)?;
+    ignore_ws(i);
+    let (circle, _, radius) = inside_brackets((parse_label, commasep, parse_number_expr), i)?;
+    Ok(CircleRadius { circle, radius })
+}
+
 pub fn parse_perpendicular(i: &mut &str) -> WResult<Perpendicular> {
     let _ = "perpendicular".parse_next(i)?;
     ignore_ws(i);
@@ -176,6 +248,7 @@ fn parse_instruction(i: &mut &str) -> WResult<Vec<Instruction>> {
     ignore_ws(i);
     alt((
         parse_declare_point.map(Instruction::DeclarePoint).map(sv),
+        parse_declare_circle.map(Instruction::DeclareCircle).map(sv),
         parse_fix_point_component
             .map(Instruction::FixPointComponent)
             .map(sv),
@@ -186,6 +259,7 @@ fn parse_instruction(i: &mut &str) -> WResult<Vec<Instruction>> {
         parse_parallel.map(Instruction::Parallel).map(sv),
         parse_perpendicular.map(Instruction::Perpendicular).map(sv),
         parse_angle_line.map(Instruction::AngleLine).map(sv),
+        parse_circle_radius.map(Instruction::CircleRadius).map(sv),
     ))
     .parse_next(i)
 }
@@ -200,7 +274,7 @@ fn ignore_ws(i: &mut &str) {
 
 fn assign_point(i: &mut &str) -> WResult<Vec<Instruction>> {
     // p0 = (0, 0)
-    let label = parse_label(i)?;
+    let label = parse_label_opt_suffix(i)?;
     ignore_ws(i);
     '='.parse_next(i)?;
     ignore_ws(i);
@@ -242,9 +316,19 @@ fn parse_fix_point_component(i: &mut &str) -> WResult<FixPointComponent> {
 }
 
 fn parse_label(i: &mut &str) -> WResult<Label> {
-    alphanumeric1
+    take_while(1.., AsChar::is_alphanum)
         .map(|s: &str| Label(s.to_owned()))
         .parse_next(i)
+}
+
+fn parse_label_opt_suffix(i: &mut &str) -> WResult<Label> {
+    let mut label = parse_label(i)?;
+    let suffix = opt(('.', parse_label)).parse_next(i)?;
+    if let Some((a, b)) = suffix {
+        label.0.push(a);
+        label.0.push_str(&b.0);
+    }
+    Ok(label)
 }
 
 pub fn parse_point(input: &mut &str) -> WResult<Point> {

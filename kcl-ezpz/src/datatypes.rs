@@ -3,9 +3,7 @@ use libm::{cos, sin};
 
 use crate::{IdGenerator, id::Id};
 
-/// 1D distance.
-pub type Distance = f64;
-
+#[derive(Clone, Copy, Debug)]
 pub struct DatumDistance {
     pub id: Id,
 }
@@ -82,7 +80,7 @@ impl LineSegment {
 }
 
 /// A circle.
-#[allow(dead_code)]
+#[derive(Clone, Copy, Debug)]
 pub struct Circle {
     pub center: DatumPoint,
     pub radius: DatumDistance,
