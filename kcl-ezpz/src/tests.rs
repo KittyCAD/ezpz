@@ -25,6 +25,20 @@ fn tiny() {
 }
 
 #[test]
+fn inconsistent() {
+    // This has inconsistent requirements:
+    // p should be (1,4) and it should ALSO be (4,1).
+    // Because they can't be simultaneously satisfied, we should find a
+    // solution which minimizes the squared error instead.
+    let txt = include_str!("../../test_cases/inconsistent/problem.txt");
+    let problem = parse_problem(txt);
+    let solved = problem.to_constraint_system().unwrap().solve().unwrap();
+    assert_points_eq(solved.get_point("o").unwrap(), Point { x: 0.0, y: 0.0 });
+    // (2.5, 2.5) is midway between the two inconsistent requirement points.
+    assert_points_eq(solved.get_point("p").unwrap(), Point { x: 2.5, y: 2.5 });
+}
+
+#[test]
 fn circle() {
     let txt = include_str!("../../test_cases/circle/problem.txt");
     let problem = parse_problem(txt);
