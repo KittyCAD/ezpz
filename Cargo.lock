@@ -1389,6 +1389,7 @@ name = "kcl-ezpz"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "euler",
  "faer",
  "getrandom 0.2.16",
  "indexmap",

@@ -1,0 +1,15 @@
+# constraints
+point p
+point q
+circle a
+radius(a, 1.5)
+p = (0, 3)
+q = (5, 3)
+tangent(q, p, a)
+a.center.x = 2.5
+
+# guesses
+p roughly (0.1, 3.1)
+q roughly (4.9, 2.9)
+a.center roughly (2.5, 1.4)
+a.radius roughly 2

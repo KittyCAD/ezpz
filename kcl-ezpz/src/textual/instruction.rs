@@ -14,6 +14,7 @@ pub enum Instruction {
     Perpendicular(Perpendicular),
     AngleLine(AngleLine),
     CircleRadius(CircleRadius),
+    Tangent(Tangent),
     FixCenterPointComponent(FixCenterPointComponent),
 }
 
@@ -33,6 +34,13 @@ pub struct Parallel {
 pub struct CircleRadius {
     pub circle: Label,
     pub radius: f64,
+}
+
+#[derive(Debug)]
+pub struct Tangent {
+    pub circle: Label,
+    pub line_p0: Label,
+    pub line_p1: Label,
 }
 
 #[derive(Debug)]

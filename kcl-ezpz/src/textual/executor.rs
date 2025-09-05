@@ -24,6 +24,7 @@ use crate::textual::instruction::FixPointComponent;
 use crate::textual::instruction::Horizontal;
 use crate::textual::instruction::Parallel;
 use crate::textual::instruction::Perpendicular;
+use crate::textual::instruction::Tangent;
 use crate::textual::instruction::Vertical;
 use crate::textual::{Circle, Point};
 
@@ -156,6 +157,26 @@ impl Problem {
                             radius: radius_id,
                         },
                         *radius,
+                    ));
+                }
+                Instruction::Tangent(Tangent {
+                    circle,
+                    line_p0,
+                    line_p1,
+                }) => {
+                    let circ = &circle.0;
+                    let center_id = datum_point_for_label(&Label(format!("{circ}.center")))?;
+                    let radius_id = datum_distance_for_label(&Label(format!("{circ}.radius")))?;
+                    let line = LineSegment {
+                        p0: datum_point_for_label(line_p0)?,
+                        p1: datum_point_for_label(line_p1)?,
+                    };
+                    constraints.push(Constraint::LineTangentToCircle(
+                        line,
+                        datatypes::Circle {
+                            center: center_id,
+                            radius: radius_id,
+                        },
                     ));
                 }
                 Instruction::FixPointComponent(FixPointComponent {

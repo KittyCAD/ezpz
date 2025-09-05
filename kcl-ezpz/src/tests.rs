@@ -54,6 +54,37 @@ fn circle_center() {
 }
 
 #[test]
+fn circle_tangent() {
+    // There's two possible ways to put the circle, either at y=4.5 or y=1.5
+    // Because the tangent constraint is directional, using PQ will always put it at
+    // y=4.5. We test the other solution in the `circle_tangent_other_dir` test.
+    let txt = include_str!("../../test_cases/circle_tangent/problem.txt");
+    let problem = parse_problem(txt);
+    assert_eq!(problem.points(), vec!["p", "q"]);
+    assert_eq!(problem.circles(), vec!["a"]);
+    let solved = problem.to_constraint_system().unwrap().solve().unwrap();
+    assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 3.0 });
+    assert_points_eq(solved.get_point("q").unwrap(), Point { x: 5.0, y: 3.0 });
+    let circle_a = solved.get_circle("a").unwrap();
+    assert_nearly_eq(circle_a.center.y, 4.5);
+}
+
+#[test]
+fn circle_tangent_other_dir() {
+    // Just like `circle_tangent` but using line QP instead of PQ, to test the
+    // other case of tangent direction.
+    let txt = include_str!("../../test_cases/circle_tangent_other_dir/problem.txt");
+    let problem = parse_problem(txt);
+    assert_eq!(problem.points(), vec!["p", "q"]);
+    assert_eq!(problem.circles(), vec!["a"]);
+    let solved = problem.to_constraint_system().unwrap().solve().unwrap();
+    assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 3.0 });
+    assert_points_eq(solved.get_point("q").unwrap(), Point { x: 5.0, y: 3.0 });
+    let circle_a = solved.get_circle("a").unwrap();
+    assert_nearly_eq(circle_a.center.y, 1.5);
+}
+
+#[test]
 fn rectangle() {
     let txt = include_str!("../../test_cases/two_rectangles/problem.txt");
     let problem = Problem::from_str(txt).unwrap();
