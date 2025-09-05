@@ -653,23 +653,6 @@ mod tests {
             }
         }
 
-        #[derive(Clone)]
-        struct Jc {
-            sym: SymbolicSparseColMat<usize>,
-            vals: Vec<f64>,
-        }
-        impl JacobianCache<f64> for Jc {
-            fn symbolic(&self) -> &SymbolicSparseColMat<usize> {
-                &self.sym
-            }
-            fn values(&self) -> &[f64] {
-                &self.vals
-            }
-            fn values_mut(&mut self) -> &mut [f64] {
-                &mut self.vals
-            }
-        }
-
         struct InconsistentSystem {
             layout: Layout,
             jac: Jc,
