@@ -1,5 +1,5 @@
 use super::{
-    LinearSolver, Mat, NonlinearSystem, RowMap, SolverError, SolverResult, SparseColMatRef,
+    LinearSolver, NonlinearSystem, RowMap, SolverError, SolverResult, SparseColMatRef,
     init_global_parallelism,
     linalg::{DenseLu, FaerLu, SparseQr},
 };
@@ -194,64 +194,18 @@ fn compute_gradient_norm_sparse<T: Float>(
     max_grad
 }
 
-fn compute_gradient_norm_dense<T: Float>(jacobian: &Mat<T>, residual: &[T]) -> T {
-    // Compute ||J^T * r||_Inf (infinity norm of the gradient).
-    // We want the largest absolute component of the least-squares gradient g = J^T r.
-    // We do this by looking through each column of J, computing g_j = dot(J[:, j], residual),
-    // then tracking the maximum absolute value over all j.
-    // If the value is very small, we're at or around a stationary point.
-    let mut max_grad = T::zero();
-
-    for col in 0..jacobian.ncols() {
-        let mut grad_component = T::zero();
-        for row in 0..jacobian.nrows() {
-            grad_component = grad_component + jacobian[(row, col)] * residual[row];
-        }
-
-        let abs_grad = grad_component.abs();
-        if abs_grad > max_grad {
-            max_grad = abs_grad;
-        }
-    }
-
-    max_grad
-}
-
-fn check_convergence<T, GradFn>(
-    f: &[T],
-    dx: &[T],
-    x: &[T],
-    cfg: &NewtonCfg<T>,
-    norm_type: NormType,
-    compute_grad_norm: GradFn,
-) -> bool
+fn compute_gradient_norm<M>(
+    model: &mut M,
+    residual: &[M::Real],
+    _norm_type: NormType,
+) -> SolverResult<M::Real>
 where
-    T: Float,
-    GradFn: FnOnce() -> T,
+    M: NonlinearSystem,
+    M::Real: Float,
 {
-    // Check residual tolerance.
-    let res = compute_residual_norm(f, norm_type);
-    if res < cfg.tol {
-        return true;
-    }
-
-    // Check gradient tolerance.
-    if cfg.tol_grad > T::zero() {
-        let grad_norm = compute_grad_norm();
-        if grad_norm < cfg.tol_grad {
-            return true;
-        }
-    }
-
-    // Check step tolerance.
-    if cfg.tol_step > T::zero() {
-        let step_norm = compute_step_norm(dx, x, cfg.tol_step);
-        if step_norm < cfg.tol_step {
-            return true;
-        }
-    }
-
-    false
+    // For sparse systems, the Jacobian should already be fresh from the solve step.
+    let jac_ref = model.jacobian().attach();
+    Ok(compute_gradient_norm_sparse(&jac_ref, residual))
 }
 
 fn newton_iterate<M, F, Cb>(
@@ -265,7 +219,7 @@ fn newton_iterate<M, F, Cb>(
 where
     M: NonlinearSystem,
     M::Real: ComplexField<Real = M::Real> + Float + Zero + One + ToPrimitive,
-    F: FnMut(&mut M, &[M::Real], &[M::Real], &mut [M::Real]) -> SolverResult<bool>,
+    F: FnMut(&mut M, &[M::Real], &[M::Real], &mut [M::Real]) -> SolverResult<()>,
     Cb: FnMut(&IterationStats<M::Real>) -> Control,
 {
     let n_vars = model.layout().n_variables();
@@ -296,10 +250,31 @@ where
             return Err(Report::new(SolverError).attach_printable("solve cancelled"));
         }
 
-        // Solve linear system and check all convergence criteria.
-        let converged = solve(model, x, &f, &mut dx)?;
-        if converged {
+        // Solve linear system: J(x) * dx = -f(x).
+        solve(model, x, &f, &mut dx)?;
+
+        // Check convergence criteria with fresh data.
+        // TODO: We could do this check before solve, I think.
+        // 1. Residual convergence.
+        if res < cfg.tol {
             return Ok(iter + 1);
+        }
+
+        // 2. Gradient convergence.
+        // TODO: This will fall over on a dense system.
+        if cfg.tol_grad > M::Real::zero() {
+            let grad_norm = compute_gradient_norm(model, &f, norm_type)?;
+            if grad_norm < cfg.tol_grad {
+                return Ok(iter + 1);
+            }
+        }
+
+        // 3. Step convergence.
+        if cfg.tol_step > M::Real::zero() {
+            let step_norm = compute_step_norm(&dx, x, cfg.tol_step);
+            if step_norm < cfg.tol_step {
+                return Ok(iter + 1);
+            }
         }
 
         let mut step_applied = false;
@@ -444,8 +419,7 @@ where
         lu: &mut DenseLu<T>,
         jac: &mut FaerMat<T>,
         rhs: &mut FaerMat<T>,
-        cfg: &NewtonCfg<T>,
-    ) -> SolverResult<bool>
+    ) -> SolverResult<()>
     where
         T: ComplexField<Real = T> + Float + Zero + One + ToPrimitive,
     {
@@ -462,12 +436,7 @@ where
             dx[i] = val;
         }
 
-        // Check convergence with fresh Jacobian.
-        let converged = check_convergence(f, dx, x, cfg, NormType::LInf, || {
-            compute_gradient_norm_dense(jac, f)
-        });
-
-        Ok(converged)
+        Ok(())
     }
 
     // Run iterative loop.
@@ -476,7 +445,7 @@ where
         x,
         cfg,
         NormType::LInf,
-        |model, x, f, dx| solve_inner(model, x, f, dx, &mut lu, &mut jac, &mut rhs, &cfg),
+        |model, x, f, dx| solve_inner(model, x, f, dx, &mut lu, &mut jac, &mut rhs),
         on_iter,
     )
 }
@@ -507,10 +476,8 @@ where
         dx: &mut [T],
         solver: &mut S,
         rhs: &mut FaerMat<T>,
-        cfg: &NewtonCfg<T>,
-        norm_type: NormType,
         n_vars: usize,
-    ) -> SolverResult<bool>
+    ) -> SolverResult<()>
     where
         T: ComplexField<Real = T> + Float + Zero + One + ToPrimitive,
         S: for<'a> LinearSolver<T, SparseColMatRef<'a, usize, T>>,
@@ -532,12 +499,7 @@ where
             dx[i] = val;
         }
 
-        // Check convergence with fresh Jacobian.
-        let converged = check_convergence(f, dx, x, cfg, norm_type, || {
-            compute_gradient_norm_sparse(&jac_ref, f)
-        });
-
-        Ok(converged)
+        Ok(())
     }
 
     // Run iterative loop.
@@ -546,19 +508,7 @@ where
         x,
         cfg,
         norm_type,
-        |model, x, f, dx| {
-            solve_inner(
-                model,
-                x,
-                f,
-                dx,
-                &mut solver,
-                &mut rhs,
-                &cfg,
-                norm_type,
-                n_vars,
-            )
-        },
+        |model, x, f, dx| solve_inner(model, x, f, dx, &mut solver, &mut rhs, n_vars),
         on_iter,
     )
 }
@@ -618,7 +568,7 @@ where
 {
     // Try LU with panic catching.
     let lu_result = panic::catch_unwind(panic::AssertUnwindSafe(|| {
-        solve_sparse_lu(model, x, cfg, |stats| on_iter(stats))
+        solve_sparse_lu(model, x, cfg, &mut on_iter)
     }));
 
     match lu_result {
