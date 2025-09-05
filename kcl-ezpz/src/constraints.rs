@@ -279,8 +279,8 @@ impl Constraint {
                 let dr_dx1 = (d.x * cross_term + (-y0 + yc) * mag_v_sq) / mag_v_cubed;
                 let dr_dy1 = ((x0 - xc) * mag_v_sq + d.y * cross_term) / mag_v_cubed;
 
-                let dr_dxc = (y0 - y1) / mag_v + (y0 - y1).powi(2);
-                let dr_dyc = (-x0 + x1) / mag_v + (y0 - y1).powi(2);
+                let dr_dxc = (y0 - y1) / mag_v;
+                let dr_dyc = (-x0 + x1) / mag_v;
 
                 let dr_dr = -1.0;
 
