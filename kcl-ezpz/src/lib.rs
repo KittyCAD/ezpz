@@ -20,6 +20,7 @@ mod solver;
 mod tests;
 /// Parser for textual representation of these problems.
 pub mod textual;
+mod vector;
 
 const EPSILON: f64 = 0.001;
 

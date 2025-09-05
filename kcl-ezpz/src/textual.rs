@@ -8,7 +8,7 @@ pub use executor::Outcome;
 use instruction::Instruction;
 use winnow::Parser;
 
-use crate::textual::parser::parse_problem;
+use crate::{textual::parser::parse_problem, vector::V};
 
 #[derive(Debug, PartialEq)]
 pub struct PointGuess {
@@ -60,7 +60,7 @@ impl std::fmt::Display for Point {
 impl Point {
     #[allow(dead_code)]
     pub(crate) fn euclidean_distance(&self, r: Point) -> f64 {
-        crate::constraints::euclidean_distance((self.x, self.y), (r.x, r.y))
+        V::new(self.x, self.y).euclidean_distance(V::new(r.x, r.y))
     }
 }
 

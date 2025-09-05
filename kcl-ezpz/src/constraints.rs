@@ -1,7 +1,6 @@
-use euler::DVec2;
 use kittycad_modeling_cmds::shared::Angle;
 
-use crate::{EPSILON, datatypes::*, id::Id, solver::Layout};
+use crate::{EPSILON, datatypes::*, id::Id, solver::Layout, vector::V};
 
 /// Each geometric constraint we support.
 #[derive(Clone, Copy, Debug)]
@@ -111,21 +110,21 @@ impl Constraint {
                 // Get current state of the entities.
                 let p0_x = current_assignments[layout.index_of(line.p0.id_x())];
                 let p0_y = current_assignments[layout.index_of(line.p0.id_y())];
-                let p0 = DVec2::new(p0_x, p0_y);
+                let p0 = V::new(p0_x, p0_y);
                 let p1_x = current_assignments[layout.index_of(line.p1.id_x())];
                 let p1_y = current_assignments[layout.index_of(line.p1.id_y())];
-                let p1 = DVec2::new(p1_x, p1_y);
+                let p1 = V::new(p1_x, p1_y);
                 let center_x = current_assignments[layout.index_of(circle.center.id_x())];
                 let center_y = current_assignments[layout.index_of(circle.center.id_y())];
                 let radius = current_assignments[layout.index_of(circle.radius.id)];
-                let circle_center = DVec2::new(center_x, center_y);
+                let circle_center = V::new(center_x, center_y);
 
                 // Calculate the signed distance from the circle's center to the line
                 // Formula: distance = (v × w) / |v|
                 // where v is the line vector and w is the vector from p1 to the center.
                 let v = p1 - p0;
                 // let v = p0 - p1;
-                let mag_v = v.length();
+                let mag_v = v.magnitude();
                 if mag_v < EPSILON {
                     // If line has no length, then the residual is 0, regardless of anything else.
                     output.push(0.0);
@@ -134,7 +133,7 @@ impl Constraint {
                 let w = circle_center - p1;
 
                 // Signed cross product (no absolute value).
-                let cross_2d = cross_vec(v, w);
+                let cross_2d = v.cross_2d(&w);
                 // Div-by-zero check:
                 // already handled case where mag_v < EPSILON above and early-returned.
                 let signed_distance_to_line = cross_2d / mag_v;
@@ -144,9 +143,11 @@ impl Constraint {
             Constraint::Distance(p0, p1, expected_distance) => {
                 let p0_x = current_assignments[layout.index_of(p0.id_x())];
                 let p0_y = current_assignments[layout.index_of(p0.id_y())];
+                let p0 = V::new(p0_x, p0_y);
                 let p1_x = current_assignments[layout.index_of(p1.id_x())];
                 let p1_y = current_assignments[layout.index_of(p1.id_y())];
-                let actual_distance = euclidean_distance((p0_x, p0_y), (p1_x, p1_y));
+                let p1 = V::new(p1_x, p1_y);
+                let actual_distance = p0.euclidean_distance(p1);
                 output.push(actual_distance - expected_distance);
             }
             Constraint::Vertical(line) => {
@@ -169,28 +170,27 @@ impl Constraint {
                 let p0_y_l0 = current_assignments[layout.index_of(line0.p0.id_y())];
                 let p1_x_l0 = current_assignments[layout.index_of(line0.p1.id_x())];
                 let p1_y_l0 = current_assignments[layout.index_of(line0.p1.id_y())];
-                let l0 = ((p0_x_l0, p0_y_l0), (p1_x_l0, p1_y_l0));
+                let l0 = (V::new(p0_x_l0, p0_y_l0), V::new(p1_x_l0, p1_y_l0));
                 let p0_x_l1 = current_assignments[layout.index_of(line1.p0.id_x())];
                 let p0_y_l1 = current_assignments[layout.index_of(line1.p0.id_y())];
                 let p1_x_l1 = current_assignments[layout.index_of(line1.p1.id_x())];
                 let p1_y_l1 = current_assignments[layout.index_of(line1.p1.id_y())];
-                let l1 = ((p0_x_l1, p0_y_l1), (p1_x_l1, p1_y_l1));
+                let l1 = (V::new(p0_x_l1, p0_y_l1), V::new(p1_x_l1, p1_y_l1));
 
-                let v0 = (p1_x_l0 - p0_x_l0, p1_y_l0 - p0_y_l0);
-                let v1 = (p1_x_l1 - p0_x_l1, p1_y_l1 - p0_y_l1);
+                let v0 = l0.1 - l0.0;
+                let v1 = l1.1 - l1.0;
 
                 match expected_angle {
                     AngleKind::Parallel => {
-                        output.push(v0.0 * v1.1 - v0.1 * v1.0);
+                        output.push(v0.x * v1.y - v0.y * v1.x);
                     }
                     AngleKind::Perpendicular => {
-                        let dot = v0.0 * v1.0 + v0.1 * v1.1;
-                        output.push(dot);
+                        output.push(v0.dot(&v1));
                     }
                     AngleKind::Other(expected_angle) => {
                         // Calculate magnitudes.
-                        let mag0 = euclidean_distance_line(l0);
-                        let mag1 = euclidean_distance_line(l1);
+                        let mag0 = l0.0.euclidean_distance(l0.1);
+                        let mag1 = l1.0.euclidean_distance(l1.1);
 
                         // Check for zero-length lines.
                         let is_invalid = (mag0 < EPSILON) || (mag1 < EPSILON);
@@ -200,8 +200,8 @@ impl Constraint {
                         }
 
                         // 2D cross product and dot product.
-                        let cross_2d = cross(v0, v1);
-                        let dot_product = dot(v0, v1);
+                        let cross_2d = v0.cross_2d(&v1);
+                        let dot_product = v0.dot(&v1);
 
                         // Current angle using atan2.
                         let current_angle_radians = libm::atan2(cross_2d, dot_product);
@@ -256,17 +256,17 @@ impl Constraint {
                 // ∂R/∂r = -1
                 let x0 = current_assignments[layout.index_of(line.p0.id_x())];
                 let y0 = current_assignments[layout.index_of(line.p0.id_y())];
-                let p0 = DVec2::new(x0, y0);
+                let p0 = V::new(x0, y0);
                 let x1 = current_assignments[layout.index_of(line.p1.id_x())];
                 let y1 = current_assignments[layout.index_of(line.p1.id_y())];
-                let p1 = DVec2::new(x1, y1);
+                let p1 = V::new(x1, y1);
                 let xc = current_assignments[layout.index_of(circle.center.id_x())];
                 let yc = current_assignments[layout.index_of(circle.center.id_y())];
 
                 // Calculate common terms.
                 let d = p0 - p1;
-                let mag_v = d.length();
-                let mag_v_sq = d.squared_length();
+                let mag_v = d.magnitude();
+                let mag_v_sq = d.magnitude_squared();
                 let mag_v_cubed = mag_v.powi(3);
 
                 if mag_v_sq < EPSILON {
@@ -331,7 +331,7 @@ impl Constraint {
                 let x1 = current_assignments[layout.index_of(p1.id_x())];
                 let y1 = current_assignments[layout.index_of(p1.id_y())];
 
-                let dist = euclidean_distance((x0, y0), (x1, y1));
+                let dist = V::new(x0, y0).euclidean_distance(V::new(x1, y1));
                 if dist < EPSILON {
                     return;
                 }
@@ -434,12 +434,12 @@ impl Constraint {
                 let y0 = current_assignments[layout.index_of(line0.p0.id_y())];
                 let x1 = current_assignments[layout.index_of(line0.p1.id_x())];
                 let y1 = current_assignments[layout.index_of(line0.p1.id_y())];
-                let l0 = ((x0, y0), (x1, y1));
+                let l0 = (V::new(x0, y0), V::new(x1, y1));
                 let x2 = current_assignments[layout.index_of(line1.p0.id_x())];
                 let y2 = current_assignments[layout.index_of(line1.p0.id_y())];
                 let x3 = current_assignments[layout.index_of(line1.p1.id_x())];
                 let y3 = current_assignments[layout.index_of(line1.p1.id_y())];
-                let l1 = ((x2, y2), (x3, y3));
+                let l1 = (V::new(x2, y2), V::new(x3, y3));
 
                 // Calculate partial derivatives
                 let pds = match expected_angle {
@@ -468,8 +468,8 @@ impl Constraint {
                     AngleKind::Other(_expected_angle) => {
                         // Expected angle isn't used because its derivative is zero.
                         // Calculate magnitudes.
-                        let mag0 = euclidean_distance_line(l0);
-                        let mag1 = euclidean_distance_line(l1);
+                        let mag0 = l0.0.euclidean_distance(l0.1);
+                        let mag1 = l1.0.euclidean_distance(l1.1);
 
                         // Check for zero-length lines.
                         let is_invalid = (mag0 < EPSILON) || (mag1 < EPSILON);
@@ -561,37 +561,6 @@ impl Constraint {
     }
 }
 
-/// Euclidean distance between two points.
-pub(crate) fn euclidean_distance(p0: (f64, f64), p1: (f64, f64)) -> f64 {
-    let dx = p0.0 - p1.0;
-    let dy = p0.1 - p1.1;
-    (dx.powf(2.0) + dy.powf(2.0)).sqrt()
-}
-
-/// Euclidean distance of a line.
-fn euclidean_distance_line(line: ((f64, f64), (f64, f64))) -> f64 {
-    euclidean_distance(line.0, line.1)
-}
-
-fn cross(p0: (f64, f64), p1: (f64, f64)) -> f64 {
-    cross_vec(DVec2::new(p0.0, p0.1), DVec2::new(p1.0, p1.1))
-}
-
-/// <https://stackoverflow.com/questions/243945/calculating-a-2d-vectors-cross-product>
-#[inline(always)]
-fn cross_vec(v: DVec2, w: DVec2) -> f64 {
-    v.x * w.y - v.y * w.x
-}
-
-fn dot(p0: (f64, f64), p1: (f64, f64)) -> f64 {
-    p0.0 * p1.0 + p0.1 * p1.1
-}
-
-#[allow(dead_code)]
-fn dot_line((p0, p1): ((f64, f64), (f64, f64))) -> f64 {
-    dot(p0, p1)
-}
-
 #[derive(Debug)]
 struct PartialDerivatives4Points {
     dr_dx0: f64,
@@ -610,11 +579,11 @@ mod tests {
 
     #[test]
     fn test_geometry() {
-        assert_eq!(euclidean_distance((-1.0, 0.0), (2.0, 4.0)), 5.0);
-        assert_eq!(dot_line(((1.0, 2.0), (4.0, -5.0))), 4.0 - 10.0);
-        assert_eq!(cross((1.0, 0.0), (0.0, 1.0)), 1.0);
-        assert_eq!(cross((0.0, 1.0), (1.0, 0.0)), -1.0);
-        assert_eq!(cross((2.0, 2.0), (4.0, 4.0)), 0.0);
-        assert_eq!(cross((3.0, 4.0), (5.0, 6.0)), -2.0);
+        assert_eq!(V::new(-1.0, 0.0).euclidean_distance(V::new(2.0, 4.0)), 5.0);
+        assert_eq!(V::new(1.0, 2.0).dot(&V::new(4.0, -5.0)), 4.0 - 10.0);
+        assert_eq!(V::new(1.0, 0.0).cross_2d(&V::new(0.0, 1.0)), 1.0);
+        assert_eq!(V::new(0.0, 1.0).cross_2d(&V::new(1.0, 0.0)), -1.0);
+        assert_eq!(V::new(2.0, 2.0).cross_2d(&V::new(4.0, 4.0)), 0.0);
+        assert_eq!(V::new(3.0, 4.0).cross_2d(&V::new(5.0, 6.0)), -2.0);
     }
 }

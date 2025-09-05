@@ -7,7 +7,6 @@ repository = "https://github.com/KittyCAD/ezpz"
 license = "MIT"
 
 [dependencies]
-euler = "0.4.1"
 faer = "0.22.6"
 getrandom = { version = "0.2.16", features = ["js"] }
 indexmap = "2.11.0"
