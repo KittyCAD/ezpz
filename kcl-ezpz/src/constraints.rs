@@ -574,9 +574,11 @@ fn euclidean_distance_line(line: ((f64, f64), (f64, f64))) -> f64 {
 }
 
 fn cross(p0: (f64, f64), p1: (f64, f64)) -> f64 {
-    p0.0 * p1.1 - p0.1 * p1.0
+    cross_vec(DVec2::new(p0.0, p0.1), DVec2::new(p1.0, p1.1))
 }
 
+/// <https://stackoverflow.com/questions/243945/calculating-a-2d-vectors-cross-product>
+#[inline(always)]
 fn cross_vec(v: DVec2, w: DVec2) -> f64 {
     v.x * w.y - v.y * w.x
 }
