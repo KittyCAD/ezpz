@@ -22,7 +22,7 @@ mod tests;
 pub mod textual;
 mod vector;
 
-const EPSILON: f64 = 0.001;
+const EPSILON: f64 = 1e-5;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
