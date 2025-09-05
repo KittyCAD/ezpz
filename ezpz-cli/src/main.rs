@@ -87,6 +87,7 @@ fn save_gnuplot_png(cli: &Cli, soln: &Outcome, output_path: String) {
         GnuplotMode::WriteFile(output_path),
     ));
     gnuplot_program.push_str("unset output"); // closes file
+    eprintln!("{}", gnuplot_program);
     let mut child = std::process::Command::new("gnuplot")
         .args(["-persist", "-"])
         .stdin(std::process::Stdio::piped())
@@ -131,7 +132,6 @@ fn pop_gnuplot_window(cli: &Cli, soln: &Outcome) {
     let points = points_from_soln(soln);
     let circles = circles_from_soln(soln);
     let gnuplot_program = gnuplot(&chart_name, points, circles, GnuplotMode::PopWindow);
-    eprintln!("{}", gnuplot_program);
     let mut child = std::process::Command::new("gnuplot")
         .args(["-persist", "-"])
         .stdin(std::process::Stdio::piped())
@@ -189,7 +189,6 @@ fn gnuplot(
     let (mut xs, mut ys): (Vec<_>, Vec<_>) =
         points.into_iter().map(|((x, y, _), _label)| (x, y)).unzip();
     for circle in circles {
-        eprintln!("{circle:?}");
         xs.push(circle.0.center.x + circle.0.radius);
         ys.push(circle.0.center.y + circle.0.radius);
         xs.push(circle.0.center.x - circle.0.radius);
@@ -199,7 +198,6 @@ fn gnuplot(
     let max_x = xs.iter().cloned().fold(f64::NAN, f64::max) + 1.0;
     let min_y = ys.iter().cloned().fold(f64::NAN, f64::min) - 1.0;
     let max_y = ys.iter().cloned().fold(f64::NAN, f64::max) + 1.0;
-    dbg!(min_x, max_x, min_y, max_y);
 
     let display = match mode {
         GnuplotMode::PopWindow => "set term qt font \"Verdana\"\n".to_owned(),
@@ -223,13 +221,13 @@ unset key
 set xrange [{min_x}:{max_x}]
 set yrange [{min_y}:{max_y}]
 
+# Add labels for each point
+{all_labels}
+
 # Plot the points
 plot \"-\" using 1:2:3 with points pointtype 7 pointsize 2 lc rgb variable title \"Points\"
 {all_points}
 e
-
-# Add labels for each point
-{all_labels}
 
 # Refresh plot to show labels
 replot
