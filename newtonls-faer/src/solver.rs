@@ -216,26 +216,52 @@ fn compute_gradient_norm_dense<T: Float>(jacobian: &FaerMat<T>, residual: &[T]) 
     max_grad
 }
 
-fn compute_gradient_norm<M>(
-    model: &mut M,
-    residual: &[M::Real],
-    dense_jacobian: Option<&FaerMat<M::Real>>,
-) -> SolverResult<M::Real>
+/// Abstracts over both sparse and dense matrix layouts.
+trait GradientNorm<M>
 where
     M: NonlinearSystem,
     M::Real: Float,
 {
-    if let Some(jac_dense) = dense_jacobian {
-        // Dense case: use provided Jacobian matrix
-        Ok(compute_gradient_norm_dense(jac_dense, residual))
-    } else {
+    fn compute_gradient_norm(&self, model: &mut M, residual: &[M::Real]) -> M::Real;
+}
+
+struct Sparse;
+
+impl<M> GradientNorm<M> for Sparse
+where
+    M: NonlinearSystem,
+    M::Real: Float,
+{
+    fn compute_gradient_norm(&self, model: &mut M, residual: &[M::Real]) -> M::Real {
         // Sparse case: use model's Jacobian
         let jac_ref = model.jacobian().attach();
-        Ok(compute_gradient_norm_sparse(&jac_ref, residual))
+        compute_gradient_norm_sparse(&jac_ref, residual)
     }
 }
 
-fn newton_iterate<M, F, Cb>(
+struct Dense<M>
+where
+    M: NonlinearSystem,
+{
+    jac_dense: FaerMat<M::Real>,
+}
+
+impl<M> GradientNorm<M> for Dense<M>
+where
+    M: NonlinearSystem,
+    M::Real: ComplexField<Real = M::Real> + Float + Zero + One + ToPrimitive,
+{
+    fn compute_gradient_norm(&self, _model: &mut M, residual: &[M::Real]) -> M::Real
+    where
+        M: NonlinearSystem,
+        M::Real: Float,
+    {
+        // Dense case: use provided Jacobian matrix
+        compute_gradient_norm_dense(&self.jac_dense, residual)
+    }
+}
+
+fn newton_iterate<M, F, Cb, GradNorm>(
     model: &mut M,
     x: &mut [M::Real],
     cfg: NewtonCfg<M::Real>,
@@ -244,14 +270,10 @@ fn newton_iterate<M, F, Cb>(
     mut on_iter: Cb,
 ) -> SolverResult<Iterations>
 where
+    GradNorm: GradientNorm<M>,
     M: NonlinearSystem,
     M::Real: ComplexField<Real = M::Real> + Float + Zero + One + ToPrimitive,
-    F: FnMut(
-        &mut M,
-        &[M::Real],
-        &[M::Real],
-        &mut [M::Real],
-    ) -> SolverResult<Option<FaerMat<M::Real>>>,
+    F: FnMut(&mut M, &[M::Real], &[M::Real], &mut [M::Real]) -> SolverResult<GradNorm>,
     Cb: FnMut(&IterationStats<M::Real>) -> Control,
 {
     let n_vars = model.layout().n_variables();
@@ -308,7 +330,7 @@ where
         // just updated as part of solve (gtol). This would really apply at the _next_
         // iteration, but we can catch it here and save some work.
         if cfg.tol_grad > M::Real::zero() {
-            let grad_norm = compute_gradient_norm(model, &f, jacobian.as_ref())?;
+            let grad_norm = jacobian.compute_gradient_norm(model, &f);
             if grad_norm < cfg.tol_grad {
                 return Ok(iter + 1);
             }
@@ -447,16 +469,24 @@ where
     let mut rhs = FaerMat::<M::Real>::zeros(n, 1);
 
     #[allow(clippy::too_many_arguments)]
-    fn solve_inner<T>(
-        model: &mut impl NonlinearSystem<Real = T>,
+    // In practice, M2 will be M.
+    // We can't use M directly here because nested functions
+    // (`solve_inner` is nested in `solve_dense_lu`)
+    // cannot reuse generics from the outer function.
+    // So instead of reusing M from `solve_dense_lu`, we
+    // define a new generic M2, and we just so happen to use
+    // M2 = M.
+    fn solve_inner<T, M2>(
+        model: &mut M2,
         x: &[T],
         f: &[T],
         dx: &mut [T],
         lu: &mut DenseLu<T>,
         jac: &mut FaerMat<T>,
         rhs: &mut FaerMat<T>,
-    ) -> SolverResult<Option<FaerMat<T>>>
+    ) -> SolverResult<Dense<M2>>
     where
+        M2: NonlinearSystem<Real = T>,
         T: ComplexField<Real = T> + Float + Zero + One + ToPrimitive,
     {
         // Update Jacobian and solve.
@@ -473,7 +503,9 @@ where
         }
 
         // Return a copy of the Jacobian for gradient computation.
-        Ok(Some(jac.clone()))
+        Ok(Dense {
+            jac_dense: jac.clone(),
+        })
     }
 
     // Run iterative loop.
@@ -514,7 +546,7 @@ where
         solver: &mut S,
         rhs: &mut FaerMat<T>,
         n_vars: usize,
-    ) -> SolverResult<Option<FaerMat<T>>>
+    ) -> SolverResult<Sparse>
     where
         T: ComplexField<Real = T> + Float + Zero + One + ToPrimitive,
         S: for<'a> LinearSolver<T, SparseColMatRef<'a, usize, T>>,
@@ -537,7 +569,7 @@ where
         }
 
         // Sparse systems use model.jacobian() directly.
-        Ok(None)
+        Ok(Sparse)
     }
 
     // Run iterative loop.
