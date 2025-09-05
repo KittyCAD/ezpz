@@ -88,7 +88,6 @@ fn save_gnuplot_png(cli: &Cli, soln: &Outcome, output_path: String) {
         GnuplotMode::WriteFile(output_path),
     ));
     gnuplot_program.push_str("unset output"); // closes file
-    eprintln!("{}", gnuplot_program);
     let mut child = std::process::Command::new("gnuplot")
         .args(["-persist", "-"])
         .stdin(std::process::Stdio::piped())
@@ -200,7 +199,6 @@ fn gnuplot(
             let py = cy + r * libm::sin(theta);
             let mpx = cx*ratio2 + px*ratio;
             let mpy = cy*ratio2 + py*ratio;
-            eprintln!("From {cx},{cy} to {px},{py}");
             format!("set object {i} polygon from {cx},{cy} to {px},{py} lw 1 lc rgb {RADIUS_COLOR}\nset label \"{label}.radius\\n= {r:0.2}\" at {mpx},{mpy} center")
         })
         .collect();
