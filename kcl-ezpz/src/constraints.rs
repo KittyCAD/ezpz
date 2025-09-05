@@ -8,6 +8,8 @@ use crate::{EPSILON, datatypes::*, id::Id, solver::Layout};
 pub enum Constraint {
     /// This line must be tangent to the circle
     /// (i.e. touches its perimeter in exactly one place)
+    /// Note this constraint is directional: making circle C
+    /// tangent to PQ will produce a different solution to QP.
     LineTangentToCircle(LineSegment, Circle),
     /// These two points should be a given distance apart.
     Distance(DatumPoint, DatumPoint, f64),

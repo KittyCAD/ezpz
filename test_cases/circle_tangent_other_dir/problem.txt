@@ -5,7 +5,7 @@ circle a
 radius(a, 1.5)
 p = (0, 3)
 q = (5, 3)
-tangent(p, q, a)
+tangent(q, p, a)
 a.center.x = 2.5
 
 # guesses
