@@ -194,18 +194,45 @@ fn compute_gradient_norm_sparse<T: Float>(
     max_grad
 }
 
+fn compute_gradient_norm_dense<T: Float>(jacobian: &FaerMat<T>, residual: &[T]) -> T {
+    // Compute ||J^T * r||_Inf (infinity norm of the gradient).
+    // We want the largest absolute component of the least-squares gradient g = J^T r.
+    // For dense matrices, we compute g_j = sum(J[i,j] * residual[i]) for each column j.
+    let mut max_grad = T::zero();
+
+    for col in 0..jacobian.ncols() {
+        let mut grad_component = T::zero();
+
+        for row in 0..jacobian.nrows() {
+            grad_component = grad_component + jacobian[(row, col)] * residual[row];
+        }
+
+        let abs_grad = grad_component.abs();
+        if abs_grad > max_grad {
+            max_grad = abs_grad;
+        }
+    }
+
+    max_grad
+}
+
 fn compute_gradient_norm<M>(
     model: &mut M,
     residual: &[M::Real],
-    _norm_type: NormType,
+    dense_jacobian: Option<&FaerMat<M::Real>>,
 ) -> SolverResult<M::Real>
 where
     M: NonlinearSystem,
     M::Real: Float,
 {
-    // For sparse systems, the Jacobian should already be fresh from the solve step.
-    let jac_ref = model.jacobian().attach();
-    Ok(compute_gradient_norm_sparse(&jac_ref, residual))
+    if let Some(jac_dense) = dense_jacobian {
+        // Dense case: use provided Jacobian matrix
+        Ok(compute_gradient_norm_dense(jac_dense, residual))
+    } else {
+        // Sparse case: use model's Jacobian
+        let jac_ref = model.jacobian().attach();
+        Ok(compute_gradient_norm_sparse(&jac_ref, residual))
+    }
 }
 
 fn newton_iterate<M, F, Cb>(
@@ -219,7 +246,12 @@ fn newton_iterate<M, F, Cb>(
 where
     M: NonlinearSystem,
     M::Real: ComplexField<Real = M::Real> + Float + Zero + One + ToPrimitive,
-    F: FnMut(&mut M, &[M::Real], &[M::Real], &mut [M::Real]) -> SolverResult<()>,
+    F: FnMut(
+        &mut M,
+        &[M::Real],
+        &[M::Real],
+        &mut [M::Real],
+    ) -> SolverResult<Option<FaerMat<M::Real>>>,
     Cb: FnMut(&IterationStats<M::Real>) -> Control,
 {
     let n_vars = model.layout().n_variables();
@@ -257,7 +289,9 @@ where
         }
 
         // Solve linear system: J(x) * dx = -f(x).
-        solve(model, x, &f, &mut dx)?;
+        // TODO: This is kinda clumsy and inconsistent. Our dense version will return a
+        // Jacobian, sparse won't; it just uses model.jacobian() directly.
+        let jacobian = solve(model, x, &f, &mut dx)?;
 
         // Second convergence check: now we have dx (step size), check for small step (xtol).
         // This would really apply at the _next_ iteration, but we can catch it here and
@@ -273,9 +307,8 @@ where
         // Third convergence check: check gradient norm via Jacobian we have
         // just updated as part of solve (gtol). This would really apply at the _next_
         // iteration, but we can catch it here and save some work.
-        // TODO: Only works for sparse.
         if cfg.tol_grad > M::Real::zero() {
-            let grad_norm = compute_gradient_norm(model, &f, norm_type)?;
+            let grad_norm = compute_gradient_norm(model, &f, jacobian.as_ref())?;
             if grad_norm < cfg.tol_grad {
                 return Ok(iter + 1);
             }
@@ -423,7 +456,7 @@ where
         lu: &mut DenseLu<T>,
         jac: &mut FaerMat<T>,
         rhs: &mut FaerMat<T>,
-    ) -> SolverResult<()>
+    ) -> SolverResult<Option<FaerMat<T>>>
     where
         T: ComplexField<Real = T> + Float + Zero + One + ToPrimitive,
     {
@@ -440,7 +473,8 @@ where
             dx[i] = val;
         }
 
-        Ok(())
+        // Return a copy of the Jacobian for gradient computation.
+        Ok(Some(jac.clone()))
     }
 
     // Run iterative loop.
@@ -481,7 +515,7 @@ where
         solver: &mut S,
         rhs: &mut FaerMat<T>,
         n_vars: usize,
-    ) -> SolverResult<()>
+    ) -> SolverResult<Option<FaerMat<T>>>
     where
         T: ComplexField<Real = T> + Float + Zero + One + ToPrimitive,
         S: for<'a> LinearSolver<T, SparseColMatRef<'a, usize, T>>,
@@ -503,7 +537,8 @@ where
             dx[i] = val;
         }
 
-        Ok(())
+        // Sparse systems use model.jacobian() directly.
+        Ok(None)
     }
 
     // Run iterative loop.
