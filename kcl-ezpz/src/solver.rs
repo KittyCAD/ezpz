@@ -205,6 +205,7 @@ impl NonlinearSystem for Model<'_> {
 
         // Allocate some scratch space for the Jacobian calculations, so that we can
         // do one allocation here and then won't need any allocations per-row or per-column.
+        // TODO: Should this be stored in the model?
         let mut row0_scratch = Vec::with_capacity(NONZEROES_PER_ROW);
 
         // Build values by iterating through constraints in the same order as their construction.
@@ -227,17 +228,13 @@ impl NonlinearSystem for Model<'_> {
                 let col = self.layout.index_of(jacobian_var.id);
 
                 // Find where this (row_num, col) entry should go in the sparse structure.
-                let col_range = self.jc.sym.col_range(col);
+                let mut col_range = self.jc.sym.col_range(col);
                 let row_indices = self.jc.sym.row_idx();
 
                 // Search for our row within this column's entries.
-                for idx in col_range {
-                    if row_indices[idx] == row_num {
-                        // Found the right position; accumulate the partials.
-                        self.jc.vals[idx] += jacobian_var.partial_derivative;
-                        break;
-                    }
-                }
+                let idx = col_range.find(|idx| row_indices[*idx] == row_num).unwrap();
+                // Found the right position; accumulate the partials.
+                self.jc.vals[idx] += jacobian_var.partial_derivative;
             }
         }
     }
