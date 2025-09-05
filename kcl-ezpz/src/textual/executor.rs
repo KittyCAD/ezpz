@@ -301,6 +301,10 @@ pub struct ConstraintSystem<'a> {
 }
 
 impl ConstraintSystem<'_> {
+    pub fn solve_no_metadata(&self) -> Result<SolveOutcome, FailureOutcome> {
+        crate::solve(&self.constraints, self.initial_guesses.to_owned())
+    }
+
     pub fn solve(&self) -> Result<Outcome, FailureOutcome> {
         let num_vars = self.initial_guesses.len();
         let num_eqs = self.constraints.iter().map(|c| c.residual_dim()).sum();
@@ -309,7 +313,7 @@ impl ConstraintSystem<'_> {
             iterations,
             lints,
             final_values,
-        } = crate::solve(&self.constraints, self.initial_guesses.to_owned())?;
+        } = self.solve_no_metadata()?;
         let num_points = self.inner_points.len();
         let num_circles = self.inner_circles.len();
 
