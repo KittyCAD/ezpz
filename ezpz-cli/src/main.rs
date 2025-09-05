@@ -13,8 +13,9 @@ use kcl_ezpz::{
 };
 
 const NUM_ITERS_BENCHMARK: u32 = 100;
-const NORMAL_POINT: &str = "0x0B5563";
+const NORMAL_POINT: &str = "0x0b5563";
 const CIRCLE_COLOR: &str = "0x700548";
+const RADIUS_COLOR: &str = "0xfccfec";
 
 type PointToDraw = (f64, f64, &'static str);
 
@@ -87,7 +88,6 @@ fn save_gnuplot_png(cli: &Cli, soln: &Outcome, output_path: String) {
         GnuplotMode::WriteFile(output_path),
     ));
     gnuplot_program.push_str("unset output"); // closes file
-    eprintln!("{}", gnuplot_program);
     let mut child = std::process::Command::new("gnuplot")
         .args(["-persist", "-"])
         .stdin(std::process::Stdio::piped())
@@ -168,7 +168,7 @@ fn gnuplot(
     let all_labels = points
         .iter()
         .map(|((x, y, _color), label)| {
-            format!("set label \"{label} ({x:.2}, {y:.2})\" at {x:.2},{y:.2} offset 1,1")
+            format!("set label \"{label}\\n({x:.2}, {y:.2})\" at {x:.2},{y:.2} offset 1,1")
         })
         .collect::<Vec<_>>()
         .join("\n");
@@ -181,6 +181,25 @@ fn gnuplot(
             let radius=circ.radius;
             let i=i+1;
             format!("set object {i} circle at {cx},{cy} size first {radius} front lw 2 fc rgb {CIRCLE_COLOR} fs empty border rgb {CIRCLE_COLOR}\n")
+        })
+        .collect();
+    let n = circles.len();
+    let ratio = 0.8;
+    let ratio2 = 1.0 - ratio;
+    let all_radii: String = circles
+        .iter()
+        .enumerate()
+        .map(|(i, (circ, label))| {
+            let i = i + n + 1;
+            let cx = circ.center.x;
+            let cy = circ.center.y;
+            let r = circ.radius;
+            let theta = -10.0f64.to_radians();
+            let px = cx + r * libm::cos(theta);
+            let py = cy + r * libm::sin(theta);
+            let mpx = cx*ratio2 + px*ratio;
+            let mpy = cy*ratio2 + py*ratio;
+            format!("set object {i} polygon from {cx},{cy} to {px},{py} lw 1 lc rgb {RADIUS_COLOR}\nset label \"{label}.radius\\n= {r:0.2}\" at {mpx},{mpy} center")
         })
         .collect();
 
@@ -217,6 +236,7 @@ set size ratio -1
 unset key
 
 {all_circles}
+{all_radii}
 
 set xrange [{min_x}:{max_x}]
 set yrange [{min_y}:{max_y}]

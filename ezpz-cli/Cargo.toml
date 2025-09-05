@@ -10,3 +10,4 @@ license = "MIT"
 clap = { version = "4.5.45", features = ["derive"] }
 colored = "3.0.0"
 kcl-ezpz = { path = "../kcl-ezpz" }
+libm = "0.2.15"
