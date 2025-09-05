@@ -239,6 +239,12 @@ where
         model.residual(x, &mut f);
         let res = compute_residual_norm(&f, norm_type);
 
+        // First convergence check: just check residual (ftol). If we're close enough,
+        // we don't actually need to run the step.
+        if res < cfg.tol {
+            return Ok(iter);
+        }
+
         if matches!(
             on_iter(&IterationStats {
                 iter,
@@ -253,26 +259,24 @@ where
         // Solve linear system: J(x) * dx = -f(x).
         solve(model, x, &f, &mut dx)?;
 
-        // Check convergence criteria with fresh data.
-        // TODO: We could do this check before solve, I think.
-        // 1. Residual convergence.
-        if res < cfg.tol {
-            return Ok(iter + 1);
-        }
-
-        // 2. Gradient convergence.
-        // TODO: This will fall over on a dense system.
-        if cfg.tol_grad > M::Real::zero() {
-            let grad_norm = compute_gradient_norm(model, &f, norm_type)?;
-            if grad_norm < cfg.tol_grad {
+        // Second convergence check: now we have dx (step size), check for small step (xtol).
+        // This would really apply at the _next_ iteration, but we can catch it here and
+        // save some work.
+        // TODO: Maybe this should consider damping.
+        if cfg.tol_step > M::Real::zero() {
+            let step_norm = compute_step_norm(&dx, x, cfg.tol_step);
+            if step_norm < cfg.tol_step {
                 return Ok(iter + 1);
             }
         }
 
-        // 3. Step convergence.
-        if cfg.tol_step > M::Real::zero() {
-            let step_norm = compute_step_norm(&dx, x, cfg.tol_step);
-            if step_norm < cfg.tol_step {
+        // Third convergence check: check gradient norm via Jacobian we have
+        // just updated as part of solve (gtol). This would really apply at the _next_
+        // iteration, but we can catch it here and save some work.
+        // TODO: Only works for sparse.
+        if cfg.tol_grad > M::Real::zero() {
+            let grad_norm = compute_gradient_norm(model, &f, norm_type)?;
+            if grad_norm < cfg.tol_grad {
                 return Ok(iter + 1);
             }
         }
