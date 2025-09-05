@@ -803,4 +803,324 @@ mod tests {
         let sse = r.iter().map(|ri| ri * ri).sum::<f64>();
         println!("Sum of squared residuals: {:.8}", sse);
     }
+
+    #[test]
+    fn test_sparse_gradient_convergence() {
+        let ftol = 1e-12; // Very tight residual tolerance
+        let gtol = 1e-6; // Slack gradient tolerance should solve first.
+        let xtol = 0.0; // Disable step tolerance to focus on gradient convergence.
+
+        // Test that sparse matrices support gradient norm convergence checking.
+        struct SparseTestLayout;
+        impl RowMap for SparseTestLayout {
+            type Var = ();
+            fn n_variables(&self) -> usize {
+                2
+            }
+            fn n_residuals(&self) -> usize {
+                2
+            }
+            fn row(&self, _bus: usize, _var: Self::Var) -> Option<usize> {
+                None
+            }
+        }
+
+        struct SparseTestModel {
+            layout: SparseTestLayout,
+            jac: Jc,
+        }
+
+        impl SparseTestModel {
+            fn new() -> Self {
+                // f1 depends only on x, f2 depends only on y.
+                let pairs = vec![Pair { row: 0, col: 0 }, Pair { row: 1, col: 1 }];
+                let (sym, _argsort) =
+                    SymbolicSparseColMat::try_new_from_indices(2, 2, &pairs).unwrap();
+                let nnz = sym.col_ptr()[sym.ncols()];
+                Self {
+                    layout: SparseTestLayout,
+                    jac: Jc {
+                        sym,
+                        vals: vec![0.0; nnz],
+                    },
+                }
+            }
+        }
+
+        impl NonlinearSystem for SparseTestModel {
+            type Real = f64;
+            type Layout = SparseTestLayout;
+
+            fn layout(&self) -> &Self::Layout {
+                &self.layout
+            }
+            fn jacobian(&self) -> &dyn JacobianCache<Self::Real> {
+                &self.jac
+            }
+            fn jacobian_mut(&mut self) -> &mut dyn JacobianCache<Self::Real> {
+                &mut self.jac
+            }
+
+            fn residual(&self, x: &[Self::Real], out: &mut [Self::Real]) {
+                // Sparse system: f1 = (x-1)^2, f2 = (y-2)^2
+                // Each residual depends on only one variable.
+                out[0] = (x[0] - 1.0) * (x[0] - 1.0);
+                out[1] = (x[1] - 2.0) * (x[1] - 2.0);
+            }
+
+            fn refresh_jacobian(&mut self, x: &[Self::Real]) {
+                // Jacobian is diagonal:
+                // df1/dx = 2(x-1)
+                // df1/dy = 0 (not stored)
+                // df2/dx = 0 (not stored)
+                // df2/dy = 2(y-2)
+
+                let v = self.jac.values_mut();
+                v[0] = 2.0 * (x[0] - 1.0);
+                v[1] = 2.0 * (x[1] - 2.0);
+            }
+        }
+
+        let mut model = SparseTestModel::new();
+
+        // Start far from the solution.
+        let mut x = [0.0_f64, 0.0_f64];
+
+        // Configure to use sparse format with gradient tolerance.
+        let cfg = NewtonCfg::<f64>::sparse()
+            .with_tol(ftol)
+            .with_tol_grad(gtol) // Should converge via gradient tolerance first.
+            .with_tol_step(xtol) // Disable step tolerance.
+            .with_threads(1);
+
+        let callback = |stats: &IterationStats<f64>| {
+            println!(
+                "Sparse iter {}: residual = {:.2e}, damping = {:.3}",
+                stats.iter, stats.residual, stats.damping
+            );
+            Control::Continue
+        };
+
+        let result = crate::solve_cb(&mut model, &mut x, cfg, callback);
+
+        assert!(
+            result.is_ok(),
+            "Sparse solver with gradient checking failed: {:?}",
+            result
+        );
+        let iters = result.unwrap();
+        assert!(
+            iters > 0 && iters <= 50,
+            "Unexpected iteration count: {}",
+            iters
+        );
+
+        // Should converge close to the minimum at (1, 2).
+        let tol = 1e-2;
+        assert!(
+            (x[0] - 1.0).abs() < tol,
+            "x[0] = {}, expected 1.0, diff = {}",
+            x[0],
+            (x[0] - 1.0).abs()
+        );
+        assert!(
+            (x[1] - 2.0).abs() < tol,
+            "x[1] = {}, expected 2.0, diff = {}",
+            x[1],
+            (x[1] - 2.0).abs()
+        );
+
+        // Verify gradient computation: J^T * r for sparse diagonal matrix.
+        let mut residual = [0.0; 2];
+        model.residual(&x, &mut residual);
+
+        model.refresh_jacobian(&x);
+        let jac_vals = model.jac.values();
+        // For diagonal sparse matrix: grad = [J(0,0)*r[0], J(1,1)*r[1]].
+        let grad_x = jac_vals[0] * residual[0]; // Only df1/dx contributes.
+        let grad_y = jac_vals[1] * residual[1]; // Only df2/dy contributes.
+        let grad_norm = grad_x.abs().max(grad_y.abs());
+
+        assert!(
+            grad_norm < 1e-6,
+            "Gradient norm too large: {}, sparse gradient checking failed",
+            grad_norm
+        );
+
+        println!(
+            "Sparse solver converged in {} iterations to ({:.6}, {:.6})",
+            iters, x[0], x[1]
+        );
+        println!("Final gradient norm: {:.2e}", grad_norm);
+        println!(
+            "Jacobian has {} nonzeros (truly sparse)",
+            model.jac.values().len()
+        );
+    }
+
+    #[test]
+    fn test_dense_gradient_convergence() {
+        let ftol = 1e-12; // Very tight residual tolerance
+        let gtol = 1e-6; // Slack gradient tolerance should solve first.
+        let xtol = 0.0; // Disable step tolerance to focus on gradient convergence.
+
+        // Test that dense matrices support gradient norm convergence checking.
+        // We'll use a simple system that should converge via gradient tolerance.
+        struct DenseTestLayout;
+        impl RowMap for DenseTestLayout {
+            type Var = ();
+            fn n_variables(&self) -> usize {
+                2
+            }
+            fn n_residuals(&self) -> usize {
+                2
+            }
+            fn row(&self, _bus: usize, _var: Self::Var) -> Option<usize> {
+                None
+            }
+        }
+
+        struct DenseTestModel {
+            layout: DenseTestLayout,
+            jac: Jc,
+        }
+
+        impl DenseTestModel {
+            fn new() -> Self {
+                let pairs = vec![
+                    Pair { row: 0, col: 0 },
+                    Pair { row: 1, col: 0 },
+                    Pair { row: 0, col: 1 },
+                    Pair { row: 1, col: 1 },
+                ];
+                let (sym, _argsort) =
+                    SymbolicSparseColMat::try_new_from_indices(2, 2, &pairs).unwrap();
+                let nnz = sym.col_ptr()[sym.ncols()];
+                Self {
+                    layout: DenseTestLayout,
+                    jac: Jc {
+                        sym,
+                        vals: vec![0.0; nnz],
+                    },
+                }
+            }
+        }
+
+        impl NonlinearSystem for DenseTestModel {
+            type Real = f64;
+            type Layout = DenseTestLayout;
+
+            fn layout(&self) -> &Self::Layout {
+                &self.layout
+            }
+            fn jacobian(&self) -> &dyn JacobianCache<Self::Real> {
+                &self.jac
+            }
+            fn jacobian_mut(&mut self) -> &mut dyn JacobianCache<Self::Real> {
+                &mut self.jac
+            }
+
+            fn residual(&self, x: &[Self::Real], out: &mut [Self::Real]) {
+                // Simple quadratic system: f1 = (x-1)^2, f2 = (y-2)^2
+                // Minimum at x=1, y=2 with residual = 0
+                out[0] = (x[0] - 1.0) * (x[0] - 1.0);
+                out[1] = (x[1] - 2.0) * (x[1] - 2.0);
+            }
+
+            fn refresh_jacobian(&mut self, x: &[Self::Real]) {
+                // Jacobian:
+                // df1/dx = 2(x-1), df1/dy = 0
+                // df2/dx = 0,      df2/dy = 2(y-2)
+
+                // df1/dx
+                // df2/dx
+                // df1/dy
+                // df2/dy
+
+                let v = self.jac.values_mut();
+                v[0] = 2.0 * (x[0] - 1.0);
+                v[1] = 0.0;
+                v[2] = 0.0;
+                v[3] = 2.0 * (x[1] - 2.0);
+            }
+        }
+
+        let mut model = DenseTestModel::new();
+
+        // Start far from the solution.
+        let mut x = [0.0_f64, 0.0_f64];
+
+        // Configure to use dense format with gradient tolerance.
+        let cfg = NewtonCfg::<f64>::dense()
+            .with_tol(ftol)
+            .with_tol_grad(gtol)
+            .with_tol_step(xtol)
+            .with_threads(1);
+
+        let mut converged_on_gradient = false;
+        let callback = |stats: &IterationStats<f64>| {
+            // Check if we have a small gradient but large residual.
+            if stats.residual > 1e-8 && stats.iter > 1 {
+                // This suggests we're converging via gradient, not residual.
+                converged_on_gradient = true;
+            }
+            println!(
+                "Dense iter {}: residual = {:.2e}, damping = {:.3}",
+                stats.iter, stats.residual, stats.damping
+            );
+            Control::Continue
+        };
+
+        let result = crate::solve_cb(&mut model, &mut x, cfg, callback);
+
+        assert!(
+            result.is_ok(),
+            "Dense solver with gradient checking failed: {:?}",
+            result
+        );
+        let iters = result.unwrap();
+        assert!(
+            iters > 0 && iters <= 50,
+            "Unexpected iteration count: {}",
+            iters
+        );
+
+        // Should converge close to the minimum at (1, 2).
+        let tol = 1e-2; // More lenient tolerance since we're using gradient convergence.
+        assert!(
+            (x[0] - 1.0).abs() < tol,
+            "x[0] = {}, expected 1.0, diff = {}",
+            x[0],
+            (x[0] - 1.0).abs()
+        );
+        assert!(
+            (x[1] - 2.0).abs() < tol,
+            "x[1] = {}, expected 2.0, diff = {}",
+            x[1],
+            (x[1] - 2.0).abs()
+        );
+
+        // Verify the dense gradient computation worked by manually computing gradient norm.
+        let mut residual = [0.0; 2];
+        model.residual(&x, &mut residual);
+
+        // Compute gradient manually: J^T * r.
+        model.refresh_jacobian(&x);
+        let jac_vals = model.jac.values();
+        let grad_x = jac_vals[0] * residual[0] + jac_vals[1] * residual[1];
+        let grad_y = jac_vals[2] * residual[0] + jac_vals[3] * residual[1];
+        let grad_norm = grad_x.abs().max(grad_y.abs());
+
+        assert!(
+            grad_norm < gtol,
+            "Gradient norm too large: {}, suggesting dense gradient checking didn't work properly",
+            grad_norm
+        );
+
+        println!(
+            "Dense solver converged in {} iterations to ({:.6}, {:.6})",
+            iters, x[0], x[1]
+        );
+        println!("Final gradient norm: {:.2e}", grad_norm);
+    }
 }
