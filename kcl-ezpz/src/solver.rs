@@ -1,4 +1,4 @@
-use faer::sparse::{Pair, SymbolicSparseColMat, Triplet};
+use faer::sparse::{Pair, SymbolicSparseColMat};
 use newton_faer::{JacobianCache, NonlinearSystem, RowMap};
 
 use crate::{Constraint, NonLinearSystemError, id::Id};
@@ -109,8 +109,7 @@ impl<'c> Model<'c> {
             all_variables,
         };
 
-        // Generate the Jacobian matrix.
-        // `pairs` tracks all the cells which might be nonzero.
+        // Generate the Jacobian matrix structure.
         let mut nonzero_cells: Vec<Pair<usize, usize>> =
             Vec::with_capacity(NONZEROES_PER_ROW * num_rows);
         let mut row_num = 0;
@@ -138,15 +137,15 @@ impl<'c> Model<'c> {
                 }
             }
         }
+        // Create symbolic structure; this will automatically deduplicate and sort.
         let (sym, _) =
             SymbolicSparseColMat::try_new_from_indices(num_rows, num_cols, &nonzero_cells).unwrap();
-        let num_cells = nonzero_cells.len();
 
         // All done.
         Ok(Self {
             layout,
             jc: Jc {
-                vals: vec![0.0; num_cells],
+                vals: vec![0.0; sym.compute_nnz()], // We have a nonzero count util.
                 sym,
             },
             constraints,
@@ -155,7 +154,7 @@ impl<'c> Model<'c> {
 }
 
 /// Connect the model to newton_faer's solver.
-impl<'c> NonlinearSystem for Model<'c> {
+impl NonlinearSystem for Model<'_> {
     /// What number type we're using.
     type Real = f64;
     type Layout = Layout;
@@ -200,17 +199,21 @@ impl<'c> NonlinearSystem for Model<'c> {
 
     /// Update the values of a cached sparse Jacobian.
     fn refresh_jacobian(&mut self, current_assignments: &[Self::Real]) {
-        let mut jacobian_values = Vec::with_capacity(self.jc.vals.len());
-        let mut row_num = 0;
+        // To enable per-variable partial derivative accumulation (i.e. local to global
+        // Jacobian assembly), we need to zero out the Jacobian values first.
+        self.jc.vals.fill(0.0);
+
         // Allocate some scratch space for the Jacobian calculations, so that we can
         // do one allocation here and then won't need any allocations per-row or per-column.
         let mut row0_scratch = Vec::with_capacity(NONZEROES_PER_ROW);
 
-        // Note: this is iterating in row-major order.
-        for constraint in self.constraints {
+        // Build values by iterating through constraints in the same order as their construction.
+        for (row_num, constraint) in self.constraints.iter().enumerate() {
+            // At present, we only have constraints with a single row but if we expand
+            // we could iterate across each constraint row here.
             row0_scratch.clear();
             constraint.jacobian_rows(&self.layout, current_assignments, &mut row0_scratch);
-            let jacobian_rows = [&row0_scratch];
+
             debug_assert_eq!(
                 1,
                 constraint.residual_dim(),
@@ -219,40 +222,23 @@ impl<'c> NonlinearSystem for Model<'c> {
                 constraint.residual_dim(),
             );
 
-            for jacobian_row in jacobian_rows {
-                let row = row_num;
-                // eprintln!(
-                //     "Row {row} ({}): {jacobian_row:?}",
-                //     constraint.constraint_kind()
-                // );
-                row_num += 1;
-                for jacobian_var in jacobian_row {
-                    let col = self.layout.index_of(jacobian_var.id);
-                    jacobian_values.push(Triplet {
-                        row,
-                        col,
-                        val: jacobian_var.partial_derivative,
-                    });
+            // For each variable in this constraint's set of partial derivatives (Jacobian slice).
+            for jacobian_var in row0_scratch.iter() {
+                let col = self.layout.index_of(jacobian_var.id);
+
+                // Find where this (row_num, col) entry should go in the sparse structure.
+                let col_range = self.jc.sym.col_range(col);
+                let row_indices = self.jc.sym.row_idx();
+
+                // Search for our row within this column's entries.
+                for idx in col_range {
+                    if row_indices[idx] == row_num {
+                        // Found the right position; accumulate the partials.
+                        self.jc.vals[idx] += jacobian_var.partial_derivative;
+                        break;
+                    }
                 }
             }
         }
-        debug_assert_eq!(jacobian_values.len(), self.jc.vals.len());
-
-        // Because this was written to in row-major order, sort it into column-major order,
-        // as that's what faer needs.
-        jacobian_values.sort_by(column_major);
-        self.jc.vals.clear();
-        self.jc
-            .vals
-            .extend(jacobian_values.into_iter().map(|triplet| triplet.val));
     }
-}
-
-/// Sort by columns, then by rows.
-#[inline(always)]
-fn column_major<T>(
-    a: &Triplet<usize, usize, T>,
-    b: &Triplet<usize, usize, T>,
-) -> std::cmp::Ordering {
-    a.col.cmp(&b.col).then(a.row.cmp(&b.row))
 }
