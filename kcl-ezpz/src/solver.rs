@@ -1,7 +1,7 @@
 use faer::sparse::{Pair, SymbolicSparseColMat};
 use newton_faer::{JacobianCache, NonlinearSystem, RowMap};
 
-use crate::{Constraint, NonLinearSystemError, id::Id};
+use crate::{Constraint, NonLinearSystemError, constraints::JacobianVar, id::Id};
 
 // Roughly. Most constraints will only involve roughly 4 variables.
 // May as well round up to the nearest power of 2.
@@ -77,6 +77,7 @@ pub struct Model<'c> {
     layout: Layout,
     jc: Jc,
     constraints: &'c [Constraint],
+    row0_scratch: Vec<JacobianVar>,
 }
 
 impl<'c> Model<'c> {
@@ -149,6 +150,7 @@ impl<'c> Model<'c> {
                 sym,
             },
             constraints,
+            row0_scratch: Vec::with_capacity(NONZEROES_PER_ROW),
         })
     }
 }
@@ -206,14 +208,13 @@ impl NonlinearSystem for Model<'_> {
         // Allocate some scratch space for the Jacobian calculations, so that we can
         // do one allocation here and then won't need any allocations per-row or per-column.
         // TODO: Should this be stored in the model?
-        let mut row0_scratch = Vec::with_capacity(NONZEROES_PER_ROW);
 
         // Build values by iterating through constraints in the same order as their construction.
         for (row_num, constraint) in self.constraints.iter().enumerate() {
             // At present, we only have constraints with a single row but if we expand
             // we could iterate across each constraint row here.
-            row0_scratch.clear();
-            constraint.jacobian_rows(&self.layout, current_assignments, &mut row0_scratch);
+            self.row0_scratch.clear();
+            constraint.jacobian_rows(&self.layout, current_assignments, &mut self.row0_scratch);
 
             debug_assert_eq!(
                 1,
@@ -224,7 +225,7 @@ impl NonlinearSystem for Model<'_> {
             );
 
             // For each variable in this constraint's set of partial derivatives (Jacobian slice).
-            for jacobian_var in row0_scratch.iter() {
+            for jacobian_var in self.row0_scratch.iter() {
                 let col = self.layout.index_of(jacobian_var.id);
 
                 // Find where this (row_num, col) entry should go in the sparse structure.
