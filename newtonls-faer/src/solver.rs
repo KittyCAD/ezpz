@@ -424,7 +424,6 @@ where
     if use_dense {
         solve_dense_lu(model, x, cfg, on_iter)
     } else if is_square {
-        // TODO: This should be sparse LU with fallback to QR.
         solve_sparse_lu_with_qr_fallback(model, x, cfg, on_iter)
     } else {
         solve_sparse_qr(model, x, cfg, on_iter)
