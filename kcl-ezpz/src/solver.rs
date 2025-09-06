@@ -78,6 +78,7 @@ pub struct Model<'c> {
     jc: Jc,
     constraints: &'c [Constraint],
     row0_scratch: Vec<JacobianVar>,
+    row1_scratch: Vec<JacobianVar>,
 }
 
 impl<'c> Model<'c> {
@@ -114,25 +115,18 @@ impl<'c> Model<'c> {
         let mut nonzero_cells: Vec<Pair<usize, usize>> =
             Vec::with_capacity(NONZEROES_PER_ROW * num_rows);
         let mut row_num = 0;
-        let mut nonzeroes_scratch = Vec::with_capacity(NONZEROES_PER_ROW);
+        let mut nonzeroes_scratch0 = Vec::with_capacity(NONZEROES_PER_ROW);
+        let mut nonzeroes_scratch1 = Vec::with_capacity(NONZEROES_PER_ROW);
         for constraint in constraints {
-            nonzeroes_scratch.clear();
-            constraint.nonzeroes(&mut nonzeroes_scratch);
-            debug_assert_eq!(
-                constraint.residual_dim(),
-                1,
-                "Constraint {} has {} rows but we only passed scratch room for 1, pls update this code",
-                constraint.constraint_kind(),
-                constraint.residual_dim(),
-            );
+            nonzeroes_scratch0.clear();
+            nonzeroes_scratch1.clear();
+            constraint.nonzeroes(&mut nonzeroes_scratch0, &mut nonzeroes_scratch1);
 
-            // Right now, all constraints have a single row,
-            // but we know that soon we'll add constraints with more.
-            let rows = [&nonzeroes_scratch];
-            for row in rows {
+            let rows = [&nonzeroes_scratch0, &nonzeroes_scratch1];
+            for row in rows.iter().take(constraint.residual_dim()) {
                 let this_row = row_num;
                 row_num += 1;
-                for var in row {
+                for var in row.iter() {
                     let col = layout.index_of(*var);
                     nonzero_cells.push(Pair { row: this_row, col });
                 }
@@ -151,6 +145,7 @@ impl<'c> Model<'c> {
             },
             constraints,
             row0_scratch: Vec::with_capacity(NONZEROES_PER_ROW),
+            row1_scratch: Vec::with_capacity(NONZEROES_PER_ROW),
         })
     }
 }
@@ -180,21 +175,36 @@ impl NonlinearSystem for Model<'_> {
         // Each row of `out` corresponds to one row of the matrix, i.e. one equation.
         // Each item of `current_assignments` corresponds to one column of the matrix, i.e. one variable.
         let mut row_num = 0;
-        let mut residuals = Vec::new();
+        let mut residuals0 = Vec::new();
+        let mut residuals1 = Vec::new();
         for constraint in self.constraints {
-            residuals.clear();
-            constraint.residual(&self.layout, current_assignments, &mut residuals);
+            residuals0.clear();
+            residuals1.clear();
+            constraint.residual(
+                &self.layout,
+                current_assignments,
+                &mut residuals0,
+                &mut residuals1,
+            );
             debug_assert_eq!(
-                residuals.len(),
+                if !residuals0.is_empty() { 1 } else { 0 }
+                    + if !residuals1.is_empty() { 1 } else { 0 },
                 constraint.residual_dim(),
                 "Constraint {} should have {} residuals but actually had {}",
                 constraint.constraint_kind(),
                 constraint.residual_dim(),
-                residuals.len(),
+                if !residuals0.is_empty() { 1 } else { 0 }
+                    + if !residuals1.is_empty() { 1 } else { 0 },
             );
-            for residual in residuals.iter().copied() {
-                out[row_num] = residual;
+            for row in [&residuals0, &residuals1]
+                .iter()
+                .take(constraint.residual_dim())
+            {
+                let this_row = row_num;
                 row_num += 1;
+                for residual in row.iter().copied() {
+                    out[this_row] = residual;
+                }
             }
         }
     }
@@ -210,32 +220,36 @@ impl NonlinearSystem for Model<'_> {
         // TODO: Should this be stored in the model?
 
         // Build values by iterating through constraints in the same order as their construction.
-        for (row_num, constraint) in self.constraints.iter().enumerate() {
-            // At present, we only have constraints with a single row but if we expand
-            // we could iterate across each constraint row here.
+        let mut row_num = 0;
+        for constraint in self.constraints {
             self.row0_scratch.clear();
-            constraint.jacobian_rows(&self.layout, current_assignments, &mut self.row0_scratch);
-
-            debug_assert_eq!(
-                1,
-                constraint.residual_dim(),
-                "Constraint {} should have 1 Jacobian rows but actually had {}, update the code to pass more scratch rows.",
-                constraint.constraint_kind(),
-                constraint.residual_dim(),
+            self.row1_scratch.clear();
+            constraint.jacobian_rows(
+                &self.layout,
+                current_assignments,
+                &mut self.row0_scratch,
+                &mut self.row1_scratch,
             );
 
             // For each variable in this constraint's set of partial derivatives (Jacobian slice).
-            for jacobian_var in self.row0_scratch.iter() {
-                let col = self.layout.index_of(jacobian_var.id);
+            for row in [&self.row0_scratch, &self.row1_scratch]
+                .into_iter()
+                .take(constraint.residual_dim())
+            {
+                let this_row = row_num;
+                row_num += 1;
+                for jacobian_var in row {
+                    let col = self.layout.index_of(jacobian_var.id);
 
-                // Find where this (row_num, col) entry should go in the sparse structure.
-                let mut col_range = self.jc.sym.col_range(col);
-                let row_indices = self.jc.sym.row_idx();
+                    // Find where this (row_num, col) entry should go in the sparse structure.
+                    let mut col_range = self.jc.sym.col_range(col);
+                    let row_indices = self.jc.sym.row_idx();
 
-                // Search for our row within this column's entries.
-                let idx = col_range.find(|idx| row_indices[*idx] == row_num).unwrap();
-                // Found the right position; accumulate the partials.
-                self.jc.vals[idx] += jacobian_var.partial_derivative;
+                    // Search for our row within this column's entries.
+                    let idx = col_range.find(|idx| row_indices[*idx] == this_row).unwrap();
+                    // Found the right position; accumulate the partials.
+                    self.jc.vals[idx] += jacobian_var.partial_derivative;
+                }
             }
         }
     }
