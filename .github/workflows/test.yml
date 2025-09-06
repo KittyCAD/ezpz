@@ -4,15 +4,8 @@ on:
       - main
   workflow_dispatch:
   pull_request:
-    paths:
-      - '**.rs'
-      - .github/workflows/ci.yml
-      - Cargo.lock
-      - Cargo.toml
-      - '**/Cargo.toml'
-      - rust-toolchain.toml
 permissions: read-all
-name: Rust CI
+name: Test
 jobs:
   cargo-test:
     name: cargo test
