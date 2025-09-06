@@ -24,6 +24,7 @@ use crate::textual::instruction::FixPointComponent;
 use crate::textual::instruction::Horizontal;
 use crate::textual::instruction::Parallel;
 use crate::textual::instruction::Perpendicular;
+use crate::textual::instruction::PointsCoincident;
 use crate::textual::instruction::Tangent;
 use crate::textual::instruction::Vertical;
 use crate::textual::{Circle, Point};
@@ -234,6 +235,11 @@ impl Problem {
                     let p0 = datum_point_for_label(&label.0)?;
                     let p1 = datum_point_for_label(&label.1)?;
                     constraints.push(Constraint::Vertical(LineSegment { p0, p1 }));
+                }
+                Instruction::PointsCoincident(PointsCoincident { point0, point1 }) => {
+                    let p0 = datum_point_for_label(point0)?;
+                    let p1 = datum_point_for_label(point1)?;
+                    constraints.push(Constraint::PointsCoincident(p0, p1));
                 }
                 Instruction::Horizontal(Horizontal { label }) => {
                     let p0 = datum_point_for_label(&label.0)?;
