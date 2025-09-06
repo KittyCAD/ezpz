@@ -16,6 +16,7 @@ pub enum Instruction {
     CircleRadius(CircleRadius),
     Tangent(Tangent),
     FixCenterPointComponent(FixCenterPointComponent),
+    LinesEqualLength(LinesEqualLength),
 }
 
 #[derive(Debug)]
@@ -41,6 +42,12 @@ pub struct Tangent {
     pub circle: Label,
     pub line_p0: Label,
     pub line_p1: Label,
+}
+
+#[derive(Debug)]
+pub struct LinesEqualLength {
+    pub line0: (Label, Label),
+    pub line1: (Label, Label),
 }
 
 #[derive(Debug)]

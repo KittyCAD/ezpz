@@ -343,14 +343,14 @@ fn print_problem_size(num_vars: usize, num_eqs: usize) {
 fn print_failure_output(outcome: FailureOutcome) {
     use colored::Colorize;
     let FailureOutcome {
-        error: _,
+        error,
         lints,
         num_vars,
         num_eqs,
     } = outcome;
     print_lints(&lints);
     print_problem_size(num_vars, num_eqs);
-    eprintln!("{}", "Could not solve system".red());
+    eprintln!("{}: {}", "Could not solve system".red(), error);
     if num_eqs > num_vars {
         eprintln!("Your system might be overconstrained. Try removing constraints.");
     } else {
