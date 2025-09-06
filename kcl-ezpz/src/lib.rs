@@ -1,3 +1,4 @@
+//! Efficient Zoo Problem Zolver.
 //! Solves 2D constraint systems.
 
 pub use crate::constraints::Constraint;

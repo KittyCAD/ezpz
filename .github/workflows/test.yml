@@ -1,0 +1,44 @@
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '**.rs'
+      - .github/workflows/ci.yml
+      - Cargo.lock
+      - Cargo.toml
+      - '**/Cargo.toml'
+      - rust-toolchain.toml
+permissions: read-all
+name: Rust CI
+jobs:
+  cargo-test:
+    name: cargo test
+    runs-on: ubuntu-latest-8-cores
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@cargo-llvm-cov
+      - uses: taiki-e/install-action@nextest
+      - uses: Swatinem/rust-cache@v2.8.0
+      - uses: taiki-e/install-action@just
+
+      - name: cargo test
+        shell: bash
+        run: |
+          just test-with-coverage
+        env:
+          RUST_BACKTRACE: 1
+
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{secrets.CODECOV_TOKEN}}
+          slug: KittyCAD/ezpz
+          fail_ci_if_error: true
+          flags: unittests
+          verbose: true
+          files: lcov.info
