@@ -304,6 +304,7 @@ impl NonlinearSystem for Model<'_> {
         if REGULARIZATION_ENABLED {
             let num_constraint_residuals: usize =
                 self.constraints.iter().map(|c| c.residual_dim()).sum();
+
             for col in 0..self.layout.n_variables() {
                 let reg_row = num_constraint_residuals + col;
 
