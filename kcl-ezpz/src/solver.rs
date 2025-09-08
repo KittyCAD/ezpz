@@ -7,7 +7,9 @@ use crate::{Constraint, NonLinearSystemError, constraints::JacobianVar, id::Id};
 // May as well round up to the nearest power of 2.
 const NONZEROES_PER_ROW: usize = 8;
 
-// Tikhonov regularization configuration.
+// Tikhonov regularization configuration. Note that some texts use lambda^2 as their
+// scaling parameter, but it's a magic constant we have to tune either way so who cares.
+// Ref: https://people.csail.mit.edu/jsolomon/share/book/numerical_book.pdf, 4.1.3
 const REGULARIZATION_ENABLED: bool = true;
 const REGULARIZATION_LAMBDA: f64 = 1e-9;
 
