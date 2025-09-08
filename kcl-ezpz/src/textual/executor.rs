@@ -14,20 +14,8 @@ use crate::datatypes;
 use crate::datatypes::DatumDistance;
 use crate::datatypes::DatumPoint;
 use crate::datatypes::LineSegment;
-use crate::textual::Component;
-use crate::textual::Label;
-use crate::textual::instruction::AngleLine;
-use crate::textual::instruction::CircleRadius;
-use crate::textual::instruction::Distance;
-use crate::textual::instruction::FixCenterPointComponent;
-use crate::textual::instruction::FixPointComponent;
-use crate::textual::instruction::Horizontal;
-use crate::textual::instruction::Parallel;
-use crate::textual::instruction::Perpendicular;
-use crate::textual::instruction::PointsCoincident;
-use crate::textual::instruction::Tangent;
-use crate::textual::instruction::Vertical;
-use crate::textual::{Circle, Point};
+use crate::textual::instruction::*;
+use crate::textual::{Circle, Component, Label, Point};
 
 use super::Instruction;
 use super::Problem;
@@ -260,6 +248,16 @@ impl Problem {
                         LineSegment { p0, p1 },
                         LineSegment { p0: p2, p1: p3 },
                     ]));
+                }
+                Instruction::LinesEqualLength(LinesEqualLength { line0, line1 }) => {
+                    let p0 = datum_point_for_label(&line0.0)?;
+                    let p1 = datum_point_for_label(&line0.1)?;
+                    let p2 = datum_point_for_label(&line1.0)?;
+                    let p3 = datum_point_for_label(&line1.1)?;
+                    constraints.push(Constraint::LinesEqualLength(
+                        LineSegment { p0, p1 },
+                        LineSegment { p0: p2, p1: p3 },
+                    ));
                 }
                 Instruction::Perpendicular(Perpendicular { line0, line1 }) => {
                     let p0 = datum_point_for_label(&line0.0)?;

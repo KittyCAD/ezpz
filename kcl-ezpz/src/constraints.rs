@@ -24,6 +24,8 @@ pub enum Constraint {
     PointsCoincident(DatumPoint, DatumPoint),
     /// Constraint radius of a circle
     CircleRadius(Circle, f64),
+    /// These lines should be the same distance.
+    LinesEqualLength(LineSegment, LineSegment),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -94,6 +96,10 @@ impl Constraint {
                 row1.push(p1.id_y());
             }
             Constraint::CircleRadius(circle, _radius) => row0.extend([circle.radius.id]),
+            Constraint::LinesEqualLength(line0, line1) => {
+                row0.extend(line0.all_variables());
+                row0.extend(line1.all_variables());
+            }
         }
     }
 
@@ -239,6 +245,12 @@ impl Constraint {
                 let actual_radius = current_assignments[layout.index_of(circle.radius.id)];
                 output.push(actual_radius - *expected_radius);
             }
+            Constraint::LinesEqualLength(line0, line1) => {
+                let (l0, l1) = get_line_ends(current_assignments, line0, line1, layout);
+                let len0 = l0.0.euclidean_distance(l0.1);
+                let len1 = l1.0.euclidean_distance(l1.1);
+                output.push(len0 - len1);
+            }
         }
     }
 
@@ -254,6 +266,7 @@ impl Constraint {
             Constraint::LinesAtAngle(..) => 1,
             Constraint::PointsCoincident(..) => 2,
             Constraint::CircleRadius(..) => 1,
+            Constraint::LinesEqualLength(..) => 1,
         }
     }
 
@@ -525,40 +538,43 @@ impl Constraint {
                     }
                 };
 
-                let jvars = [
-                    JacobianVar {
-                        id: line0.p0.id_x(),
-                        partial_derivative: pds.dr_dx0,
-                    },
-                    JacobianVar {
-                        id: line0.p0.id_y(),
-                        partial_derivative: pds.dr_dy0,
-                    },
-                    JacobianVar {
-                        id: line0.p1.id_x(),
-                        partial_derivative: pds.dr_dx1,
-                    },
-                    JacobianVar {
-                        id: line0.p1.id_y(),
-                        partial_derivative: pds.dr_dy1,
-                    },
-                    JacobianVar {
-                        id: line1.p0.id_x(),
-                        partial_derivative: pds.dr_dx2,
-                    },
-                    JacobianVar {
-                        id: line1.p0.id_y(),
-                        partial_derivative: pds.dr_dy2,
-                    },
-                    JacobianVar {
-                        id: line1.p1.id_x(),
-                        partial_derivative: pds.dr_dx3,
-                    },
-                    JacobianVar {
-                        id: line1.p1.id_y(),
-                        partial_derivative: pds.dr_dy3,
-                    },
-                ];
+                let jvars = pds.jvars(line0, line1);
+                row0.extend(jvars.as_slice());
+            }
+            Constraint::LinesEqualLength(line0, line1) => {
+                // Get all points
+                let x0 = current_assignments[layout.index_of(line0.p0.id_x())];
+                let y0 = current_assignments[layout.index_of(line0.p0.id_y())];
+                let x1 = current_assignments[layout.index_of(line0.p1.id_x())];
+                let y1 = current_assignments[layout.index_of(line0.p1.id_y())];
+                let l0 = (V::new(x0, y0), V::new(x1, y1));
+                let x2 = current_assignments[layout.index_of(line1.p0.id_x())];
+                let y2 = current_assignments[layout.index_of(line1.p0.id_y())];
+                let x3 = current_assignments[layout.index_of(line1.p1.id_x())];
+                let y3 = current_assignments[layout.index_of(line1.p1.id_y())];
+                let l1 = (V::new(x2, y2), V::new(x3, y3));
+
+                // Calculate lengths of each line.
+                let len0 = l0.0.euclidean_distance(l0.1);
+                let len1 = l1.0.euclidean_distance(l1.1);
+
+                // Avoid division by 0
+                if len0 < EPSILON || len1 < EPSILON {
+                    return;
+                }
+
+                // Calculate derivatives.
+                let pds = PartialDerivatives4Points {
+                    dr_dx0: (x0 - x1) / len0,
+                    dr_dy0: (y0 - y1) / len0,
+                    dr_dx1: (-x0 + x1) / len0,
+                    dr_dy1: (-y0 + y1) / len0,
+                    dr_dx2: (-x2 + x3) / len1,
+                    dr_dy2: (-y2 + y3) / len1,
+                    dr_dx3: (x2 - x3) / len1,
+                    dr_dy3: (y2 - y3) / len1,
+                };
+                let jvars = pds.jvars(line0, line1);
                 row0.extend(jvars.as_slice());
             }
             Constraint::PointsCoincident(p0, p1) => {
@@ -632,6 +648,7 @@ impl Constraint {
             Constraint::LinesAtAngle(..) => "LinesAtAngle",
             Constraint::PointsCoincident(..) => "PointsCoincident",
             Constraint::CircleRadius(..) => "CircleRadius",
+            Constraint::LinesEqualLength(..) => "LinesEqualLength",
         }
     }
 }
@@ -646,6 +663,64 @@ struct PartialDerivatives4Points {
     dr_dy2: f64,
     dr_dx3: f64,
     dr_dy3: f64,
+}
+
+impl PartialDerivatives4Points {
+    fn jvars(&self, line0: &LineSegment, line1: &LineSegment) -> [JacobianVar; 8] {
+        [
+            JacobianVar {
+                id: line0.p0.id_x(),
+                partial_derivative: self.dr_dx0,
+            },
+            JacobianVar {
+                id: line0.p0.id_y(),
+                partial_derivative: self.dr_dy0,
+            },
+            JacobianVar {
+                id: line0.p1.id_x(),
+                partial_derivative: self.dr_dx1,
+            },
+            JacobianVar {
+                id: line0.p1.id_y(),
+                partial_derivative: self.dr_dy1,
+            },
+            JacobianVar {
+                id: line1.p0.id_x(),
+                partial_derivative: self.dr_dx2,
+            },
+            JacobianVar {
+                id: line1.p0.id_y(),
+                partial_derivative: self.dr_dy2,
+            },
+            JacobianVar {
+                id: line1.p1.id_x(),
+                partial_derivative: self.dr_dx3,
+            },
+            JacobianVar {
+                id: line1.p1.id_y(),
+                partial_derivative: self.dr_dy3,
+            },
+        ]
+    }
+}
+
+fn get_line_ends(
+    current_assignments: &[f64],
+    line0: &LineSegment,
+    line1: &LineSegment,
+    layout: &Layout,
+) -> ((V, V), (V, V)) {
+    let p0_x_l0 = current_assignments[layout.index_of(line0.p0.id_x())];
+    let p0_y_l0 = current_assignments[layout.index_of(line0.p0.id_y())];
+    let p1_x_l0 = current_assignments[layout.index_of(line0.p1.id_x())];
+    let p1_y_l0 = current_assignments[layout.index_of(line0.p1.id_y())];
+    let l0 = (V::new(p0_x_l0, p0_y_l0), V::new(p1_x_l0, p1_y_l0));
+    let p0_x_l1 = current_assignments[layout.index_of(line1.p0.id_x())];
+    let p0_y_l1 = current_assignments[layout.index_of(line1.p0.id_y())];
+    let p1_x_l1 = current_assignments[layout.index_of(line1.p1.id_x())];
+    let p1_y_l1 = current_assignments[layout.index_of(line1.p1.id_y())];
+    let l1 = (V::new(p0_x_l1, p0_y_l1), V::new(p1_x_l1, p1_y_l1));
+    (l0, l1)
 }
 
 #[cfg(test)]
