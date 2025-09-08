@@ -1,8 +1,8 @@
 use crate::textual::{
     ScalarGuess,
     instruction::{
-        AngleLine, CircleRadius, DeclareCircle, Distance, FixCenterPointComponent, Parallel,
-        Perpendicular, PointsCoincident, Tangent,
+        AngleLine, CircleRadius, DeclareCircle, Distance, FixCenterPointComponent,
+        LinesEqualLength, Parallel, Perpendicular, PointsCoincident, Tangent,
     },
 };
 
@@ -222,6 +222,15 @@ pub fn parse_tangent(i: &mut &str) -> WResult<Tangent> {
     })
 }
 
+pub fn parse_lines_equal_length(i: &mut &str) -> WResult<LinesEqualLength> {
+    let _ = "lines_equal_length".parse_next(i)?;
+    ignore_ws(i);
+    let [p0, p1, p2, p3] = inside_brackets(four_points, i)?;
+    let line0 = (p0, p1);
+    let line1 = (p2, p3);
+    Ok(LinesEqualLength { line0, line1 })
+}
+
 pub fn parse_perpendicular(i: &mut &str) -> WResult<Perpendicular> {
     let _ = "perpendicular".parse_next(i)?;
     ignore_ws(i);
@@ -289,6 +298,9 @@ fn parse_instruction(i: &mut &str) -> WResult<Vec<Instruction>> {
         parse_angle_line.map(Instruction::AngleLine).map(sv),
         parse_circle_radius.map(Instruction::CircleRadius).map(sv),
         parse_tangent.map(Instruction::Tangent).map(sv),
+        parse_lines_equal_length
+            .map(Instruction::LinesEqualLength)
+            .map(sv),
     ))
     .parse_next(i)
 }
