@@ -7,6 +7,10 @@ use crate::{Constraint, NonLinearSystemError, constraints::JacobianVar, id::Id};
 // May as well round up to the nearest power of 2.
 const NONZEROES_PER_ROW: usize = 8;
 
+// Tikhonov regularization configuration.
+const REGULARIZATION_ENABLED: bool = true;
+const REGULARIZATION_LAMBDA: f64 = 1e-9;
+
 pub struct Layout {
     /// Equivalent to number of rows in the matrix being solved.
     total_num_residuals: usize,
@@ -73,17 +77,20 @@ impl JacobianCache<f64> for Jc {
 }
 
 /// The problem to actually solve.
+/// Note that the initial values of each variable are required for Tikhonov regularization.
 pub struct Model<'c> {
     layout: Layout,
     jc: Jc,
     constraints: &'c [Constraint],
     row0_scratch: Vec<JacobianVar>,
+    initial_values: Vec<f64>,
 }
 
 impl<'c> Model<'c> {
     pub fn new(
         constraints: &'c [Constraint],
         all_variables: Vec<Id>,
+        initial_values: Vec<f64>,
     ) -> Result<Self, NonLinearSystemError> {
         /*
         Firstly, find the size of the relevant matrices.
@@ -102,7 +109,25 @@ impl<'c> Model<'c> {
             num_cols = total number of variables
                        which is = total number of "involved primitive IDs"
         */
-        let num_residuals: usize = constraints.iter().map(|c| c.residual_dim()).sum();
+        assert_eq!(
+            all_variables.len(),
+            initial_values.len(),
+            "Number of variables ({}) must match number of initial values ({})",
+            all_variables.len(),
+            initial_values.len()
+        );
+
+        // We'll have different numbers of rows in the system depending on whether
+        // or not regularization is enabled.
+        let num_residuals_constraints: usize = constraints.iter().map(|c| c.residual_dim()).sum();
+        let num_residuals_regularization = if REGULARIZATION_ENABLED {
+            all_variables.len()
+        } else {
+            0
+        };
+
+        // Build the full system.
+        let num_residuals = num_residuals_constraints + num_residuals_regularization;
         let num_cols = all_variables.len();
         let num_rows = num_residuals;
         let layout = Layout {
@@ -115,6 +140,8 @@ impl<'c> Model<'c> {
             Vec::with_capacity(NONZEROES_PER_ROW * num_rows);
         let mut row_num = 0;
         let mut nonzeroes_scratch = Vec::with_capacity(NONZEROES_PER_ROW);
+
+        // Build Jacobian from constraints.
         for constraint in constraints {
             nonzeroes_scratch.clear();
             constraint.nonzeroes(&mut nonzeroes_scratch);
@@ -138,6 +165,15 @@ impl<'c> Model<'c> {
                 }
             }
         }
+
+        // Stack our regularization rows below the constraint rows.
+        if REGULARIZATION_ENABLED {
+            for col in 0..num_cols {
+                let reg_row = num_residuals_constraints + col;
+                nonzero_cells.push(Pair { row: reg_row, col });
+            }
+        }
+
         // Create symbolic structure; this will automatically deduplicate and sort.
         let (sym, _) =
             SymbolicSparseColMat::try_new_from_indices(num_rows, num_cols, &nonzero_cells).unwrap();
@@ -151,6 +187,7 @@ impl<'c> Model<'c> {
             },
             constraints,
             row0_scratch: Vec::with_capacity(NONZEROES_PER_ROW),
+            initial_values,
         })
     }
 }
@@ -181,6 +218,8 @@ impl NonlinearSystem for Model<'_> {
         // Each item of `current_assignments` corresponds to one column of the matrix, i.e. one variable.
         let mut row_num = 0;
         let mut residuals = Vec::new();
+
+        // Compute constraint residuals.
         for constraint in self.constraints {
             residuals.clear();
             constraint.residual(&self.layout, current_assignments, &mut residuals);
@@ -197,6 +236,14 @@ impl NonlinearSystem for Model<'_> {
                 row_num += 1;
             }
         }
+
+        // Add Tikhonov regularization residuals: lambda * (x - x0).
+        if REGULARIZATION_ENABLED {
+            for (&val, &val_init) in current_assignments.iter().zip(self.initial_values.iter()) {
+                out[row_num] = REGULARIZATION_LAMBDA * (val - val_init);
+                row_num += 1;
+            }
+        }
     }
 
     /// Update the values of a cached sparse Jacobian.
@@ -209,7 +256,7 @@ impl NonlinearSystem for Model<'_> {
         // do one allocation here and then won't need any allocations per-row or per-column.
         // TODO: Should this be stored in the model?
 
-        // Build values by iterating through constraints in the same order as their construction.
+        // Build constraint values by iterating through constraints in the same order as their construction.
         for (row_num, constraint) in self.constraints.iter().enumerate() {
             // At present, we only have constraints with a single row but if we expand
             // we could iterate across each constraint row here.
@@ -236,6 +283,24 @@ impl NonlinearSystem for Model<'_> {
                 let idx = col_range.find(|idx| row_indices[*idx] == row_num).unwrap();
                 // Found the right position; accumulate the partials.
                 self.jc.vals[idx] += jacobian_var.partial_derivative;
+            }
+        }
+
+        // Add regularization values.
+        if REGULARIZATION_ENABLED {
+            let num_constraint_residuals = self.constraints.len();
+            for col in 0..self.layout.n_variables() {
+                let reg_row = num_constraint_residuals + col;
+
+                // Find where this (reg_row, col) entry should go in the sparse structure.
+                let mut col_range = self.jc.sym.col_range(col);
+                let row_indices = self.jc.sym.row_idx();
+
+                // Search for our regularization row within this column's entries and set the regularization Jacobian
+                // entry to lambda. (Because derivative of lambda*(x-x0) w.r.t. x = lambda.)
+                let idx = col_range.find(|idx| row_indices[*idx] == reg_row).unwrap();
+
+                self.jc.vals[idx] = REGULARIZATION_LAMBDA;
             }
         }
     }

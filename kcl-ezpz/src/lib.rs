@@ -75,11 +75,11 @@ pub fn solve(
 ) -> Result<SolveOutcome, FailureOutcome> {
     let num_vars = initial_guesses.len();
     let num_eqs = constraints.iter().map(|c| c.residual_dim()).sum();
-    let (all_variables, mut final_values): (Vec<Id>, Vec<f64>) =
-        initial_guesses.into_iter().unzip();
+    let (all_variables, mut values): (Vec<Id>, Vec<f64>) = initial_guesses.into_iter().unzip();
     let lints = lint(constraints);
+    let initial_values = values.clone();
 
-    let mut model = match Model::new(constraints, all_variables) {
+    let mut model = match Model::new(constraints, all_variables, initial_values) {
         Ok(o) => o,
         Err(e) => {
             return Err(FailureOutcome {
@@ -92,7 +92,7 @@ pub fn solve(
     };
     let iterations = match newton_faer::solve(
         &mut model,
-        &mut final_values,
+        &mut values,
         newton_faer::NewtonCfg::sparse().with_adaptive(true),
     )
     .map_err(|errs| Error::Solver(Box::new(errs.into_error())))
@@ -109,7 +109,7 @@ pub fn solve(
     };
 
     Ok(SolveOutcome {
-        final_values,
+        final_values: values,
         iterations,
         lints,
     })
