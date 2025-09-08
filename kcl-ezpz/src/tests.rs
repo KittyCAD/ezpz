@@ -14,6 +14,17 @@ fn parse_problem(txt: &str) -> Problem {
 }
 
 #[test]
+fn coincident() {
+    let txt = include_str!("../../test_cases/coincident/problem.txt");
+    let problem = parse_problem(txt);
+    assert_eq!(problem.points(), vec!["p", "q"]);
+    let solved = problem.to_constraint_system().unwrap().solve().unwrap();
+    // P and Q are coincident, so they should be equal.
+    assert_points_eq(solved.get_point("p").unwrap(), Point { x: 3.0, y: 3.0 });
+    assert_points_eq(solved.get_point("q").unwrap(), Point { x: 3.0, y: 3.0 });
+}
+
+#[test]
 fn tiny() {
     let txt = include_str!("../../test_cases/tiny/problem.txt");
     let problem = parse_problem(txt);
