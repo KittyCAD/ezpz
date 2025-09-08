@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{process::Command, str::FromStr};
 
 use super::*;
 use crate::textual::{Point, Problem};
@@ -13,6 +13,32 @@ fn parse_problem(txt: &str) -> Problem {
     }
 }
 
+fn gnuplot(test_name: &str) {
+    let reinstalled = Command::new("just")
+        .arg("reinstall")
+        .spawn()
+        .unwrap()
+        .wait_with_output()
+        .unwrap()
+        .status
+        .success();
+    assert!(reinstalled);
+    let generated_png = Command::new("ezpz")
+        .args([
+            "-f",
+            &format!("../test_cases/{test_name}/problem.txt"),
+            "--gnuplot-png-path",
+            &format!("../test_cases/{test_name}/solution.png"),
+        ])
+        .spawn()
+        .unwrap()
+        .wait_with_output()
+        .unwrap()
+        .status
+        .success();
+    assert!(generated_png);
+}
+
 #[test]
 fn tiny() {
     let txt = include_str!("../../test_cases/tiny/problem.txt");
@@ -22,6 +48,7 @@ fn tiny() {
     let solved = problem.to_constraint_system().unwrap().solve().unwrap();
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 0.0 });
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 0.0, y: 0.0 });
+    gnuplot("tiny");
 }
 
 #[test]
@@ -36,6 +63,7 @@ fn inconsistent() {
     assert_points_eq(solved.get_point("o").unwrap(), Point { x: 0.0, y: 0.0 });
     // (2.5, 2.5) is midway between the two inconsistent requirement points.
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 2.5, y: 2.5 });
+    gnuplot("inconsistent");
 }
 
 #[test]
@@ -53,6 +81,7 @@ fn circle() {
     // a.center = (0.1, 0.2)
     assert_nearly_eq(circle_a.radius, 3.4);
     assert_points_eq(circle_a.center, Point { x: 0.1, y: 0.2 });
+    gnuplot("circle");
 }
 
 #[test]
@@ -65,6 +94,7 @@ fn circle_center() {
     let circle_a = solved.get_circle("a").unwrap();
     assert_nearly_eq(circle_a.radius, 1.0);
     assert_points_eq(circle_a.center, Point { x: 0.0, y: 0.0 });
+    gnuplot("circle_center");
 }
 
 #[test]
@@ -81,6 +111,7 @@ fn circle_tangent() {
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 5.0, y: 3.0 });
     let circle_a = solved.get_circle("a").unwrap();
     assert_nearly_eq(circle_a.center.y, 4.5);
+    gnuplot("circle_tangent");
 }
 
 #[test]
@@ -96,6 +127,7 @@ fn circle_tangent_other_dir() {
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 5.0, y: 3.0 });
     let circle_a = solved.get_circle("a").unwrap();
     assert_nearly_eq(circle_a.center.y, 1.5);
+    gnuplot("circle_tangent_other_dir");
 }
 
 #[test]
@@ -113,6 +145,7 @@ fn rectangle() {
     assert_points_eq(solved.get_point("p5").unwrap(), Point { x: 6.0, y: 2.0 });
     assert_points_eq(solved.get_point("p6").unwrap(), Point { x: 6.0, y: 6.0 });
     assert_points_eq(solved.get_point("p7").unwrap(), Point { x: 2.0, y: 6.0 });
+    gnuplot("two_rectangles");
 }
 
 #[test]
@@ -131,7 +164,7 @@ fn angle_constraints() {
 }
 
 #[test]
-fn perpendiculars() {
+fn perpendicular() {
     let txt = include_str!("../../test_cases/perpendicular/problem.txt");
     let problem = Problem::from_str(txt).unwrap();
     let solved = problem.to_constraint_system().unwrap().solve().unwrap();
@@ -139,6 +172,7 @@ fn perpendiculars() {
     assert_points_eq(solved.get_point("p1").unwrap(), Point { x: 0.0, y: 4.0 });
     assert_points_eq(solved.get_point("p2").unwrap(), Point { x: 0.0, y: 0.0 });
     assert_points_eq(solved.get_point("p3").unwrap(), Point { x: 4.0, y: 0.0 });
+    gnuplot("perpendicular");
 }
 
 #[test]
@@ -148,6 +182,7 @@ fn nonsquare() {
     let solved = problem.to_constraint_system().unwrap().solve().unwrap();
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 0.0 });
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 0.0, y: 0.0 });
+    gnuplot("nonsquare");
 }
 
 #[test]
