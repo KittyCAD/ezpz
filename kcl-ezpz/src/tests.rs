@@ -184,6 +184,20 @@ s roughly (5, 6)
     );
 }
 
+#[test]
+fn underdetermined_lines() {
+    // This should solve for a horizontal line from (0,0) to (4,0), then
+    // a vertical line from (4,0) to (4,4). Note that the length of the second
+    // line is not specified; we're relying on regularisation to push our solution
+    // towards its start point.
+    let txt = include_str!("../../test_cases/underdetermined_lines/problem.txt");
+    let problem = Problem::from_str(txt).unwrap();
+    let solved = problem.to_constraint_system().unwrap().solve().unwrap();
+    assert_points_eq(solved.get_point("p0").unwrap(), Point { x: 0.0, y: 0.0 });
+    assert_points_eq(solved.get_point("p1").unwrap(), Point { x: 4.0, y: 0.0 });
+    assert_points_eq(solved.get_point("p2").unwrap(), Point { x: 4.0, y: 4.0 });
+}
+
 #[track_caller]
 fn assert_points_eq(l: Point, r: Point) {
     let dist = l.euclidean_distance(r);
