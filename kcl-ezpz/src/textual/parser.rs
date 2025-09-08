@@ -2,7 +2,7 @@ use crate::textual::{
     ScalarGuess,
     instruction::{
         AngleLine, CircleRadius, DeclareCircle, Distance, FixCenterPointComponent, Parallel,
-        Perpendicular, Tangent,
+        Perpendicular, PointsCoincident, Tangent,
     },
 };
 
@@ -136,6 +136,13 @@ pub fn parse_horizontal(i: &mut &str) -> WResult<Horizontal> {
     ignore_ws(i);
     let [p0, p1] = inside_brackets(two_points, i)?;
     Ok(Horizontal { label: (p0, p1) })
+}
+
+pub fn parse_coincident(i: &mut &str) -> WResult<PointsCoincident> {
+    let _ = "coincident".parse_next(i)?;
+    ignore_ws(i);
+    let [point0, point1] = inside_brackets(two_points, i)?;
+    Ok(PointsCoincident { point0, point1 })
 }
 
 pub fn parse_vertical(i: &mut &str) -> WResult<Vertical> {
@@ -274,6 +281,7 @@ fn parse_instruction(i: &mut &str) -> WResult<Vec<Instruction>> {
             .map(sv),
         assign_point,
         parse_horizontal.map(Instruction::Horizontal).map(sv),
+        parse_coincident.map(Instruction::PointsCoincident).map(sv),
         parse_vertical.map(Instruction::Vertical).map(sv),
         parse_distance.map(Instruction::Distance).map(sv),
         parse_parallel.map(Instruction::Parallel).map(sv),

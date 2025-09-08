@@ -20,6 +20,8 @@ pub enum Constraint {
     LinesAtAngle(LineSegment, LineSegment, AngleKind),
     /// Some scalar value is fixed.
     Fixed(Id, f64),
+    /// These two points must coincide.
+    PointsCoincident(DatumPoint, DatumPoint),
     /// Constraint radius of a circle
     CircleRadius(Circle, f64),
 }
@@ -69,7 +71,7 @@ impl IntoIterator for JacobianRow {
 
 impl Constraint {
     /// For each row of the Jacobian matrix, which variables are involved in them?
-    pub fn nonzeroes(&self, row0: &mut Vec<Id>) {
+    pub fn nonzeroes(&self, row0: &mut Vec<Id>, row1: &mut Vec<Id>) {
         match self {
             Constraint::LineTangentToCircle(line, circle) => {
                 row0.extend(line.all_variables());
@@ -85,6 +87,12 @@ impl Constraint {
                 row0.extend(line1.all_variables());
             }
             Constraint::Fixed(id, _scalar) => row0.push(*id),
+            Constraint::PointsCoincident(p0, p1) => {
+                row0.push(p0.id_x());
+                row0.push(p1.id_x());
+                row1.push(p0.id_y());
+                row1.push(p1.id_y());
+            }
             Constraint::CircleRadius(circle, _radius) => row0.extend([circle.radius.id]),
         }
     }
@@ -104,7 +112,14 @@ impl Constraint {
     /// How close is this constraint to being satisfied?
     /// For performance reasons (avoiding allocations), this doesn't return a `Vec<f64>`,
     /// instead it takes one as a mutable argument and writes out all residuals to that.
-    pub fn residual(&self, layout: &Layout, current_assignments: &[f64], output: &mut Vec<f64>) {
+    pub fn residual(
+        &self,
+        layout: &Layout,
+        current_assignments: &[f64],
+        // Implicitly output0, i.e. residual for first row.
+        output: &mut Vec<f64>,
+        output1: &mut Vec<f64>,
+    ) {
         match self {
             Constraint::LineTangentToCircle(line, circle) => {
                 // Get current state of the entities.
@@ -212,6 +227,14 @@ impl Constraint {
                     }
                 }
             }
+            Constraint::PointsCoincident(p0, p1) => {
+                let p0_x = current_assignments[layout.index_of(p0.id_x())];
+                let p0_y = current_assignments[layout.index_of(p0.id_y())];
+                let p1_x = current_assignments[layout.index_of(p1.id_x())];
+                let p1_y = current_assignments[layout.index_of(p1.id_y())];
+                output.push(p0_x - p1_x);
+                output1.push(p0_y - p1_y);
+            }
             Constraint::CircleRadius(circle, expected_radius) => {
                 let actual_radius = current_assignments[layout.index_of(circle.radius.id)];
                 output.push(actual_radius - *expected_radius);
@@ -229,6 +252,7 @@ impl Constraint {
             Constraint::Horizontal(..) => 1,
             Constraint::Fixed(..) => 1,
             Constraint::LinesAtAngle(..) => 1,
+            Constraint::PointsCoincident(..) => 2,
             Constraint::CircleRadius(..) => 1,
         }
     }
@@ -243,6 +267,7 @@ impl Constraint {
         layout: &Layout,
         current_assignments: &[f64],
         row0: &mut Vec<JacobianVar>,
+        row1: &mut Vec<JacobianVar>,
     ) {
         match self {
             Constraint::LineTangentToCircle(line, circle) => {
@@ -536,6 +561,55 @@ impl Constraint {
                 ];
                 row0.extend(jvars.as_slice());
             }
+            Constraint::PointsCoincident(p0, p1) => {
+                // Residuals:
+                // R0 = x0 - x1,
+                // R1 = y0 - y1.
+                //
+                // For R0 = x0 - x1:
+                // ∂R0/∂x0 = 1
+                // ∂R0/∂y0 = 0
+                // ∂R0/∂x1 = -1
+                // ∂R0/∂y1 = 0
+                //
+                // For R1 = y0 - y1:
+                // ∂R1/∂x0 = 0
+                // ∂R1/∂y0 = 1
+                // ∂R1/∂x1 = 0
+                // ∂R1/∂y1 = -1
+
+                let dr0_dx0 = 1.0;
+                // dr0_dy0 = 0.0
+                let dr0_dx1 = -1.0;
+                // dr0_dy1 = 0.0
+
+                // dr1_dx0 = 0.0
+                let dr1_dy0 = 1.0;
+                // dr1_dx1 = 0.0
+                let dr1_dy1 = -1.0;
+
+                // We only care about nonzero derivs here.
+                row0.extend([
+                    JacobianVar {
+                        id: p0.id_x(),
+                        partial_derivative: dr0_dx0,
+                    },
+                    JacobianVar {
+                        id: p1.id_x(),
+                        partial_derivative: dr0_dx1,
+                    },
+                ]);
+                row1.extend([
+                    JacobianVar {
+                        id: p0.id_y(),
+                        partial_derivative: dr1_dy0,
+                    },
+                    JacobianVar {
+                        id: p1.id_y(),
+                        partial_derivative: dr1_dy1,
+                    },
+                ]);
+            }
             Constraint::CircleRadius(circle, _expected_radius) => {
                 // Residual is R = r_expected - r_actual
                 // Only partial derivative which is nonzero is ∂R/∂r_current, which is 1.
@@ -556,6 +630,7 @@ impl Constraint {
             Constraint::Horizontal(..) => "Horizontal",
             Constraint::Fixed(..) => "Fixed",
             Constraint::LinesAtAngle(..) => "LinesAtAngle",
+            Constraint::PointsCoincident(..) => "PointsCoincident",
             Constraint::CircleRadius(..) => "CircleRadius",
         }
     }
