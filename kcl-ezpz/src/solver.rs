@@ -7,11 +7,30 @@ use crate::{Constraint, NonLinearSystemError, constraints::JacobianVar, id::Id};
 // May as well round up to the nearest power of 2.
 const NONZEROES_PER_ROW: usize = 8;
 
+// Tikhonov regularization configuration. Note that some texts use lambda^2 as their
+// scaling parameter, but it's a magic constant we have to tune either way so who cares.
+// Ref: https://people.csail.mit.edu/jsolomon/share/book/numerical_book.pdf, 4.1.3
+const REGULARIZATION_LAMBDA: f64 = 1e-9;
+
+#[derive(Debug, Clone, Copy)]
+pub struct Config {
+    /// Use Tikhonov regularization to solve underdetermined systems.
+    regularization_enabled: bool,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            regularization_enabled: true,
+        }
+    }
+}
+
 pub struct Layout {
     /// Equivalent to number of rows in the matrix being solved.
     total_num_residuals: usize,
     /// One variable per column of the matrix.
-    all_variables: Vec<Id>,
+    num_variables: usize,
 }
 
 impl RowMap for Layout {
@@ -27,7 +46,7 @@ impl RowMap for Layout {
     }
 
     fn n_variables(&self) -> usize {
-        self.all_variables.len()
+        self.num_variables
     }
 
     fn n_residuals(&self) -> usize {
@@ -73,18 +92,23 @@ impl JacobianCache<f64> for Jc {
 }
 
 /// The problem to actually solve.
+/// Note that the initial values of each variable are required for Tikhonov regularization.
 pub struct Model<'c> {
     layout: Layout,
     jc: Jc,
     constraints: &'c [Constraint],
     row0_scratch: Vec<JacobianVar>,
     row1_scratch: Vec<JacobianVar>,
+    initial_values: Vec<f64>,
+    config: Config,
 }
 
 impl<'c> Model<'c> {
     pub fn new(
         constraints: &'c [Constraint],
         all_variables: Vec<Id>,
+        initial_values: Vec<f64>,
+        config: Config,
     ) -> Result<Self, NonLinearSystemError> {
         /*
         Firstly, find the size of the relevant matrices.
@@ -103,12 +127,29 @@ impl<'c> Model<'c> {
             num_cols = total number of variables
                        which is = total number of "involved primitive IDs"
         */
-        let num_residuals: usize = constraints.iter().map(|c| c.residual_dim()).sum();
+        if all_variables.len() != initial_values.len() {
+            return Err(NonLinearSystemError::WrongNumberGuesses {
+                labels: all_variables.len(),
+                guesses: initial_values.len(),
+            });
+        }
+
+        // We'll have different numbers of rows in the system depending on whether
+        // or not regularization is enabled.
+        let num_residuals_constraints: usize = constraints.iter().map(|c| c.residual_dim()).sum();
+        let num_residuals_regularization = if config.regularization_enabled {
+            all_variables.len()
+        } else {
+            0
+        };
+
+        // Build the full system.
+        let num_residuals = num_residuals_constraints + num_residuals_regularization;
         let num_cols = all_variables.len();
         let num_rows = num_residuals;
         let layout = Layout {
             total_num_residuals: num_rows,
-            all_variables,
+            num_variables: all_variables.len(),
         };
 
         // Generate the Jacobian matrix structure.
@@ -132,12 +173,22 @@ impl<'c> Model<'c> {
                 }
             }
         }
+
+        // Stack our regularization rows below the constraint rows.
+        if config.regularization_enabled {
+            for col in 0..num_cols {
+                let reg_row = num_residuals_constraints + col;
+                nonzero_cells.push(Pair { row: reg_row, col });
+            }
+        }
+
         // Create symbolic structure; this will automatically deduplicate and sort.
         let (sym, _) =
             SymbolicSparseColMat::try_new_from_indices(num_rows, num_cols, &nonzero_cells).unwrap();
 
         // All done.
         Ok(Self {
+            config,
             layout,
             jc: Jc {
                 vals: vec![0.0; sym.compute_nnz()], // We have a nonzero count util.
@@ -146,6 +197,7 @@ impl<'c> Model<'c> {
             constraints,
             row0_scratch: Vec::with_capacity(NONZEROES_PER_ROW),
             row1_scratch: Vec::with_capacity(NONZEROES_PER_ROW),
+            initial_values,
         })
     }
 }
@@ -177,6 +229,8 @@ impl NonlinearSystem for Model<'_> {
         let mut row_num = 0;
         let mut residuals0 = Vec::new();
         let mut residuals1 = Vec::new();
+
+        // Compute constraint residuals.
         for constraint in self.constraints {
             residuals0.clear();
             residuals1.clear();
@@ -205,6 +259,14 @@ impl NonlinearSystem for Model<'_> {
                 for residual in row.iter().copied() {
                     out[this_row] = residual;
                 }
+            }
+        }
+
+        // Add Tikhonov regularization residuals: lambda * (x - x0).
+        if self.config.regularization_enabled {
+            for (&val, &val_init) in current_assignments.iter().zip(self.initial_values.iter()) {
+                out[row_num] = REGULARIZATION_LAMBDA * (val - val_init);
+                row_num += 1;
             }
         }
     }
@@ -250,6 +312,26 @@ impl NonlinearSystem for Model<'_> {
                     // Found the right position; accumulate the partials.
                     self.jc.vals[idx] += jacobian_var.partial_derivative;
                 }
+            }
+        }
+
+        // Add regularization values.
+        if self.config.regularization_enabled {
+            let num_constraint_residuals: usize =
+                self.constraints.iter().map(|c| c.residual_dim()).sum();
+
+            for col in 0..self.layout.n_variables() {
+                let reg_row = num_constraint_residuals + col;
+
+                // Find where this (reg_row, col) entry should go in the sparse structure.
+                let mut col_range = self.jc.sym.col_range(col);
+                let row_indices = self.jc.sym.row_idx();
+
+                // Search for our regularization row within this column's entries and set the regularization Jacobian
+                // entry to lambda. (Because derivative of lambda*(x-x0) w.r.t. x = lambda.)
+                let idx = col_range.find(|idx| row_indices[*idx] == reg_row).unwrap();
+
+                self.jc.vals[idx] = REGULARIZATION_LAMBDA;
             }
         }
     }

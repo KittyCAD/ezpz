@@ -2,6 +2,7 @@
 //! Solves 2D constraint systems.
 
 pub use crate::constraints::Constraint;
+pub use crate::solver::Config;
 // Only public for now so that I can benchmark it.
 // TODO: Replace this with an end-to-end benchmark,
 // or find a different way to structure modules.
@@ -43,6 +44,10 @@ pub enum Error {
 pub enum NonLinearSystemError {
     #[error("ID {0} not found")]
     NotFound(Id),
+    #[error(
+        "There should be exactly 1 guess per variable, but you supplied {labels} variables and must {guesses} guesses"
+    )]
+    WrongNumberGuesses { labels: usize, guesses: usize },
 }
 
 #[derive(Debug)]
@@ -72,14 +77,15 @@ pub struct FailureOutcome {
 pub fn solve(
     constraints: &[Constraint],
     initial_guesses: Vec<(Id, f64)>,
+    config: Config,
 ) -> Result<SolveOutcome, FailureOutcome> {
     let num_vars = initial_guesses.len();
     let num_eqs = constraints.iter().map(|c| c.residual_dim()).sum();
-    let (all_variables, mut final_values): (Vec<Id>, Vec<f64>) =
-        initial_guesses.into_iter().unzip();
+    let (all_variables, mut values): (Vec<Id>, Vec<f64>) = initial_guesses.into_iter().unzip();
     let lints = lint(constraints);
+    let initial_values = values.clone();
 
-    let mut model = match Model::new(constraints, all_variables) {
+    let mut model = match Model::new(constraints, all_variables, initial_values, config) {
         Ok(o) => o,
         Err(e) => {
             return Err(FailureOutcome {
@@ -92,7 +98,7 @@ pub fn solve(
     };
     let iterations = match newton_faer::solve(
         &mut model,
-        &mut final_values,
+        &mut values,
         newton_faer::NewtonCfg::sparse().with_adaptive(true),
     )
     .map_err(|errs| Error::Solver(Box::new(errs.into_error())))
@@ -109,7 +115,7 @@ pub fn solve(
     };
 
     Ok(SolveOutcome {
-        final_values,
+        final_values: values,
         iterations,
         lints,
     })

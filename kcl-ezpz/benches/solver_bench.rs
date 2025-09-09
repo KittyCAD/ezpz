@@ -2,7 +2,7 @@ use std::{hint::black_box, str::FromStr};
 
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use kcl_ezpz::{
-    Constraint, IdGenerator,
+    Config, Constraint, IdGenerator,
     datatypes::{DatumPoint, LineSegment},
     solve,
     textual::Problem,
@@ -18,7 +18,7 @@ fn bench_case(c: &mut Criterion, test_case: &'static str) {
         let problem = Problem::from_str(txt.as_str()).unwrap();
         let constraints = problem.to_constraint_system().unwrap();
         b.iter(|| {
-            let _actual = black_box(constraints.solve_no_metadata().unwrap());
+            let _actual = black_box(constraints.solve_no_metadata(Config::default()).unwrap());
         });
     });
 }
@@ -113,7 +113,14 @@ fn solve_two_rectangles_dependent(c: &mut Criterion) {
     constraints.extend(constraints1);
     c.bench_function("solve two rectangles dependent", |b| {
         b.iter(|| {
-            let _actual = black_box(solve(&constraints.clone(), initial_guesses.clone()).unwrap());
+            let _actual = black_box(
+                solve(
+                    &constraints.clone(),
+                    initial_guesses.clone(),
+                    Config::default(),
+                )
+                .unwrap(),
+            );
         })
     });
 }
@@ -160,7 +167,7 @@ fn run_massive(c: &mut Criterion, overconstrained: bool) {
             let problem = Problem::from_str(t).unwrap();
             let constraints = problem.to_constraint_system().unwrap();
             b.iter(|| {
-                let _actual = black_box(constraints.solve_no_metadata().unwrap());
+                let _actual = black_box(constraints.solve_no_metadata(Config::default()).unwrap());
             });
         });
     }

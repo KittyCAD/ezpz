@@ -25,6 +25,19 @@ fn coincident() {
 }
 
 #[test]
+fn underconstrained() {
+    // Constrains q but not p, so the system is underdetermined.
+    let txt = include_str!("../../test_cases/underconstrained/problem.txt");
+    let problem = parse_problem(txt);
+    assert_eq!(problem.points(), vec!["p", "q"]);
+    let solved = problem.to_constraint_system().unwrap().solve().unwrap();
+    // p should be whatever the user's initial guess was.
+    assert_points_eq(solved.get_point("p").unwrap(), Point { x: 1.0, y: 1.0 });
+    // q should be what it was constrained to be.
+    assert_points_eq(solved.get_point("q").unwrap(), Point { x: 0.0, y: 0.0 });
+}
+
+#[test]
 fn tiny() {
     let txt = include_str!("../../test_cases/tiny/problem.txt");
     let problem = parse_problem(txt);
@@ -223,6 +236,20 @@ s roughly (5, 6)
             content: content_for_angle(true, 0.0),
         }]
     );
+}
+
+#[test]
+fn underdetermined_lines() {
+    // This should solve for a horizontal line from (0,0) to (4,0), then
+    // a vertical line from (4,0) to (4,4). Note that the length of the second
+    // line is not specified; we're relying on regularisation to push our solution
+    // towards its start point.
+    let txt = include_str!("../../test_cases/underdetermined_lines/problem.txt");
+    let problem = Problem::from_str(txt).unwrap();
+    let solved = problem.to_constraint_system().unwrap().solve().unwrap();
+    assert_points_eq(solved.get_point("p0").unwrap(), Point { x: 0.0, y: 0.0 });
+    assert_points_eq(solved.get_point("p1").unwrap(), Point { x: 4.0, y: 0.0 });
+    assert_points_eq(solved.get_point("p2").unwrap(), Point { x: 4.0, y: 4.0 });
 }
 
 #[track_caller]
