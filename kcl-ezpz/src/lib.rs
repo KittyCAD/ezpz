@@ -43,6 +43,10 @@ pub enum Error {
 pub enum NonLinearSystemError {
     #[error("ID {0} not found")]
     NotFound(Id),
+    #[error(
+        "There should be exactly 1 guess per variable, but you supplied {labels} variables and must {guesses} guesses"
+    )]
+    WrongNumberGuesses { labels: usize, guesses: usize },
 }
 
 #[derive(Debug)]

@@ -17,7 +17,7 @@ pub struct Layout {
     /// Equivalent to number of rows in the matrix being solved.
     total_num_residuals: usize,
     /// One variable per column of the matrix.
-    all_variables: Vec<Id>,
+    num_variables: usize,
 }
 
 impl RowMap for Layout {
@@ -33,7 +33,7 @@ impl RowMap for Layout {
     }
 
     fn n_variables(&self) -> usize {
-        self.all_variables.len()
+        self.num_variables
     }
 
     fn n_residuals(&self) -> usize {
@@ -112,13 +112,12 @@ impl<'c> Model<'c> {
             num_cols = total number of variables
                        which is = total number of "involved primitive IDs"
         */
-        assert_eq!(
-            all_variables.len(),
-            initial_values.len(),
-            "Number of variables ({}) must match number of initial values ({})",
-            all_variables.len(),
-            initial_values.len()
-        );
+        if all_variables.len() != initial_values.len() {
+            return Err(NonLinearSystemError::WrongNumberGuesses {
+                labels: all_variables.len(),
+                guesses: initial_values.len(),
+            });
+        }
 
         // We'll have different numbers of rows in the system depending on whether
         // or not regularization is enabled.
@@ -135,7 +134,7 @@ impl<'c> Model<'c> {
         let num_rows = num_residuals;
         let layout = Layout {
             total_num_residuals: num_rows,
-            all_variables,
+            num_variables: all_variables.len(),
         };
 
         // Generate the Jacobian matrix structure.
