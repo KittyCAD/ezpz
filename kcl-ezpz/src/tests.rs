@@ -25,6 +25,19 @@ fn coincident() {
 }
 
 #[test]
+fn underconstrained() {
+    // Constrains q but not p, so the system is underdetermined.
+    let txt = include_str!("../../test_cases/underconstrained/problem.txt");
+    let problem = parse_problem(txt);
+    assert_eq!(problem.points(), vec!["p", "q"]);
+    let solved = problem.to_constraint_system().unwrap().solve().unwrap();
+    // p should be whatever the user's initial guess was.
+    assert_points_eq(solved.get_point("p").unwrap(), Point { x: 1.0, y: 1.0 });
+    // q should be what it was constrained to be.
+    assert_points_eq(solved.get_point("q").unwrap(), Point { x: 0.0, y: 0.0 });
+}
+
+#[test]
 fn tiny() {
     let txt = include_str!("../../test_cases/tiny/problem.txt");
     let problem = parse_problem(txt);
