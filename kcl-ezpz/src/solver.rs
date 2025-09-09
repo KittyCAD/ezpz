@@ -10,8 +10,21 @@ const NONZEROES_PER_ROW: usize = 8;
 // Tikhonov regularization configuration. Note that some texts use lambda^2 as their
 // scaling parameter, but it's a magic constant we have to tune either way so who cares.
 // Ref: https://people.csail.mit.edu/jsolomon/share/book/numerical_book.pdf, 4.1.3
-const REGULARIZATION_ENABLED: bool = true;
 const REGULARIZATION_LAMBDA: f64 = 1e-9;
+
+#[derive(Debug, Clone, Copy)]
+pub struct Config {
+    /// Use Tikhonov regularization to solve underdetermined systems.
+    regularization_enabled: bool,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            regularization_enabled: true,
+        }
+    }
+}
 
 pub struct Layout {
     /// Equivalent to number of rows in the matrix being solved.
@@ -87,6 +100,7 @@ pub struct Model<'c> {
     row0_scratch: Vec<JacobianVar>,
     row1_scratch: Vec<JacobianVar>,
     initial_values: Vec<f64>,
+    config: Config,
 }
 
 impl<'c> Model<'c> {
@@ -94,6 +108,7 @@ impl<'c> Model<'c> {
         constraints: &'c [Constraint],
         all_variables: Vec<Id>,
         initial_values: Vec<f64>,
+        config: Config,
     ) -> Result<Self, NonLinearSystemError> {
         /*
         Firstly, find the size of the relevant matrices.
@@ -122,7 +137,7 @@ impl<'c> Model<'c> {
         // We'll have different numbers of rows in the system depending on whether
         // or not regularization is enabled.
         let num_residuals_constraints: usize = constraints.iter().map(|c| c.residual_dim()).sum();
-        let num_residuals_regularization = if REGULARIZATION_ENABLED {
+        let num_residuals_regularization = if config.regularization_enabled {
             all_variables.len()
         } else {
             0
@@ -160,7 +175,7 @@ impl<'c> Model<'c> {
         }
 
         // Stack our regularization rows below the constraint rows.
-        if REGULARIZATION_ENABLED {
+        if config.regularization_enabled {
             for col in 0..num_cols {
                 let reg_row = num_residuals_constraints + col;
                 nonzero_cells.push(Pair { row: reg_row, col });
@@ -173,6 +188,7 @@ impl<'c> Model<'c> {
 
         // All done.
         Ok(Self {
+            config,
             layout,
             jc: Jc {
                 vals: vec![0.0; sym.compute_nnz()], // We have a nonzero count util.
@@ -247,7 +263,7 @@ impl NonlinearSystem for Model<'_> {
         }
 
         // Add Tikhonov regularization residuals: lambda * (x - x0).
-        if REGULARIZATION_ENABLED {
+        if self.config.regularization_enabled {
             for (&val, &val_init) in current_assignments.iter().zip(self.initial_values.iter()) {
                 out[row_num] = REGULARIZATION_LAMBDA * (val - val_init);
                 row_num += 1;
@@ -300,7 +316,7 @@ impl NonlinearSystem for Model<'_> {
         }
 
         // Add regularization values.
-        if REGULARIZATION_ENABLED {
+        if self.config.regularization_enabled {
             let num_constraint_residuals: usize =
                 self.constraints.iter().map(|c| c.residual_dim()).sum();
 

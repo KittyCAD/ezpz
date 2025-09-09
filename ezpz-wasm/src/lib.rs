@@ -1,5 +1,5 @@
 use kcl_ezpz::{
-    Constraint, IdGenerator,
+    Config, Constraint, IdGenerator,
     datatypes::{DatumPoint, LineSegment},
     solve,
 };
@@ -86,7 +86,12 @@ pub fn benchmark() -> Vec<f64> {
 
     let mut constraints = constraints0;
     constraints.extend(constraints1);
-    let actual = solve(&constraints.clone(), initial_guesses.clone()).unwrap();
+    let actual = solve(
+        &constraints.clone(),
+        initial_guesses.clone(),
+        Config::default(),
+    )
+    .unwrap();
     actual.final_values
     // vec![]
 }

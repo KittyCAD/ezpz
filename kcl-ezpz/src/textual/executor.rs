@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use indexmap::IndexMap;
 
+use crate::Config;
 use crate::Constraint;
 use crate::Error;
 use crate::FailureOutcome;
@@ -305,11 +306,15 @@ pub struct ConstraintSystem<'a> {
 }
 
 impl ConstraintSystem<'_> {
-    pub fn solve_no_metadata(&self) -> Result<SolveOutcome, FailureOutcome> {
-        crate::solve(&self.constraints, self.initial_guesses.to_owned())
+    pub fn solve_no_metadata(&self, config: Config) -> Result<SolveOutcome, FailureOutcome> {
+        crate::solve(&self.constraints, self.initial_guesses.to_owned(), config)
     }
 
     pub fn solve(&self) -> Result<Outcome, FailureOutcome> {
+        self.solve_with_config(Default::default())
+    }
+
+    pub fn solve_with_config(&self, config: Config) -> Result<Outcome, FailureOutcome> {
         let num_vars = self.initial_guesses.len();
         let num_eqs = self.constraints.iter().map(|c| c.residual_dim()).sum();
         // Pass into the solver.
@@ -317,7 +322,7 @@ impl ConstraintSystem<'_> {
             iterations,
             lints,
             final_values,
-        } = self.solve_no_metadata()?;
+        } = self.solve_no_metadata(config)?;
         let num_points = self.inner_points.len();
         let num_circles = self.inner_circles.len();
 

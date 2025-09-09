@@ -2,6 +2,7 @@
 //! Solves 2D constraint systems.
 
 pub use crate::constraints::Constraint;
+pub use crate::solver::Config;
 // Only public for now so that I can benchmark it.
 // TODO: Replace this with an end-to-end benchmark,
 // or find a different way to structure modules.
@@ -76,6 +77,7 @@ pub struct FailureOutcome {
 pub fn solve(
     constraints: &[Constraint],
     initial_guesses: Vec<(Id, f64)>,
+    config: Config,
 ) -> Result<SolveOutcome, FailureOutcome> {
     let num_vars = initial_guesses.len();
     let num_eqs = constraints.iter().map(|c| c.residual_dim()).sum();
@@ -83,7 +85,7 @@ pub fn solve(
     let lints = lint(constraints);
     let initial_values = values.clone();
 
-    let mut model = match Model::new(constraints, all_variables, initial_values) {
+    let mut model = match Model::new(constraints, all_variables, initial_values, config) {
         Ok(o) => o,
         Err(e) => {
             return Err(FailureOutcome {
