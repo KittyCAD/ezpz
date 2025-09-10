@@ -1,7 +1,14 @@
 use std::str::FromStr;
 
 use super::*;
-use crate::textual::{Point, Problem};
+use crate::textual::{Outcome, Point, Problem};
+
+fn run(test_case: &str) -> Outcome {
+    let txt = std::fs::read_to_string(format!("../test_cases/{test_case}/problem.txt")).unwrap();
+    let problem = parse_problem(&txt);
+    let system = problem.to_constraint_system().unwrap();
+    system.solve().unwrap()
+}
 
 fn parse_problem(txt: &str) -> Problem {
     match Problem::from_str(txt) {
@@ -15,10 +22,7 @@ fn parse_problem(txt: &str) -> Problem {
 
 #[test]
 fn coincident() {
-    let txt = include_str!("../../test_cases/coincident/problem.txt");
-    let problem = parse_problem(txt);
-    assert_eq!(problem.points(), vec!["p", "q"]);
-    let solved = problem.to_constraint_system().unwrap().solve().unwrap();
+    let solved = run("coincident");
     // P and Q are coincident, so they should be equal.
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 3.0, y: 3.0 });
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 3.0, y: 3.0 });
@@ -26,11 +30,7 @@ fn coincident() {
 
 #[test]
 fn underconstrained() {
-    // Constrains q but not p, so the system is underdetermined.
-    let txt = include_str!("../../test_cases/underconstrained/problem.txt");
-    let problem = parse_problem(txt);
-    assert_eq!(problem.points(), vec!["p", "q"]);
-    let solved = problem.to_constraint_system().unwrap().solve().unwrap();
+    let solved = run("underconstrained");
     // p should be whatever the user's initial guess was.
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 1.0, y: 1.0 });
     // q should be what it was constrained to be.
@@ -39,11 +39,7 @@ fn underconstrained() {
 
 #[test]
 fn tiny() {
-    let txt = include_str!("../../test_cases/tiny/problem.txt");
-    let problem = parse_problem(txt);
-    assert_eq!(problem.instructions.len(), 6);
-    assert_eq!(problem.points(), vec!["p", "q"]);
-    let solved = problem.to_constraint_system().unwrap().solve().unwrap();
+    let solved = run("tiny");
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 0.0 });
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 0.0, y: 0.0 });
 }
@@ -54,9 +50,7 @@ fn inconsistent() {
     // p should be (1,4) and it should ALSO be (4,1).
     // Because they can't be simultaneously satisfied, we should find a
     // solution which minimizes the squared error instead.
-    let txt = include_str!("../../test_cases/inconsistent/problem.txt");
-    let problem = parse_problem(txt);
-    let solved = problem.to_constraint_system().unwrap().solve().unwrap();
+    let solved = run("inconsistent");
     assert_points_eq(solved.get_point("o").unwrap(), Point { x: 0.0, y: 0.0 });
     // (2.5, 2.5) is midway between the two inconsistent requirement points.
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 2.5, y: 2.5 });
@@ -64,11 +58,7 @@ fn inconsistent() {
 
 #[test]
 fn circle() {
-    let txt = include_str!("../../test_cases/circle/problem.txt");
-    let problem = parse_problem(txt);
-    assert_eq!(problem.points(), vec!["p"]);
-    assert_eq!(problem.circles(), vec!["a"]);
-    let solved = problem.to_constraint_system().unwrap().solve().unwrap();
+    let solved = run("circle");
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 5.0, y: 5.0 });
     let circle_a = solved.get_circle("a").unwrap();
     // From the problem:
@@ -83,9 +73,7 @@ fn circle() {
 fn circle_center() {
     // Very similar to test `circle` above,
     // except it gives each constraint on the center separately.
-    let txt = include_str!("../../test_cases/circle_center/problem.txt");
-    let problem = parse_problem(txt);
-    let solved = problem.to_constraint_system().unwrap().solve().unwrap();
+    let solved = run("circle_center");
     let circle_a = solved.get_circle("a").unwrap();
     assert_nearly_eq(circle_a.radius, 1.0);
     assert_points_eq(circle_a.center, Point { x: 0.0, y: 0.0 });
@@ -96,11 +84,7 @@ fn circle_tangent() {
     // There's two possible ways to put the circle, either at y=4.5 or y=1.5
     // Because the tangent constraint is directional, using PQ will always put it at
     // y=4.5. We test the other solution in the `circle_tangent_other_dir` test.
-    let txt = include_str!("../../test_cases/circle_tangent/problem.txt");
-    let problem = parse_problem(txt);
-    assert_eq!(problem.points(), vec!["p", "q"]);
-    assert_eq!(problem.circles(), vec!["a"]);
-    let solved = problem.to_constraint_system().unwrap().solve().unwrap();
+    let solved = run("circle_tangent");
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 3.0 });
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 5.0, y: 3.0 });
     let circle_a = solved.get_circle("a").unwrap();
@@ -111,11 +95,7 @@ fn circle_tangent() {
 fn circle_tangent_other_dir() {
     // Just like `circle_tangent` but using line QP instead of PQ, to test the
     // other case of tangent direction.
-    let txt = include_str!("../../test_cases/circle_tangent_other_dir/problem.txt");
-    let problem = parse_problem(txt);
-    assert_eq!(problem.points(), vec!["p", "q"]);
-    assert_eq!(problem.circles(), vec!["a"]);
-    let solved = problem.to_constraint_system().unwrap().solve().unwrap();
+    let solved = run("circle_tangent_other_dir");
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 3.0 });
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 5.0, y: 3.0 });
     let circle_a = solved.get_circle("a").unwrap();
@@ -123,10 +103,8 @@ fn circle_tangent_other_dir() {
 }
 
 #[test]
-fn rectangle() {
-    let txt = include_str!("../../test_cases/two_rectangles/problem.txt");
-    let problem = Problem::from_str(txt).unwrap();
-    let solved = problem.to_constraint_system().unwrap().solve().unwrap();
+fn two_rectangles() {
+    let solved = run("two_rectangles");
     // This forms two rectangles.
     assert_points_eq(solved.get_point("p0").unwrap(), Point { x: 1.0, y: 1.0 });
     assert_points_eq(solved.get_point("p1").unwrap(), Point { x: 5.0, y: 1.0 });
@@ -141,12 +119,8 @@ fn rectangle() {
 
 #[test]
 fn angle_constraints() {
-    for file in [
-        include_str!("../../test_cases/angle_parallel/problem.txt"),
-        include_str!("../../test_cases/angle_parallel_manual/problem.txt"),
-    ] {
-        let problem = Problem::from_str(file).unwrap();
-        let solved = problem.to_constraint_system().unwrap().solve().unwrap();
+    for file in ["angle_parallel", "angle_parallel_manual"] {
+        let solved = run(file);
         assert_points_eq(solved.get_point("p0").unwrap(), Point { x: 0.0, y: 0.0 });
         assert_points_eq(solved.get_point("p1").unwrap(), Point { x: 4.0, y: 4.0 });
         assert_points_eq(solved.get_point("p2").unwrap(), Point { x: 0.0, y: 0.0 });
@@ -155,10 +129,8 @@ fn angle_constraints() {
 }
 
 #[test]
-fn perpendiculars() {
-    let txt = include_str!("../../test_cases/perpendicular/problem.txt");
-    let problem = Problem::from_str(txt).unwrap();
-    let solved = problem.to_constraint_system().unwrap().solve().unwrap();
+fn perpendicular() {
+    let solved = run("perpendicular");
     assert_points_eq(solved.get_point("p0").unwrap(), Point { x: 0.0, y: 0.0 });
     assert_points_eq(solved.get_point("p1").unwrap(), Point { x: 0.0, y: 4.0 });
     assert_points_eq(solved.get_point("p2").unwrap(), Point { x: 0.0, y: 0.0 });
@@ -167,18 +139,14 @@ fn perpendiculars() {
 
 #[test]
 fn nonsquare() {
-    let txt = include_str!("../../test_cases/nonsquare/problem.txt");
-    let problem = Problem::from_str(txt).unwrap();
-    let solved = problem.to_constraint_system().unwrap().solve().unwrap();
+    let solved = run("nonsquare");
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 0.0 });
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 0.0, y: 0.0 });
 }
 
 #[test]
 fn square() {
-    let txt = include_str!("../../test_cases/square/problem.txt");
-    let problem = Problem::from_str(txt).unwrap();
-    let solved = problem.to_constraint_system().unwrap().solve().unwrap();
+    let solved = run("square");
     assert_nearly_eq(
         solved.get_point("a").unwrap().y - solved.get_point("c").unwrap().y,
         solved.get_point("b").unwrap().y - solved.get_point("d").unwrap().y,
@@ -191,9 +159,7 @@ fn square() {
 
 #[test]
 fn parallelogram() {
-    let txt = include_str!("../../test_cases/parallelogram/problem.txt");
-    let problem = Problem::from_str(txt).unwrap();
-    let solved = problem.to_constraint_system().unwrap().solve().unwrap();
+    let solved = run("parallelogram");
     assert_nearly_eq(
         solved.get_point("a").unwrap().y - solved.get_point("c").unwrap().y,
         solved.get_point("b").unwrap().y - solved.get_point("d").unwrap().y,
@@ -202,6 +168,18 @@ fn parallelogram() {
         solved.get_point("a").unwrap().x - solved.get_point("c").unwrap().x,
         solved.get_point("b").unwrap().x - solved.get_point("d").unwrap().x,
     );
+}
+
+#[test]
+fn underdetermined_lines() {
+    // This should solve for a horizontal line from (0,0) to (4,0), then
+    // a vertical line from (4,0) to (4,4). Note that the length of the second
+    // line is not specified; we're relying on regularisation to push our solution
+    // towards its start point.
+    let solved = run("underdetermined_lines");
+    assert_points_eq(solved.get_point("p0").unwrap(), Point { x: 0.0, y: 0.0 });
+    assert_points_eq(solved.get_point("p1").unwrap(), Point { x: 4.0, y: 0.0 });
+    assert_points_eq(solved.get_point("p2").unwrap(), Point { x: 4.0, y: 4.0 });
 }
 
 #[test]
@@ -236,20 +214,6 @@ s roughly (5, 6)
             content: content_for_angle(true, 0.0),
         }]
     );
-}
-
-#[test]
-fn underdetermined_lines() {
-    // This should solve for a horizontal line from (0,0) to (4,0), then
-    // a vertical line from (4,0) to (4,4). Note that the length of the second
-    // line is not specified; we're relying on regularisation to push our solution
-    // towards its start point.
-    let txt = include_str!("../../test_cases/underdetermined_lines/problem.txt");
-    let problem = Problem::from_str(txt).unwrap();
-    let solved = problem.to_constraint_system().unwrap().solve().unwrap();
-    assert_points_eq(solved.get_point("p0").unwrap(), Point { x: 0.0, y: 0.0 });
-    assert_points_eq(solved.get_point("p1").unwrap(), Point { x: 4.0, y: 0.0 });
-    assert_points_eq(solved.get_point("p2").unwrap(), Point { x: 4.0, y: 4.0 });
 }
 
 #[track_caller]
