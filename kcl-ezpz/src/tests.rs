@@ -10,6 +10,13 @@ fn run(test_case: &str) -> Outcome {
     system.solve().unwrap()
 }
 
+fn run_with_config(test_case: &str, config: Config) -> Outcome {
+    let txt = std::fs::read_to_string(format!("../test_cases/{test_case}/problem.txt")).unwrap();
+    let problem = parse_problem(&txt);
+    let system = problem.to_constraint_system().unwrap();
+    system.solve_with_config(config).unwrap()
+}
+
 fn parse_problem(txt: &str) -> Problem {
     match Problem::from_str(txt) {
         Ok(x) => x,
@@ -40,6 +47,18 @@ fn underconstrained() {
 #[test]
 fn tiny() {
     let solved = run("tiny");
+    assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 0.0 });
+    assert_points_eq(solved.get_point("q").unwrap(), Point { x: 0.0, y: 0.0 });
+}
+
+#[test]
+fn tiny_no_regularization() {
+    let solved = run_with_config(
+        "tiny",
+        Config {
+            regularization_enabled: false,
+        },
+    );
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 0.0 });
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 0.0, y: 0.0 });
 }
