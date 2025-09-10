@@ -374,3 +374,29 @@ fn read_problem(cli: &Cli) -> Result<String, String> {
         .map_err(|e| e.to_string())?;
     Ok(constraint_txt)
 }
+
+#[cfg(test)]
+mod tests {
+    use std::process::{Command, Stdio};
+
+    #[test]
+    fn test_tiny() {
+        let out = Command::new("cargo")
+            .args([
+                "run",
+                "--quiet",
+                "--",
+                "-f",
+                "../test_cases/tiny/problem.txt",
+            ])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap()
+            .wait_with_output()
+            .unwrap();
+        assert!(out.status.success());
+        let stdout = String::from_utf8(out.stdout).unwrap();
+        assert!(stdout.contains("Problem size: 4 rows, 4 vars"));
+    }
+}
