@@ -1,10 +1,14 @@
 [package]
-name = "ezpz"
+name = "ezpz-cli"
 version = "0.1.0"
 edition = "2024"
 repository = "https://github.com/KittyCAD/ezpz"
 description = "CLI for using the ezpz constraint solver"
 license = "MIT"
+
+[[bin]]
+path = "src/main.rs"
+name = "ezpz"
 
 [dependencies]
 clap = { version = "4.5.45", features = ["derive"] }
