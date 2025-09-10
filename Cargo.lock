@@ -645,7 +645,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ezpz"
+name = "ezpz-cli"
 version = "0.1.0"
 dependencies = [
  "clap",

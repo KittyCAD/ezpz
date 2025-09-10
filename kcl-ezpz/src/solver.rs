@@ -15,7 +15,7 @@ const REGULARIZATION_LAMBDA: f64 = 1e-9;
 #[derive(Debug, Clone, Copy)]
 pub struct Config {
     /// Use Tikhonov regularization to solve underdetermined systems.
-    regularization_enabled: bool,
+    pub regularization_enabled: bool,
 }
 
 impl Default for Config {
