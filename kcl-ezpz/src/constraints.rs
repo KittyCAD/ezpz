@@ -1,5 +1,3 @@
-use kittycad_modeling_cmds::shared::Angle;
-
 use crate::{EPSILON, datatypes::*, id::Id, solver::Layout, vector::V};
 
 /// Each geometric constraint we support.

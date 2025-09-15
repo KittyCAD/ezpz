@@ -1,7 +1,31 @@
-use kittycad_modeling_cmds::shared::Angle;
 use libm::{cos, sin};
 
 use crate::{IdGenerator, id::Id};
+
+#[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
+pub struct Angle {
+    degrees: f64,
+}
+
+impl Angle {
+    pub fn from_degrees(degrees: f64) -> Self {
+        Self { degrees }
+    }
+
+    pub fn from_radians(radians: f64) -> Self {
+        Self {
+            degrees: radians.to_degrees(),
+        }
+    }
+
+    pub fn to_degrees(self) -> f64 {
+        self.degrees
+    }
+
+    pub fn to_radians(self) -> f64 {
+        self.degrees.to_radians()
+    }
+}
 
 #[derive(Clone, Copy, Debug)]
 pub struct DatumDistance {
@@ -47,6 +71,7 @@ impl DatumPoint {
 pub struct DatumLine {
     // Unusual representation of a line using two parameters, theta and A
     theta: Angle,
+    #[allow(dead_code)]
     a: f64,
 }
 
@@ -56,13 +81,6 @@ impl DatumLine {
         let dx = cos(self.theta.to_radians());
         let dy = sin(self.theta.to_radians());
         dx / dy
-    }
-
-    /// Get an arbitrary point on this line.
-    pub fn some_point(&self) -> kittycad_modeling_cmds::shared::Point2d<f64> {
-        let x = -self.a * sin(self.theta.to_radians());
-        let y = self.a * cos(self.theta.to_radians());
-        kittycad_modeling_cmds::shared::Point2d { x, y }
     }
 }
 
