@@ -10,7 +10,6 @@ license = "MIT"
 faer = "0.22.6"
 getrandom = { version = "0.2.16", features = ["js"] }
 indexmap = "2.11.0"
-kittycad-modeling-cmds = "0.2.131"
 libm = "0.2.15"
 newton_faer = { path = "../newtonls-faer" }
 thiserror = "2.0.14"

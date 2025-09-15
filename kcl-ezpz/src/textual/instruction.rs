@@ -1,4 +1,4 @@
-use kittycad_modeling_cmds::shared::Angle;
+use crate::datatypes::Angle;
 
 use super::{Component, Label};
 
