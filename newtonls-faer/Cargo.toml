@@ -30,5 +30,3 @@ faer-traits = "0.22.1"
 num-complex = "0.4.6"
 num-traits = "0.2.19"
 rayon         = "1"
-serde         = { version = "1", features = ["derive"] }
-serde_json    = "1"
