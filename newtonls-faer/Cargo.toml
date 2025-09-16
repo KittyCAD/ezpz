@@ -24,8 +24,7 @@ path = "src/lib.rs"
 [dependencies]
 dyn-stack = "0.13.0"
 error-stack   = "0.5.0"
-faer          = { version = "0.22.6", features = ["rayon", "std"] }
-faer-sparse   = "0.17.1"
+faer          = { version = "0.22.6", default-features = false, features = ["rayon", "std"] }
 faer-traits = "0.22.1"
 num-complex = "0.4.6"
 num-traits = "0.2.19"
