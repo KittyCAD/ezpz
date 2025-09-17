@@ -11,8 +11,6 @@ crate-type = ["cdylib"]
 bench = false
 
 [dependencies]
-faer = "0.22.6"
+faer = { version = "0.22.6", default-features = false, features = ["std", "sparse-linalg"] }
 kcl-ezpz = { path = "../kcl-ezpz" }
 wasm-bindgen = "0.2"
-wasm-bindgen-futures = "0.4.50"
-wasm-bindgen-test = "0.3.50"

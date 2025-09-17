@@ -1,8 +1,11 @@
-use crate::textual::{
-    ScalarGuess,
-    instruction::{
-        AngleLine, CircleRadius, DeclareCircle, Distance, FixCenterPointComponent,
-        LinesEqualLength, Parallel, Perpendicular, PointsCoincident, Tangent,
+use crate::{
+    datatypes::Angle,
+    textual::{
+        ScalarGuess,
+        instruction::{
+            AngleLine, CircleRadius, DeclareCircle, Distance, FixCenterPointComponent,
+            LinesEqualLength, Parallel, Perpendicular, PointsCoincident, Tangent,
+        },
     },
 };
 
@@ -10,7 +13,6 @@ use super::{
     Component, Label, Point, PointGuess, Problem,
     instruction::{DeclarePoint, FixPointComponent, Horizontal, Instruction, Vertical},
 };
-use kittycad_modeling_cmds::shared::Angle;
 use winnow::{
     ModalResult as WResult,
     ascii::{digit1, newline, space0},

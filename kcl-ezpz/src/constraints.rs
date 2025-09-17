@@ -1,5 +1,3 @@
-use kittycad_modeling_cmds::shared::Angle;
-
 use crate::{EPSILON, datatypes::*, id::Id, solver::Layout, vector::V};
 use std::f64::consts::PI;
 
@@ -15,6 +13,7 @@ fn wrap_angle_delta(delta: f64) -> f64 {
 
 /// Each geometric constraint we support.
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub enum Constraint {
     /// This line must be tangent to the circle
     /// (i.e. touches its perimeter in exactly one place)
@@ -40,6 +39,7 @@ pub enum Constraint {
 }
 
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub enum AngleKind {
     Parallel,
     Perpendicular,
@@ -59,26 +59,6 @@ pub struct JacobianVar {
 impl std::fmt::Debug for JacobianVar {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "∂ col={} pd={:.3}", self.id, self.partial_derivative)
-    }
-}
-
-/// One row of the Jacobian matrix.
-/// I.e. describes a single equation in the system of equations being solved.
-/// Specifically, it gives the partial derivatives of every variable in the equation.
-/// If a variable isn't given, assume its partial derivative is 0.
-#[derive(Default, Debug, Clone)]
-pub struct JacobianRow {
-    nonzero_columns: Vec<JacobianVar>,
-}
-
-/// Iterate over columns in the row.
-impl IntoIterator for JacobianRow {
-    type Item = JacobianVar;
-    type IntoIter = std::vec::IntoIter<Self::Item>;
-
-    /// Iterate over columns in the row.
-    fn into_iter(self) -> Self::IntoIter {
-        self.nonzero_columns.into_iter()
     }
 }
 

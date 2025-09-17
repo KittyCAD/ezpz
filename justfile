@@ -5,9 +5,9 @@ gen := "test_cases/massive_parallel_system/gen_big_problem.py"
 @check-most:
     just lint
     just check-wasm
-    just check-typos
     just test
     just fmt-check
+    just fuzz-check
 
 lint:
     cargo clippy {{clippy-flags}} -- -D warnings
@@ -20,9 +20,6 @@ lint-fix:
 check-wasm:
     cargo check -p ezpz-wasm --target wasm32-unknown-unknown
     cd ezpz-wasm; wasm-pack build --target web --dev; cd -
-
-check-typos:
-    typos
 
 test:
     cargo nextest run --all-features
@@ -69,3 +66,21 @@ install:
 new-test name:
     mkdir test_cases/{{name}}
     touch test_cases/{{name}}/problem.txt
+
+[linux]
+[windows]
+fuzz:
+    cargo +nightly fuzz run fuzz_target_1
+
+[macos]
+fuzz:
+    cargo +nightly fuzz run fuzz_target_1 --target aarch64-apple-darwin
+
+[linux]
+[windows]
+fuzz-check:
+    cargo +nightly fuzz check
+
+[macos]
+fuzz-check:
+    cargo +nightly fuzz check --target aarch64-apple-darwin

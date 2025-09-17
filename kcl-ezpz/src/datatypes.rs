@@ -1,9 +1,35 @@
-use kittycad_modeling_cmds::shared::Angle;
 use libm::{cos, sin};
 
 use crate::{IdGenerator, id::Id};
 
+#[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
+#[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
+pub struct Angle {
+    degrees: f64,
+}
+
+impl Angle {
+    pub fn from_degrees(degrees: f64) -> Self {
+        Self { degrees }
+    }
+
+    pub fn from_radians(radians: f64) -> Self {
+        Self {
+            degrees: radians.to_degrees(),
+        }
+    }
+
+    pub fn to_degrees(self) -> f64 {
+        self.degrees
+    }
+
+    pub fn to_radians(self) -> f64 {
+        self.degrees.to_radians()
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct DatumDistance {
     pub id: Id,
 }
@@ -16,6 +42,7 @@ impl DatumDistance {
 
 /// 2D point.
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct DatumPoint {
     pub(crate) x_id: Id,
     pub(crate) y_id: Id,
@@ -44,9 +71,11 @@ impl DatumPoint {
 
 /// Line of infinite length.
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct DatumLine {
     // Unusual representation of a line using two parameters, theta and A
     theta: Angle,
+    #[allow(dead_code)]
     a: f64,
 }
 
@@ -57,17 +86,11 @@ impl DatumLine {
         let dy = sin(self.theta.to_radians());
         dx / dy
     }
-
-    /// Get an arbitrary point on this line.
-    pub fn some_point(&self) -> kittycad_modeling_cmds::shared::Point2d<f64> {
-        let x = -self.a * sin(self.theta.to_radians());
-        let y = self.a * cos(self.theta.to_radians());
-        kittycad_modeling_cmds::shared::Point2d { x, y }
-    }
 }
 
 /// Finite segment of a line.
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct LineSegment {
     pub p0: DatumPoint,
     pub p1: DatumPoint,
@@ -91,6 +114,7 @@ impl LineSegment {
 
 /// A circle.
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct Circle {
     pub center: DatumPoint,
     pub radius: DatumDistance,

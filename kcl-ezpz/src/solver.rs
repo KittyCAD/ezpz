@@ -103,6 +103,37 @@ pub struct Model<'c> {
     config: Config,
 }
 
+fn validate_variables(
+    constraints: &[Constraint],
+    all_variables: &[Id],
+    initial_values: &[f64],
+) -> Result<(), NonLinearSystemError> {
+    if all_variables.len() != initial_values.len() {
+        return Err(NonLinearSystemError::WrongNumberGuesses {
+            labels: all_variables.len(),
+            guesses: initial_values.len(),
+        });
+    }
+    let mut row0 = Vec::with_capacity(NONZEROES_PER_ROW);
+    let mut row1 = Vec::with_capacity(NONZEROES_PER_ROW);
+    for (c, constraint) in constraints.iter().enumerate() {
+        row0.clear();
+        row1.clear();
+        constraint.nonzeroes(&mut row0, &mut row1);
+        for v in &row0 {
+            if !all_variables.contains(v) {
+                return Err(NonLinearSystemError::MissingGuess { c, v: *v });
+            }
+        }
+        for v in &row1 {
+            if !all_variables.contains(v) {
+                return Err(NonLinearSystemError::MissingGuess { c, v: *v });
+            }
+        }
+    }
+    Ok(())
+}
+
 impl<'c> Model<'c> {
     pub fn new(
         constraints: &'c [Constraint],
@@ -110,6 +141,7 @@ impl<'c> Model<'c> {
         initial_values: Vec<f64>,
         config: Config,
     ) -> Result<Self, NonLinearSystemError> {
+        validate_variables(constraints, &all_variables, &initial_values)?;
         /*
         Firstly, find the size of the relevant matrices.
         Each constraint yields 1 or more residual function f.
@@ -127,12 +159,6 @@ impl<'c> Model<'c> {
             num_cols = total number of variables
                        which is = total number of "involved primitive IDs"
         */
-        if all_variables.len() != initial_values.len() {
-            return Err(NonLinearSystemError::WrongNumberGuesses {
-                labels: all_variables.len(),
-                guesses: initial_values.len(),
-            });
-        }
 
         // We'll have different numbers of rows in the system depending on whether
         // or not regularization is enabled.
@@ -184,7 +210,7 @@ impl<'c> Model<'c> {
 
         // Create symbolic structure; this will automatically deduplicate and sort.
         let (sym, _) =
-            SymbolicSparseColMat::try_new_from_indices(num_rows, num_cols, &nonzero_cells).unwrap();
+            SymbolicSparseColMat::try_new_from_indices(num_rows, num_cols, &nonzero_cells)?;
 
         // All done.
         Ok(Self {

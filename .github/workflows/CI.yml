@@ -1,13 +1,6 @@
 on:
     workflow_dispatch:
     pull_request:
-      paths:
-        - '**.rs'
-        - .github/workflows/ci.yml
-        - Cargo.lock
-        - Cargo.toml
-        - '**/Cargo.toml'
-        - rust-toolchain.toml
 permissions: read-all
 name: Rust CI
 jobs:
@@ -43,34 +36,33 @@ jobs:
           run: just check-wasm
  
     cargo-fmt:
-        name: cargo fmt
+        name: Check formatting
         runs-on: ubuntu-latest-8-cores
         steps:
           - uses: actions/checkout@v4
+          - uses: taiki-e/install-action@just
           - name: Install Rust
             uses: dtolnay/rust-toolchain@stable
             with:
                 components: rustfmt
-          - name: cargo fmt
-            run: cargo fmt
+          - uses: cargo-bins/cargo-binstall@main
+          - name: Install deps
+            run: cargo binstall cargo-sort typos-cli
+          - name: Run checks
+            run: just fmt-check
 
-    check-typos:
-      runs-on: ubuntu-latest
-      steps:
-        - name: Checkout
-          uses: actions/checkout@v4
-        - name: Run codespell
-          uses: crate-ci/typos@v1.35.4
-
-    cargo-toml-sorted:
-      name: Check Cargo.toml is sorted
-      runs-on: ubuntu-latest
-      steps:
-        - name: Checkout
-          uses: actions/checkout@v4
-        - uses: cargo-bins/cargo-binstall@main
-        - name: Install deps
-          run: cargo binstall cargo-sort
-        - name: Run check
-          run: cargo sort --workspace --check
+    check-fuzz:
+        name: cargo fuzz check
+        runs-on: ubuntu-latest-8-cores
+        steps:
+          - uses: actions/checkout@v4
+          - name: Install Rust
+            uses: dtolnay/rust-toolchain@nightly
+            with:
+                components: rustfmt
+          - uses: cargo-bins/cargo-binstall@main
+          - name: Install deps
+            run: cargo binstall cargo-fuzz
+          - name: Check fuzzer can build
+            run: cargo +nightly fuzz check --target x86_64-unknown-linux-gnu
 
