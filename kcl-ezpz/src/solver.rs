@@ -210,7 +210,7 @@ impl<'c> Model<'c> {
 
         // Create symbolic structure; this will automatically deduplicate and sort.
         let (sym, _) =
-            SymbolicSparseColMat::try_new_from_indices(num_rows, num_cols, &nonzero_cells).unwrap();
+            SymbolicSparseColMat::try_new_from_indices(num_rows, num_cols, &nonzero_cells)?;
 
         // All done.
         Ok(Self {

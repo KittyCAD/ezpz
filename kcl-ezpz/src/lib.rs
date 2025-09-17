@@ -8,6 +8,7 @@ pub use crate::solver::Config;
 // or find a different way to structure modules.
 pub use crate::id::{Id, IdGenerator};
 use crate::solver::Model;
+use faer::sparse::CreationError;
 
 /// Each kind of constraint we support.
 mod constraints;
@@ -52,6 +53,11 @@ pub enum NonLinearSystemError {
         "Constraint {c} references variable {v} but no such variable appears in your initial guesses."
     )]
     MissingGuess { c: usize, v: Id },
+    #[error("Could not create matrix: {error}")]
+    FaerMatrix {
+        #[from]
+        error: CreationError,
+    },
 }
 
 #[derive(Debug)]
