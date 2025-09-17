@@ -1,4 +1,16 @@
 use crate::{EPSILON, datatypes::*, id::Id, solver::Layout, vector::V};
+use std::f64::consts::PI;
+
+fn wrap_angle_delta(delta: f64) -> f64 {
+    if delta > -PI && delta <= PI {
+        // If inside our interval, return unchanged.
+        delta
+    } else {
+        // Wrap; see: https://stackoverflow.com/a/11181951
+        let (sin, cos) = libm::sincos(delta);
+        libm::atan2(sin, cos)
+    }
+}
 
 /// Each geometric constraint we support.
 #[derive(Clone, Copy, Debug)]
@@ -207,9 +219,10 @@ impl Constraint {
                         // Current angle using atan2.
                         let current_angle_radians = libm::atan2(cross_2d, dot_product);
 
-                        // Compute angle difference.
+                        // Compute angle difference and wrap to (-pi, pi].
                         let angle_residual = current_angle_radians - expected_angle.to_radians();
-                        output.push(angle_residual);
+                        let wrapped_residual = wrap_angle_delta(angle_residual);
+                        output.push(wrapped_residual);
                     }
                 }
             }
@@ -715,5 +728,26 @@ mod tests {
         assert_eq!(V::new(0.0, 1.0).cross_2d(&V::new(1.0, 0.0)), -1.0);
         assert_eq!(V::new(2.0, 2.0).cross_2d(&V::new(4.0, 4.0)), 0.0);
         assert_eq!(V::new(3.0, 4.0).cross_2d(&V::new(5.0, 6.0)), -2.0);
+    }
+
+    #[test]
+    fn test_wrap_angle_delta() {
+        const EPS_WRAP: f64 = 1e-10;
+
+        // Test angles already in range; should return unchanged.
+        assert!(wrap_angle_delta(0.0).abs() < EPS_WRAP);
+        assert!((wrap_angle_delta(PI / 2.0) - PI / 2.0).abs() < EPS_WRAP);
+        assert!((wrap_angle_delta(-PI / 2.0) - (-PI / 2.0)).abs() < EPS_WRAP);
+        assert!((wrap_angle_delta(PI) - PI).abs() < EPS_WRAP);
+        assert!((wrap_angle_delta(-PI) - (-PI)).abs() < EPS_WRAP);
+
+        // Test angles that need to be wrapped.
+        assert!((wrap_angle_delta(3.0 * PI) - PI).abs() < EPS_WRAP); // 3pi wraps to pi.
+        assert!((wrap_angle_delta(-3.0 * PI) - (-PI)).abs() < EPS_WRAP); // -3pi wraps to -pi.
+        assert!((wrap_angle_delta(2.0 * PI) - 0.0).abs() < EPS_WRAP); // 2pi wraps to 0.
+        assert!((wrap_angle_delta(-2.0 * PI) - 0.0).abs() < EPS_WRAP); // -2pi wraps to 0.
+
+        // Test a value just across the -pi boundary.
+        assert!((wrap_angle_delta(-PI - 1e-15) - PI).abs() < EPS_WRAP);
     }
 }
