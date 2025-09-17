@@ -48,6 +48,10 @@ pub enum NonLinearSystemError {
         "There should be exactly 1 guess per variable, but you supplied {labels} variables and must {guesses} guesses"
     )]
     WrongNumberGuesses { labels: usize, guesses: usize },
+    #[error(
+        "Constraint {c} references variable {v} but no such variable appears in your initial guesses."
+    )]
+    MissingGuess { c: usize, v: Id },
 }
 
 #[derive(Debug)]
