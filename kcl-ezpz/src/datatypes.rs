@@ -3,6 +3,7 @@ use libm::{cos, sin};
 use crate::{IdGenerator, id::Id};
 
 #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
+#[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct Angle {
     degrees: f64,
 }
@@ -28,6 +29,7 @@ impl Angle {
 }
 
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct DatumDistance {
     pub id: Id,
 }
@@ -40,6 +42,7 @@ impl DatumDistance {
 
 /// 2D point.
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct DatumPoint {
     pub(crate) x_id: Id,
     pub(crate) y_id: Id,
@@ -68,6 +71,7 @@ impl DatumPoint {
 
 /// Line of infinite length.
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct DatumLine {
     // Unusual representation of a line using two parameters, theta and A
     theta: Angle,
@@ -86,6 +90,7 @@ impl DatumLine {
 
 /// Finite segment of a line.
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct LineSegment {
     pub p0: DatumPoint,
     pub p1: DatumPoint,
@@ -109,6 +114,7 @@ impl LineSegment {
 
 /// A circle.
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct Circle {
     pub center: DatumPoint,
     pub radius: DatumDistance,

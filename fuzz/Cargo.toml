@@ -1,0 +1,20 @@
+[package]
+name = "ezpz-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[[bin]]
+name = "fuzz_target_1"
+path = "fuzz_targets/fuzz_target_1.rs"
+test = false
+doc = false
+bench = false
+
+[dependencies]
+arbitrary = { version = "1.4.2", features = ["derive"] }
+kcl-ezpz = { path = "../kcl-ezpz", features = ["fuzz"] }
+libfuzzer-sys = "0.4"

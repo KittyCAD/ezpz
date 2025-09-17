@@ -69,3 +69,6 @@ install:
 new-test name:
     mkdir test_cases/{{name}}
     touch test_cases/{{name}}/problem.txt
+
+fuzz:
+    cargo +nightly fuzz run
