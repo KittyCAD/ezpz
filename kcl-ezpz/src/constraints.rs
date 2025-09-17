@@ -2,6 +2,7 @@ use crate::{EPSILON, datatypes::*, id::Id, solver::Layout, vector::V};
 
 /// Each geometric constraint we support.
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub enum Constraint {
     /// This line must be tangent to the circle
     /// (i.e. touches its perimeter in exactly one place)
@@ -27,6 +28,7 @@ pub enum Constraint {
 }
 
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub enum AngleKind {
     Parallel,
     Perpendicular,
