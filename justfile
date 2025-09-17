@@ -8,6 +8,7 @@ gen := "test_cases/massive_parallel_system/gen_big_problem.py"
     just check-typos
     just test
     just fmt-check
+    just fuzz-check
 
 lint:
     cargo clippy {{clippy-flags}} -- -D warnings
@@ -78,3 +79,12 @@ fuzz:
 [macos]
 fuzz:
     cargo +nightly fuzz run fuzz_target_1 --target aarch64-apple-darwin
+
+[linux]
+[windows]
+fuzz-check:
+    cargo +nightly fuzz check
+
+[macos]
+fuzz-check:
+    cargo +nightly fuzz check --target aarch64-apple-darwin

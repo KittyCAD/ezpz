@@ -47,12 +47,28 @@ jobs:
         runs-on: ubuntu-latest-8-cores
         steps:
           - uses: actions/checkout@v4
+          - uses: taiki-e/install-action@just
           - name: Install Rust
             uses: dtolnay/rust-toolchain@stable
             with:
                 components: rustfmt
-          - name: cargo fmt
-            run: cargo fmt
+          - name: just fmt-check
+            run: just fmt-check
+
+    cargo-fmt:
+        name: cargo fmt
+        runs-on: ubuntu-latest-8-cores
+        steps:
+          - uses: actions/checkout@v4
+          - name: Install Rust
+            uses: dtolnay/rust-toolchain@nightly
+            with:
+                components: rustfmt
+          - uses: cargo-bins/cargo-binstall@main
+          - name: Install deps
+            run: cargo binstall cargo-fuzz
+          - name: Check fuzzer can build
+            run: cargo +nightly fuzz check
 
     check-typos:
       runs-on: ubuntu-latest
