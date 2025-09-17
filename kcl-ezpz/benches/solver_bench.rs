@@ -39,6 +39,10 @@ fn solve_angle_parallel(c: &mut Criterion) {
     bench_case(c, "angle_parallel")
 }
 
+fn solve_angle_parallel_manual(c: &mut Criterion) {
+    bench_case(c, "angle_parallel_manual")
+}
+
 fn solve_nonsquare(c: &mut Criterion) {
     bench_case(c, "nonsquare")
 }
@@ -182,6 +186,7 @@ criterion_group!(
     solve_two_rectangles,
     solve_two_rectangles_dependent,
     solve_angle_parallel,
+    solve_angle_parallel_manual,
     solve_perpendicular,
     solve_massive,
     solve_massive_overconstrained,

@@ -5,7 +5,7 @@ point p2
 point p3
 p0 = (0, 0)
 p2 = (0, 0)
-lines_at_angle(p0, p1, p2, p3, 0deg)
+lines_at_angle(p0, p1, p2, p3, 720deg)
 distance(p0, p1, sqrt(32))
 distance(p2, p3, sqrt(32))
 p1.x = 4

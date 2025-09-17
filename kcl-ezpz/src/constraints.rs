@@ -7,7 +7,8 @@ fn wrap_angle_delta(delta: f64) -> f64 {
         delta
     } else {
         // Wrap; see: https://stackoverflow.com/a/11181951
-        libm::atan2(libm::sin(delta), libm::cos(delta))
+        let (sin, cos) = libm::sincos(delta);
+        libm::atan2(sin, cos)
     }
 }
 
