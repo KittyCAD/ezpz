@@ -70,5 +70,11 @@ new-test name:
     mkdir test_cases/{{name}}
     touch test_cases/{{name}}/problem.txt
 
+[linux]
+[windows]
 fuzz:
-    cargo +nightly fuzz run
+    cargo +nightly fuzz run fuzz_target_1
+
+[macos]
+fuzz:
+    cargo +nightly fuzz run fuzz_target_1 --target aarch64-apple-darwin

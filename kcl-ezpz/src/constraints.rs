@@ -51,26 +51,6 @@ impl std::fmt::Debug for JacobianVar {
     }
 }
 
-/// One row of the Jacobian matrix.
-/// I.e. describes a single equation in the system of equations being solved.
-/// Specifically, it gives the partial derivatives of every variable in the equation.
-/// If a variable isn't given, assume its partial derivative is 0.
-#[derive(Default, Debug, Clone)]
-pub struct JacobianRow {
-    nonzero_columns: Vec<JacobianVar>,
-}
-
-/// Iterate over columns in the row.
-impl IntoIterator for JacobianRow {
-    type Item = JacobianVar;
-    type IntoIter = std::vec::IntoIter<Self::Item>;
-
-    /// Iterate over columns in the row.
-    fn into_iter(self) -> Self::IntoIter {
-        self.nonzero_columns.into_iter()
-    }
-}
-
 impl Constraint {
     /// For each row of the Jacobian matrix, which variables are involved in them?
     pub fn nonzeroes(&self, row0: &mut Vec<Id>, row1: &mut Vec<Id>) {
