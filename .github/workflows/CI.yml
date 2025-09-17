@@ -36,7 +36,7 @@ jobs:
           run: just check-wasm
  
     cargo-fmt:
-        name: cargo fmt
+        name: Check formatting
         runs-on: ubuntu-latest-8-cores
         steps:
           - uses: actions/checkout@v4
@@ -45,11 +45,14 @@ jobs:
             uses: dtolnay/rust-toolchain@stable
             with:
                 components: rustfmt
-          - name: just fmt-check
+          - uses: cargo-bins/cargo-binstall@main
+          - name: Install deps
+            run: cargo binstall cargo-sort typos-cli
+          - name: Run checks
             run: just fmt-check
 
-    cargo-fmt:
-        name: cargo fmt
+    check-fuzz:
+        name: cargo fuzz check
         runs-on: ubuntu-latest-8-cores
         steps:
           - uses: actions/checkout@v4
@@ -61,25 +64,5 @@ jobs:
           - name: Install deps
             run: cargo binstall cargo-fuzz
           - name: Check fuzzer can build
-            run: cargo +nightly fuzz check
-
-    check-typos:
-      runs-on: ubuntu-latest
-      steps:
-        - name: Checkout
-          uses: actions/checkout@v4
-        - name: Run codespell
-          uses: crate-ci/typos@v1.35.4
-
-    cargo-toml-sorted:
-      name: Check Cargo.toml is sorted
-      runs-on: ubuntu-latest
-      steps:
-        - name: Checkout
-          uses: actions/checkout@v4
-        - uses: cargo-bins/cargo-binstall@main
-        - name: Install deps
-          run: cargo binstall cargo-sort
-        - name: Run check
-          run: cargo sort --workspace --check
+            run: cargo +nightly fuzz check --target x86_64-unknown-linux-gnu
 

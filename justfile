@@ -5,7 +5,6 @@ gen := "test_cases/massive_parallel_system/gen_big_problem.py"
 @check-most:
     just lint
     just check-wasm
-    just check-typos
     just test
     just fmt-check
     just fuzz-check
@@ -21,9 +20,6 @@ lint-fix:
 check-wasm:
     cargo check -p ezpz-wasm --target wasm32-unknown-unknown
     cd ezpz-wasm; wasm-pack build --target web --dev; cd -
-
-check-typos:
-    typos
 
 test:
     cargo nextest run --all-features
