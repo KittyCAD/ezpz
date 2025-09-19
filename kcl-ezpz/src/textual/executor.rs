@@ -6,7 +6,6 @@ use crate::Config;
 use crate::Constraint;
 use crate::Error;
 use crate::FailureOutcome;
-use crate::Id;
 use crate::IdGenerator;
 use crate::Lint;
 use crate::SolveOutcome;
@@ -15,6 +14,7 @@ use crate::datatypes;
 use crate::datatypes::DatumDistance;
 use crate::datatypes::DatumPoint;
 use crate::datatypes::LineSegment;
+use crate::textual::geometry_variables::GeometryVariables;
 use crate::textual::instruction::*;
 use crate::textual::{Circle, Component, Label, Point};
 
@@ -26,11 +26,7 @@ impl Problem {
         let mut id_generator = IdGenerator::default();
         // First, construct the list of initial guesses,
         // and assign them to solver variables.
-        // This is the order:
-        // Points, then circles.
-        // For each point, its x then its y.
-        // For each circle, its center x, then its center y, then its radius.
-        let mut initial_guesses: Vec<_> = Vec::with_capacity(self.inner_points.len() * 2);
+        let mut initial_guesses = GeometryVariables::default();
         // Maps labels to points
         let mut guessmap_points = HashMap::new();
         guessmap_points.extend(
@@ -44,12 +40,7 @@ impl Problem {
                     label: point.0.clone(),
                 });
             };
-            let id_x = id_generator.next_id();
-            let id_y = id_generator.next_id();
-            // eprintln!("Assigning {}.x => {id_x}", point.0);
-            // eprintln!("Assigning {}.y => {id_y}", point.0);
-            initial_guesses.push((id_x, guess.x));
-            initial_guesses.push((id_y, guess.y));
+            initial_guesses.push_point(&mut id_generator, guess.x, guess.y);
         }
         let mut guessmap_scalars = HashMap::new();
         guessmap_scalars.extend(
@@ -61,27 +52,24 @@ impl Problem {
             // Each circle should have a guess for its center and radius.
             // First, find the guess for its center:
             let center_label = format!("{}.center", circle.0);
-            let Some(guess) = guessmap_points.remove(&center_label) else {
+            let Some(center_guess) = guessmap_points.remove(&center_label) else {
                 return Err(Error::MissingGuess {
                     label: center_label,
                 });
             };
-            let id_x = id_generator.next_id();
-            let id_y = id_generator.next_id();
-            initial_guesses.push((id_x, guess.x));
-            initial_guesses.push((id_y, guess.y));
             // Now, find the guess for its radius.
             let radius_label = format!("{}.radius", circle.0);
-            let Some(guess) = guessmap_scalars.remove(&radius_label) else {
+            let Some(radius_guess) = guessmap_scalars.remove(&radius_label) else {
                 return Err(Error::MissingGuess {
                     label: radius_label,
                 });
             };
-            let id_radius = id_generator.next_id();
-            // eprintln!("Assigning {}.center.x => {id_x}", circle.0);
-            // eprintln!("Assigning {}.center.y => {id_y}", circle.0);
-            // eprintln!("Assigning {}.radius => {id_radius}", circle.0);
-            initial_guesses.push((id_radius, guess));
+            initial_guesses.push_circle(
+                &mut id_generator,
+                center_guess.x,
+                center_guess.y,
+                radius_guess,
+            );
         }
         if !guessmap_points.is_empty() {
             let labels: Vec<String> = guessmap_points.keys().cloned().collect();
@@ -91,25 +79,28 @@ impl Problem {
             let labels: Vec<String> = guessmap_scalars.keys().cloned().collect();
             return Err(Error::UnusedGuesses { labels });
         }
-        let start_of_circles = 2 * self.inner_points.len();
 
         // Good. Now we can define all the constraints, referencing the solver variables that
         // were defined in the previous step.
         let mut constraints = Vec::new();
         let datum_point_for_label = |label: &Label| -> Result<DatumPoint, crate::Error> {
             if let Some(point_id) = self.inner_points.iter().position(|p| p == &label.0) {
-                let x_id = initial_guesses[2 * point_id].0;
-                let y_id = initial_guesses[2 * point_id + 1].0;
-                return Ok(DatumPoint { x_id, y_id });
+                let ids = initial_guesses.get_point_ids(point_id);
+                return Ok(DatumPoint {
+                    x_id: ids.x,
+                    y_id: ids.y,
+                });
             }
             if let Some(circle_id) = self
                 .inner_circles
                 .iter()
                 .position(|circ| format!("{}.center", circ.0) == label.0.as_str())
             {
-                let x_id = initial_guesses[start_of_circles + 3 * circle_id].0;
-                let y_id = initial_guesses[start_of_circles + 3 * circle_id + 1].0;
-                return Ok(DatumPoint { x_id, y_id });
+                let center = initial_guesses.get_circle_ids(circle_id).center;
+                return Ok(DatumPoint {
+                    x_id: center.x,
+                    y_id: center.y,
+                });
             }
             Err(Error::UndefinedPoint {
                 label: label.0.clone(),
@@ -121,12 +112,8 @@ impl Problem {
                 .iter()
                 .position(|circ| format!("{}.radius", circ.0) == label.0.as_str())
             {
-                let this_circles_variables_start = start_of_circles + 3 * circle_id;
-                // +0 would be circle's center's X,
-                // +1 would be circle's center's Y,
-                // +2 is the radius.
-                let id = initial_guesses[this_circles_variables_start + 2].0;
-                return Ok(DatumDistance { id });
+                let ids = initial_guesses.get_circle_ids(circle_id);
+                return Ok(DatumDistance { id: ids.radius });
             }
             Err(Error::UndefinedPoint {
                 label: label.0.clone(),
@@ -177,21 +164,21 @@ impl Problem {
                     if let Some(point_id) =
                         self.inner_points.iter().position(|label| label == point)
                     {
-                        let index = match component {
-                            Component::X => 2 * point_id,
-                            Component::Y => 2 * point_id + 1,
+                        let ids = initial_guesses.get_point_ids(point_id);
+                        let id = match component {
+                            Component::X => ids.x,
+                            Component::Y => ids.y,
                         };
-                        let id = initial_guesses[index].0;
                         constraints.push(Constraint::Fixed(id, *value));
                     } else if let Some(circle_label) = point.0.strip_suffix(".center") {
                         if let Some(circle_id) =
                             self.inner_circles.iter().position(|p| p.0 == circle_label)
                         {
-                            let index = match component {
-                                Component::X => start_of_circles + 3 * circle_id,
-                                Component::Y => start_of_circles + 3 * circle_id + 1,
+                            let center = initial_guesses.get_circle_ids(circle_id).center;
+                            let id = match component {
+                                Component::X => center.x,
+                                Component::Y => center.y,
                             };
-                            let id = initial_guesses[index].0;
                             constraints.push(Constraint::Fixed(id, *value))
                         }
                     } else {
@@ -208,11 +195,11 @@ impl Problem {
                     if let Some(circle_id) =
                         self.inner_circles.iter().position(|label| label == circle)
                     {
-                        let index = match center_component {
-                            Component::X => start_of_circles + 3 * circle_id,
-                            Component::Y => start_of_circles + 3 * circle_id + 1,
+                        let center = initial_guesses.get_circle_ids(circle_id).center;
+                        let id = match center_component {
+                            Component::X => center.x,
+                            Component::Y => center.y,
                         };
-                        let id = initial_guesses[index].0;
                         constraints.push(Constraint::Fixed(id, *value));
                     } else {
                         return Err(Error::UndefinedPoint {
@@ -300,14 +287,14 @@ impl Problem {
 #[derive(Clone)]
 pub struct ConstraintSystem<'a> {
     constraints: Vec<Constraint>,
-    initial_guesses: Vec<(Id, f64)>,
+    initial_guesses: GeometryVariables,
     inner_points: &'a [Label],
     inner_circles: &'a [Label],
 }
 
 impl ConstraintSystem<'_> {
     pub fn solve_no_metadata(&self, config: Config) -> Result<SolveOutcome, FailureOutcome> {
-        crate::solve(&self.constraints, self.initial_guesses.to_owned(), config)
+        crate::solve(&self.constraints, self.initial_guesses.variables(), config)
     }
 
     pub fn solve(&self) -> Result<Outcome, FailureOutcome> {
