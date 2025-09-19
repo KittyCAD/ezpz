@@ -1,4 +1,5 @@
 mod executor;
+mod geometry_variables;
 mod instruction;
 mod parser;
 
