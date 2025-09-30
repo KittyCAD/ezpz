@@ -102,6 +102,7 @@ impl Problem {
         // were defined in the previous step.
         let mut constraints = Vec::new();
         let datum_point_for_label = |label: &Label| -> Result<DatumPoint, crate::Error> {
+            // Is the point a single geometric point?
             if let Some(point_id) = self.inner_points.iter().position(|p| p == &label.0) {
                 let ids = initial_guesses.get_point_ids(point_id);
                 return Ok(DatumPoint {
@@ -109,6 +110,7 @@ impl Problem {
                     y_id: ids.y,
                 });
             }
+            // Maybe it's a point in a circle?
             if let Some(circle_id) = self
                 .inner_circles
                 .iter()
@@ -120,6 +122,44 @@ impl Problem {
                     y_id: center.y,
                 });
             }
+            // Maybe it's a point in an arc?
+            // Is it an arc's center?
+            if let Some(arc_id) = self
+                .inner_arcs
+                .iter()
+                .position(|arc| format!("{}.center", arc.0) == label.0.as_str())
+            {
+                let center = initial_guesses.get_arc_ids(arc_id).center;
+                return Ok(DatumPoint {
+                    x_id: center.x,
+                    y_id: center.y,
+                });
+            }
+            // Is it an arc's `p` point?
+            if let Some(arc_id) = self
+                .inner_arcs
+                .iter()
+                .position(|arc| format!("{}.p", arc.0) == label.0.as_str())
+            {
+                let p = initial_guesses.get_arc_ids(arc_id).p;
+                return Ok(DatumPoint {
+                    x_id: p.x,
+                    y_id: p.y,
+                });
+            }
+            // Is it an arc's `q` point?
+            if let Some(arc_id) = self
+                .inner_arcs
+                .iter()
+                .position(|arc| format!("{}.q", arc.0) == label.0.as_str())
+            {
+                let q = initial_guesses.get_arc_ids(arc_id).q;
+                return Ok(DatumPoint {
+                    x_id: q.x,
+                    y_id: q.y,
+                });
+            }
+            // Well, it wasn't any of the geometries we recognize.
             Err(Error::UndefinedPoint {
                 label: label.0.clone(),
             })
@@ -207,12 +247,13 @@ impl Problem {
                     }
                 }
                 Instruction::FixCenterPointComponent(FixCenterPointComponent {
-                    circle,
+                    object,
                     center_component,
                     value,
                 }) => {
+                    // Is this center talking about a circle object?
                     if let Some(circle_id) =
-                        self.inner_circles.iter().position(|label| label == circle)
+                        self.inner_circles.iter().position(|label| label == object)
                     {
                         let center = initial_guesses.get_circle_ids(circle_id).center;
                         let id = match center_component {
@@ -220,9 +261,19 @@ impl Problem {
                             Component::Y => center.y,
                         };
                         constraints.push(Constraint::Fixed(id, *value));
+                    // Is this center talking about an arc object?
+                    } else if let Some(arc_id) =
+                        self.inner_arcs.iter().position(|label| label == object)
+                    {
+                        let center = initial_guesses.get_arc_ids(arc_id).center;
+                        let id = match center_component {
+                            Component::X => center.x,
+                            Component::Y => center.y,
+                        };
+                        constraints.push(Constraint::Fixed(id, *value));
                     } else {
                         return Err(Error::UndefinedPoint {
-                            label: circle.0.clone(),
+                            label: object.0.clone(),
                         });
                     }
                 }

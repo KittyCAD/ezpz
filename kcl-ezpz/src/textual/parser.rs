@@ -403,7 +403,7 @@ fn parse_fix_center_point_component(i: &mut &str) -> WResult<FixCenterPointCompo
     )
         .map(
             |(label, _dot, component, _equals, value)| FixCenterPointComponent {
-                circle: label,
+                object: label,
                 center_component: component,
                 value,
             },

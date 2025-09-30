@@ -5,7 +5,7 @@ const VARS_PER_CIRCLE: usize = 3;
 const VARS_PER_ARC: usize = 6;
 
 /// Stores variables for different constrainable geometry.
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub struct GeometryVariables {
     /// List of variables, each with an ID and a value.
     // Layout of this vec:

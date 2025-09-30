@@ -1,6 +1,8 @@
 # constraints
 point p
 arc a
+a.center.x = 0
+a.center.y = 0
 
 # guesses
 p roughly (4, 3)

@@ -105,7 +105,7 @@ pub struct FixPointComponent {
 
 #[derive(Debug)]
 pub struct FixCenterPointComponent {
-    pub circle: Label,
+    pub object: Label,
     pub center_component: Component,
     pub value: f64,
 }
