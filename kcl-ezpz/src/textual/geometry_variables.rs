@@ -2,6 +2,7 @@ use crate::{Id, IdGenerator};
 
 const VARS_PER_POINT: usize = 2;
 const VARS_PER_CIRCLE: usize = 3;
+const VARS_PER_ARC: usize = 6;
 
 /// Stores variables for different constrainable geometry.
 #[derive(Default, Clone)]
@@ -17,6 +18,7 @@ pub struct GeometryVariables {
     variables: Vec<(Id, f64)>,
     num_points: usize,
     num_circles: usize,
+    num_arcs: usize,
 }
 
 impl GeometryVariables {
@@ -40,6 +42,9 @@ impl GeometryVariables {
         if self.num_circles > 0 {
             panic!("You must add points before circles");
         }
+        if self.num_arcs > 0 {
+            panic!("You must add points before arcs");
+        }
         self.num_points += 1;
         self.push_scalar(id_generator, x);
         self.push_scalar(id_generator, y);
@@ -54,10 +59,32 @@ impl GeometryVariables {
         center_y: f64,
         radius: f64,
     ) {
+        if self.num_arcs > 0 {
+            panic!("You must add circles before arcs");
+        }
         self.num_circles += 1;
         self.variables.push((id_generator.next_id(), center_x));
         self.variables.push((id_generator.next_id(), center_y));
         self.variables.push((id_generator.next_id(), radius));
+    }
+
+    /// Add variables for a arc.
+    /// Once you call this, you cannot push 2D points or circles anymore.
+    pub fn push_arc(
+        &mut self,
+        id_generator: &mut IdGenerator,
+        p: (f64, f64),
+        q: (f64, f64),
+        center: (f64, f64),
+    ) {
+        self.num_arcs += 1;
+        let c = center;
+        self.variables.push((id_generator.next_id(), p.0));
+        self.variables.push((id_generator.next_id(), p.1));
+        self.variables.push((id_generator.next_id(), q.0));
+        self.variables.push((id_generator.next_id(), q.1));
+        self.variables.push((id_generator.next_id(), c.0));
+        self.variables.push((id_generator.next_id(), c.1));
     }
 
     /// Look up the variables for a given 2D point.
@@ -78,13 +105,35 @@ impl GeometryVariables {
             radius,
         }
     }
+
+    /// Look up the variables for a given arc.
+    pub fn get_arc_ids(&self, arc_id: usize) -> ArcVars {
+        let start_of_arcs = VARS_PER_POINT * self.num_points;
+        let px = self.variables[start_of_arcs + VARS_PER_ARC * arc_id].0;
+        let py = self.variables[start_of_arcs + VARS_PER_ARC * arc_id + 1].0;
+        let p = PointVars { x: px, y: py };
+        let qx = self.variables[start_of_arcs + VARS_PER_ARC * arc_id + 2].0;
+        let qy = self.variables[start_of_arcs + VARS_PER_ARC * arc_id + 3].0;
+        let q = PointVars { x: qx, y: qy };
+        let cx = self.variables[start_of_arcs + VARS_PER_ARC * arc_id + 4].0;
+        let cy = self.variables[start_of_arcs + VARS_PER_ARC * arc_id + 5].0;
+        let center = PointVars { x: cx, y: cy };
+        ArcVars { p, q, center }
+    }
 }
 
 pub struct PointVars {
     pub x: Id,
     pub y: Id,
 }
+
 pub struct CircleVars {
     pub center: PointVars,
     pub radius: Id,
+}
+
+pub struct ArcVars {
+    pub p: PointVars,
+    pub q: PointVars,
+    pub center: PointVars,
 }
