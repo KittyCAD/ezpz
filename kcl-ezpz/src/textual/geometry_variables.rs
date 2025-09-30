@@ -1,4 +1,4 @@
-use crate::{Id, IdGenerator};
+use crate::{Id, IdGenerator, textual::Point};
 
 const VARS_PER_POINT: usize = 2;
 const VARS_PER_CIRCLE: usize = 3;
@@ -70,21 +70,15 @@ impl GeometryVariables {
 
     /// Add variables for a arc.
     /// Once you call this, you cannot push 2D points or circles anymore.
-    pub fn push_arc(
-        &mut self,
-        id_generator: &mut IdGenerator,
-        p: (f64, f64),
-        q: (f64, f64),
-        center: (f64, f64),
-    ) {
+    pub fn push_arc(&mut self, id_generator: &mut IdGenerator, p: Point, q: Point, center: Point) {
         self.num_arcs += 1;
         let c = center;
-        self.variables.push((id_generator.next_id(), p.0));
-        self.variables.push((id_generator.next_id(), p.1));
-        self.variables.push((id_generator.next_id(), q.0));
-        self.variables.push((id_generator.next_id(), q.1));
-        self.variables.push((id_generator.next_id(), c.0));
-        self.variables.push((id_generator.next_id(), c.1));
+        self.variables.push((id_generator.next_id(), p.x));
+        self.variables.push((id_generator.next_id(), p.y));
+        self.variables.push((id_generator.next_id(), q.x));
+        self.variables.push((id_generator.next_id(), q.y));
+        self.variables.push((id_generator.next_id(), c.x));
+        self.variables.push((id_generator.next_id(), c.y));
     }
 
     /// Look up the variables for a given 2D point.

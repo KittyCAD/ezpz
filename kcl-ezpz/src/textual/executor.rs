@@ -71,6 +71,24 @@ impl Problem {
                 radius_guess,
             );
         }
+        for arc in &self.inner_arcs {
+            // Each arc should have a guess for its 3 points (p, q, and center).
+            let center_label = format!("{}.center", arc.0);
+            let Some(center_guess) = guessmap_points.remove(&center_label) else {
+                return Err(Error::MissingGuess {
+                    label: center_label,
+                });
+            };
+            let p_label = format!("{}.p", arc.0);
+            let Some(p_guess) = guessmap_points.remove(&p_label) else {
+                return Err(Error::MissingGuess { label: p_label });
+            };
+            let q_label = format!("{}.q", arc.0);
+            let Some(q_guess) = guessmap_points.remove(&q_label) else {
+                return Err(Error::MissingGuess { label: q_label });
+            };
+            initial_guesses.push_arc(&mut id_generator, p_guess, q_guess, center_guess);
+        }
         if !guessmap_points.is_empty() {
             let labels: Vec<String> = guessmap_points.keys().cloned().collect();
             return Err(Error::UnusedGuesses { labels });
