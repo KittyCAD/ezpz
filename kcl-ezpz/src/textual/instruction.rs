@@ -6,6 +6,7 @@ use super::{Component, Label};
 pub enum Instruction {
     DeclarePoint(DeclarePoint),
     DeclareCircle(DeclareCircle),
+    DeclareArc(DeclareArc),
     FixPointComponent(FixPointComponent),
     Vertical(Vertical),
     Horizontal(Horizontal),
@@ -87,6 +88,11 @@ pub struct DeclarePoint {
 
 #[derive(Debug)]
 pub struct DeclareCircle {
+    pub label: Label,
+}
+
+#[derive(Debug)]
+pub struct DeclareArc {
     pub label: Label,
 }
 

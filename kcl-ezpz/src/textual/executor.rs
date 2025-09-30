@@ -124,6 +124,7 @@ impl Problem {
             match instr {
                 Instruction::DeclarePoint(_) => {}
                 Instruction::DeclareCircle(_) => {}
+                Instruction::DeclareArc(_) => {}
                 Instruction::CircleRadius(CircleRadius { circle, radius }) => {
                     let circ = &circle.0;
                     let center_id = datum_point_for_label(&Label(format!("{circ}.center")))?;
