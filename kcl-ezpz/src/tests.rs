@@ -211,6 +211,11 @@ fn underdetermined_lines() {
 }
 
 #[test]
+fn arc_radius() {
+    let _solved = run("arc_radius");
+}
+
+#[test]
 fn lints() {
     let txt = "# constraints
 point p
