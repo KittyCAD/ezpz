@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use crate::{Id, IdGenerator, datatypes::DatumPoint, textual::Point};
 
 const VARS_PER_POINT: usize = 2;
@@ -6,7 +8,7 @@ pub const VARS_PER_ARC: usize = 6;
 
 /// Stores variables for different constrainable geometry.
 #[derive(Default, Clone, Debug)]
-pub struct GeometryVariables {
+pub struct GeometryVariables<S: State> {
     /// List of variables, each with an ID and a value.
     // Layout of this vec:
     // - All variables for points are stored first,
@@ -19,9 +21,25 @@ pub struct GeometryVariables {
     num_points: usize,
     num_circles: usize,
     num_arcs: usize,
+    state: PhantomData<S>,
 }
 
-impl GeometryVariables {
+pub trait State {}
+
+#[derive(Default)]
+pub struct PointsState;
+impl State for PointsState {}
+#[derive(Default)]
+pub struct CirclesState;
+impl State for CirclesState {}
+#[derive(Default)]
+pub struct ArcsState;
+impl State for ArcsState {}
+#[derive(Clone)]
+pub struct DoneState;
+impl State for DoneState {}
+
+impl<S: State> GeometryVariables<S> {
     /// How many variables are stored?
     pub fn len(&self) -> usize {
         self.variables.len()
@@ -34,51 +52,6 @@ impl GeometryVariables {
     /// Add a single variable.
     fn push_scalar(&mut self, id_generator: &mut IdGenerator, guess: f64) {
         self.variables.push((id_generator.next_id(), guess));
-    }
-
-    /// Add variables for a 2D point.
-    /// Must be called before `push_circle`.
-    pub fn push_point(&mut self, id_generator: &mut IdGenerator, x: f64, y: f64) {
-        if self.num_circles > 0 {
-            panic!("You must add points before circles");
-        }
-        if self.num_arcs > 0 {
-            panic!("You must add points before arcs");
-        }
-        self.num_points += 1;
-        self.push_scalar(id_generator, x);
-        self.push_scalar(id_generator, y);
-    }
-
-    /// Add variables for a circle.
-    /// Once you call this, you cannot push normal 2D point anymore.
-    pub fn push_circle(
-        &mut self,
-        id_generator: &mut IdGenerator,
-        center_x: f64,
-        center_y: f64,
-        radius: f64,
-    ) {
-        if self.num_arcs > 0 {
-            panic!("You must add circles before arcs");
-        }
-        self.num_circles += 1;
-        self.variables.push((id_generator.next_id(), center_x));
-        self.variables.push((id_generator.next_id(), center_y));
-        self.variables.push((id_generator.next_id(), radius));
-    }
-
-    /// Add variables for a arc.
-    /// Once you call this, you cannot push 2D points or circles anymore.
-    pub fn push_arc(&mut self, id_generator: &mut IdGenerator, a: Point, b: Point, center: Point) {
-        self.num_arcs += 1;
-        let c = center;
-        self.variables.push((id_generator.next_id(), a.x));
-        self.variables.push((id_generator.next_id(), a.y));
-        self.variables.push((id_generator.next_id(), b.x));
-        self.variables.push((id_generator.next_id(), b.y));
-        self.variables.push((id_generator.next_id(), c.x));
-        self.variables.push((id_generator.next_id(), c.y));
     }
 
     /// Look up the variables for a given 2D point.
@@ -113,6 +86,85 @@ impl GeometryVariables {
         let cy = self.variables[start_of_arcs + VARS_PER_ARC * arc_id + 5].0;
         let center = PointVars { x: cx, y: cy };
         ArcVars { a, b, center }
+    }
+}
+
+impl GeometryVariables<PointsState> {
+    /// Add variables for a 2D point.
+    /// Must be called before `push_circle`.
+    pub fn push_point(&mut self, id_generator: &mut IdGenerator, x: f64, y: f64) {
+        if self.num_circles > 0 {
+            panic!("You must add points before circles");
+        }
+        if self.num_arcs > 0 {
+            panic!("You must add points before arcs");
+        }
+        self.num_points += 1;
+        self.push_scalar(id_generator, x);
+        self.push_scalar(id_generator, y);
+    }
+
+    pub fn done(self) -> GeometryVariables<CirclesState> {
+        GeometryVariables {
+            variables: self.variables,
+            num_points: self.num_points,
+            num_circles: self.num_circles,
+            num_arcs: self.num_arcs,
+            state: PhantomData,
+        }
+    }
+}
+
+impl GeometryVariables<CirclesState> {
+    /// Add variables for a circle.
+    pub fn push_circle(
+        &mut self,
+        id_generator: &mut IdGenerator,
+        center_x: f64,
+        center_y: f64,
+        radius: f64,
+    ) {
+        if self.num_arcs > 0 {
+            panic!("You must add circles before arcs");
+        }
+        self.num_circles += 1;
+        self.variables.push((id_generator.next_id(), center_x));
+        self.variables.push((id_generator.next_id(), center_y));
+        self.variables.push((id_generator.next_id(), radius));
+    }
+
+    pub fn done(self) -> GeometryVariables<ArcsState> {
+        GeometryVariables {
+            variables: self.variables,
+            num_points: self.num_points,
+            num_circles: self.num_circles,
+            num_arcs: self.num_arcs,
+            state: PhantomData,
+        }
+    }
+}
+
+impl GeometryVariables<ArcsState> {
+    /// Add variables for a arc.
+    pub fn push_arc(&mut self, id_generator: &mut IdGenerator, a: Point, b: Point, center: Point) {
+        self.num_arcs += 1;
+        let c = center;
+        self.variables.push((id_generator.next_id(), a.x));
+        self.variables.push((id_generator.next_id(), a.y));
+        self.variables.push((id_generator.next_id(), b.x));
+        self.variables.push((id_generator.next_id(), b.y));
+        self.variables.push((id_generator.next_id(), c.x));
+        self.variables.push((id_generator.next_id(), c.y));
+    }
+
+    pub fn done(self) -> GeometryVariables<DoneState> {
+        GeometryVariables {
+            variables: self.variables,
+            num_points: self.num_points,
+            num_circles: self.num_circles,
+            num_arcs: self.num_arcs,
+            state: PhantomData,
+        }
     }
 }
 
