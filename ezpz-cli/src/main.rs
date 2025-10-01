@@ -9,13 +9,15 @@ use std::{
 use clap::Parser;
 use kcl_ezpz::{
     FailureOutcome, Lint,
-    textual::{Circle, Outcome, Point, Problem},
+    textual::{Arc, Circle, Outcome, Point, Problem},
 };
 
 const NUM_ITERS_BENCHMARK: u32 = 100;
-const NORMAL_POINT: &str = "0x0b5563";
-const CIRCLE_COLOR: &str = "0x700548";
-const RADIUS_COLOR: &str = "0xfccfec";
+const NORMAL_POINT: &str = "0x3C7A89";
+const CIRCLE_COLOR: &str = "0x9FA2B2";
+const RADIUS_COLOR: &str = "0x2E4756";
+const ARC_COLOR: &str = "0x16262E";
+// use DBC2CF next.
 
 type PointToDraw = (f64, f64, &'static str);
 
@@ -81,13 +83,16 @@ fn save_gnuplot_png(cli: &Cli, soln: &Outcome, output_path: String) {
     let chart_name = cli.chart_name();
     let points = points_from_soln(soln);
     let circles = circles_from_soln(soln);
+    let arcs = arcs_from_soln(soln);
     gnuplot_program.push_str(&gnuplot(
         &chart_name,
         points,
         circles,
+        arcs,
         GnuplotMode::WriteFile(output_path),
     ));
     gnuplot_program.push_str("unset output"); // closes file
+    eprintln!("{gnuplot_program}");
     let mut child = std::process::Command::new("gnuplot")
         .args(["-persist", "-"])
         .stdin(std::process::Stdio::piped())
@@ -126,12 +131,20 @@ fn circles_from_soln(soln: &Outcome) -> Vec<(Circle, String)> {
         .collect()
 }
 
+fn arcs_from_soln(soln: &Outcome) -> Vec<(Arc, String)> {
+    soln.arcs
+        .iter()
+        .map(|(label, pt)| (*pt, label.clone()))
+        .collect()
+}
+
 /// Open a `gnuplot` window displaying these points in a 2D scatter plot.
 fn pop_gnuplot_window(cli: &Cli, soln: &Outcome) {
     let chart_name = cli.chart_name();
     let points = points_from_soln(soln);
     let circles = circles_from_soln(soln);
-    let gnuplot_program = gnuplot(&chart_name, points, circles, GnuplotMode::PopWindow);
+    let arcs = arcs_from_soln(soln);
+    let gnuplot_program = gnuplot(&chart_name, points, circles, arcs, GnuplotMode::PopWindow);
     let mut child = std::process::Command::new("gnuplot")
         .args(["-persist", "-"])
         .stdin(std::process::Stdio::piped())
@@ -158,18 +171,48 @@ fn gnuplot(
     chart_name: &str,
     points: Vec<(PointToDraw, String)>,
     circles: Vec<(Circle, String)>,
+    arcs: Vec<(Arc, String)>,
     mode: GnuplotMode,
 ) -> String {
     let all_points = points
         .iter()
         .map(|((x, y, color), _label)| format!("{x:.2} {y:.2} {color}"))
-        .collect::<Vec<_>>()
-        .join("\n");
+        .chain(arcs.iter().flat_map(|arc| {
+            let ax = arc.0.a.x;
+            let ay = arc.0.a.y;
+            let bx = arc.0.b.x;
+            let by = arc.0.b.y;
+            let cx = arc.0.center.x;
+            let cy = arc.0.center.y;
+            [
+                format!("{ax:.2} {ay:.2} {ARC_COLOR}"),
+                format!("{bx:.2} {by:.2} {ARC_COLOR}"),
+                format!("{cx:.2} {cy:.2} {ARC_COLOR}"),
+            ]
+        }));
+
+    let all_points = all_points.collect::<Vec<_>>().join("\n");
+    let arc_labels = arcs.iter().flat_map(|(arc, label)| {
+        let ax = arc.a.x;
+        let ay = arc.a.y;
+        let bx = arc.b.x;
+        let by = arc.b.y;
+        let cx = arc.center.x;
+        let cy = arc.center.y;
+        [
+            format!("set label \"{label}.a\\n({ax:.2}, {ay:.2})\" at {ax:.2},{ay:.2} offset 1,1"),
+            format!("set label \"{label}.b\\n({bx:.2}, {by:.2})\" at {bx:.2},{by:.2} offset 1,1"),
+            format!(
+                "set label \"{label}.center\\n({cx:.2}, {cy:.2})\" at {cx:.2},{cy:.2} offset 1,1"
+            ),
+        ]
+    });
     let all_labels = points
         .iter()
         .map(|((x, y, _color), label)| {
             format!("set label \"{label}\\n({x:.2}, {y:.2})\" at {x:.2},{y:.2} offset 1,1")
         })
+        .chain(arc_labels)
         .collect::<Vec<_>>()
         .join("\n");
     let all_circles: String = circles
@@ -213,10 +256,19 @@ fn gnuplot(
         xs.push(circle.0.center.x - circle.0.radius);
         ys.push(circle.0.center.y - circle.0.radius);
     }
-    let min_x = xs.iter().cloned().fold(f64::NAN, f64::min) - 1.0;
-    let max_x = xs.iter().cloned().fold(f64::NAN, f64::max) + 1.0;
-    let min_y = ys.iter().cloned().fold(f64::NAN, f64::min) - 1.0;
-    let max_y = ys.iter().cloned().fold(f64::NAN, f64::max) + 1.0;
+    for arc in &arcs {
+        xs.push(arc.0.center.x);
+        ys.push(arc.0.center.y);
+        xs.push(arc.0.a.x);
+        ys.push(arc.0.a.y);
+        xs.push(arc.0.b.x);
+        ys.push(arc.0.b.y);
+    }
+    let padding = 1.0;
+    let min_x = xs.iter().cloned().fold(f64::NAN, f64::min) - padding;
+    let max_x = xs.iter().cloned().fold(f64::NAN, f64::max) + padding;
+    let min_y = ys.iter().cloned().fold(f64::NAN, f64::min) - padding;
+    let max_y = ys.iter().cloned().fold(f64::NAN, f64::max) + padding;
 
     let display = match mode {
         GnuplotMode::PopWindow => "set term qt font \"Verdana\"\n".to_owned(),
@@ -410,5 +462,26 @@ mod tests {
         assert!(out.status.success());
         let stdout = String::from_utf8(out.stdout).unwrap();
         assert!(stdout.contains("Problem size: 4 rows, 4 vars"));
+    }
+
+    #[test]
+    fn test_arc() {
+        let out = Command::new("cargo")
+            .args([
+                "run",
+                "--quiet",
+                "--",
+                "-f",
+                "../test_cases/arc_radius/problem.txt",
+            ])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap()
+            .wait_with_output()
+            .unwrap();
+        assert!(out.status.success());
+        let stdout = String::from_utf8(out.stdout).unwrap();
+        assert!(stdout.contains("Problem size: 4 rows, 8 vars"));
     }
 }
