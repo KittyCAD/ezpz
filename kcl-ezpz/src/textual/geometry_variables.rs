@@ -1,4 +1,4 @@
-use crate::{Id, IdGenerator, textual::Point};
+use crate::{Id, IdGenerator, datatypes::DatumPoint, textual::Point};
 
 const VARS_PER_POINT: usize = 2;
 const VARS_PER_CIRCLE: usize = 3;
@@ -103,16 +103,16 @@ impl GeometryVariables {
     /// Look up the variables for a given arc.
     pub fn get_arc_ids(&self, arc_id: usize) -> ArcVars {
         let start_of_arcs = VARS_PER_POINT * self.num_points;
-        let px = self.variables[start_of_arcs + VARS_PER_ARC * arc_id].0;
-        let py = self.variables[start_of_arcs + VARS_PER_ARC * arc_id + 1].0;
-        let p = PointVars { x: px, y: py };
-        let qx = self.variables[start_of_arcs + VARS_PER_ARC * arc_id + 2].0;
-        let qy = self.variables[start_of_arcs + VARS_PER_ARC * arc_id + 3].0;
-        let q = PointVars { x: qx, y: qy };
+        let ax = self.variables[start_of_arcs + VARS_PER_ARC * arc_id].0;
+        let ay = self.variables[start_of_arcs + VARS_PER_ARC * arc_id + 1].0;
+        let a = PointVars { x: ax, y: ay };
+        let bx = self.variables[start_of_arcs + VARS_PER_ARC * arc_id + 2].0;
+        let by = self.variables[start_of_arcs + VARS_PER_ARC * arc_id + 3].0;
+        let b = PointVars { x: bx, y: by };
         let cx = self.variables[start_of_arcs + VARS_PER_ARC * arc_id + 4].0;
         let cy = self.variables[start_of_arcs + VARS_PER_ARC * arc_id + 5].0;
         let center = PointVars { x: cx, y: cy };
-        ArcVars { p, q, center }
+        ArcVars { a, b, center }
     }
 }
 
@@ -121,13 +121,23 @@ pub struct PointVars {
     pub y: Id,
 }
 
+#[allow(clippy::from_over_into)]
+impl Into<DatumPoint> for PointVars {
+    fn into(self) -> DatumPoint {
+        DatumPoint {
+            x_id: self.x,
+            y_id: self.y,
+        }
+    }
+}
+
 pub struct CircleVars {
     pub center: PointVars,
     pub radius: Id,
 }
 
 pub struct ArcVars {
-    pub p: PointVars,
-    pub q: PointVars,
+    pub a: PointVars,
+    pub b: PointVars,
     pub center: PointVars,
 }

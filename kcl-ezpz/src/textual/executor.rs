@@ -79,15 +79,15 @@ impl Problem {
                     label: center_label,
                 });
             };
-            let p_label = format!("{}.p", arc.0);
-            let Some(p_guess) = guessmap_points.remove(&p_label) else {
-                return Err(Error::MissingGuess { label: p_label });
+            let a_label = format!("{}.a", arc.0);
+            let Some(a_guess) = guessmap_points.remove(&a_label) else {
+                return Err(Error::MissingGuess { label: a_label });
             };
-            let q_label = format!("{}.q", arc.0);
-            let Some(q_guess) = guessmap_points.remove(&q_label) else {
-                return Err(Error::MissingGuess { label: q_label });
+            let b_label = format!("{}.b", arc.0);
+            let Some(b_guess) = guessmap_points.remove(&b_label) else {
+                return Err(Error::MissingGuess { label: b_label });
             };
-            initial_guesses.push_arc(&mut id_generator, p_guess, q_guess, center_guess);
+            initial_guesses.push_arc(&mut id_generator, a_guess, b_guess, center_guess);
         }
         if !guessmap_points.is_empty() {
             let labels: Vec<String> = guessmap_points.keys().cloned().collect();
@@ -130,34 +130,25 @@ impl Problem {
                 .position(|arc| format!("{}.center", arc.0) == label.0.as_str())
             {
                 let center = initial_guesses.get_arc_ids(arc_id).center;
-                return Ok(DatumPoint {
-                    x_id: center.x,
-                    y_id: center.y,
-                });
+                return Ok(center.into());
             }
             // Is it an arc's `p` point?
             if let Some(arc_id) = self
                 .inner_arcs
                 .iter()
-                .position(|arc| format!("{}.p", arc.0) == label.0.as_str())
+                .position(|arc| format!("{}.a", arc.0) == label.0.as_str())
             {
-                let p = initial_guesses.get_arc_ids(arc_id).p;
-                return Ok(DatumPoint {
-                    x_id: p.x,
-                    y_id: p.y,
-                });
+                let a = initial_guesses.get_arc_ids(arc_id).a;
+                return Ok(a.into());
             }
-            // Is it an arc's `q` point?
+            // Is it an arc's `b` point?
             if let Some(arc_id) = self
                 .inner_arcs
                 .iter()
-                .position(|arc| format!("{}.q", arc.0) == label.0.as_str())
+                .position(|arc| format!("{}.b", arc.0) == label.0.as_str())
             {
-                let q = initial_guesses.get_arc_ids(arc_id).q;
-                return Ok(DatumPoint {
-                    x_id: q.x,
-                    y_id: q.y,
-                });
+                let b = initial_guesses.get_arc_ids(arc_id).b;
+                return Ok(b.into());
             }
             // Well, it wasn't any of the geometries we recognize.
             Err(Error::UndefinedPoint {
