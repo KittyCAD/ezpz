@@ -16,7 +16,9 @@ use crate::datatypes::DatumDistance;
 use crate::datatypes::DatumPoint;
 use crate::datatypes::LineSegment;
 use crate::textual::Arc;
+use crate::textual::geometry_variables::DoneState;
 use crate::textual::geometry_variables::GeometryVariables;
+use crate::textual::geometry_variables::PointsState;
 use crate::textual::geometry_variables::VARS_PER_ARC;
 use crate::textual::instruction::*;
 use crate::textual::{Circle, Component, Label, Point};
@@ -29,7 +31,7 @@ impl Problem {
         let mut id_generator = IdGenerator::default();
         // First, construct the list of initial guesses,
         // and assign them to solver variables.
-        let mut initial_guesses = GeometryVariables::default();
+        let mut initial_guesses: GeometryVariables<PointsState> = Default::default();
         // Maps labels to points
         let mut guessmap_points = HashMap::new();
         guessmap_points.extend(
@@ -51,6 +53,7 @@ impl Problem {
                 .iter()
                 .map(|sg| (sg.scalar.0.clone(), sg.guess)),
         );
+        let mut initial_guesses = initial_guesses.done();
         for circle in &self.inner_circles {
             // Each circle should have a guess for its center and radius.
             // First, find the guess for its center:
@@ -74,6 +77,7 @@ impl Problem {
                 radius_guess,
             );
         }
+        let mut initial_guesses = initial_guesses.done();
         for arc in &self.inner_arcs {
             // Each arc should have a guess for its 3 points (p, q, and center).
             let center_label = format!("{}.center", arc.0);
@@ -347,6 +351,7 @@ impl Problem {
                 }
             }
         }
+        let initial_guesses = initial_guesses.done();
 
         Ok(ConstraintSystem {
             constraints,
@@ -361,7 +366,7 @@ impl Problem {
 #[derive(Clone)]
 pub struct ConstraintSystem<'a> {
     constraints: Vec<Constraint>,
-    initial_guesses: GeometryVariables,
+    initial_guesses: GeometryVariables<DoneState>,
     inner_points: &'a [Label],
     inner_circles: &'a [Label],
     inner_arcs: &'a [Label],
