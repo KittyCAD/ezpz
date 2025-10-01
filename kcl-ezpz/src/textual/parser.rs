@@ -3,8 +3,9 @@ use crate::{
     textual::{
         ScalarGuess,
         instruction::{
-            AngleLine, CircleRadius, DeclareCircle, Distance, FixCenterPointComponent,
-            LinesEqualLength, Parallel, Perpendicular, PointsCoincident, Tangent,
+            AngleLine, ArcRadius, CircleRadius, DeclareArc, DeclareCircle, Distance,
+            FixCenterPointComponent, LinesEqualLength, Parallel, Perpendicular, PointsCoincident,
+            Tangent,
         },
     },
 };
@@ -28,12 +29,16 @@ pub fn parse_problem(i: &mut &str) -> WResult<Problem> {
     let instructions: Vec<_> = separated(1.., parse_instruction, newline).parse_next(i)?;
     let mut inner_points = Vec::new();
     let mut inner_circles = Vec::new();
+    let mut inner_arcs = Vec::new();
     for instr in instructions.iter().flatten() {
         if let Instruction::DeclarePoint(dp) = instr {
             inner_points.push(dp.label.clone());
         }
         if let Instruction::DeclareCircle(dc) = instr {
             inner_circles.push(dc.label.clone());
+        }
+        if let Instruction::DeclareArc(dc) = instr {
+            inner_arcs.push(dc.label.clone());
         }
     }
     newline.parse_next(i)?;
@@ -57,6 +62,7 @@ pub fn parse_problem(i: &mut &str) -> WResult<Problem> {
         instructions: instructions.into_iter().flatten().collect(),
         inner_points,
         inner_circles,
+        inner_arcs,
         point_guesses,
         scalar_guesses,
     })
@@ -130,6 +136,12 @@ pub fn parse_declare_point(i: &mut &str) -> WResult<DeclarePoint> {
 pub fn parse_declare_circle(i: &mut &str) -> WResult<DeclareCircle> {
     ("circle", ws, parse_label)
         .map(|(_, _, label)| DeclareCircle { label })
+        .parse_next(i)
+}
+
+pub fn parse_declare_arc(i: &mut &str) -> WResult<DeclareArc> {
+    ("arc", ws, parse_label)
+        .map(|(_, _, label)| DeclareArc { label })
         .parse_next(i)
 }
 
@@ -224,6 +236,13 @@ pub fn parse_tangent(i: &mut &str) -> WResult<Tangent> {
     })
 }
 
+pub fn parse_arc_radius(i: &mut &str) -> WResult<ArcRadius> {
+    let _ = "arc_radius".parse_next(i)?;
+    ignore_ws(i);
+    let (arc_label, _, radius) = inside_brackets((parse_label, commasep, parse_number), i)?;
+    Ok(ArcRadius { arc_label, radius })
+}
+
 pub fn parse_lines_equal_length(i: &mut &str) -> WResult<LinesEqualLength> {
     let _ = "lines_equal_length".parse_next(i)?;
     ignore_ws(i);
@@ -284,6 +303,7 @@ fn parse_instruction(i: &mut &str) -> WResult<Vec<Instruction>> {
     alt((
         parse_declare_point.map(Instruction::DeclarePoint).map(sv),
         parse_declare_circle.map(Instruction::DeclareCircle).map(sv),
+        parse_declare_arc.map(Instruction::DeclareArc).map(sv),
         parse_fix_point_component
             .map(Instruction::FixPointComponent)
             .map(sv),
@@ -300,6 +320,7 @@ fn parse_instruction(i: &mut &str) -> WResult<Vec<Instruction>> {
         parse_angle_line.map(Instruction::AngleLine).map(sv),
         parse_circle_radius.map(Instruction::CircleRadius).map(sv),
         parse_tangent.map(Instruction::Tangent).map(sv),
+        parse_arc_radius.map(Instruction::ArcRadius).map(sv),
         parse_lines_equal_length
             .map(Instruction::LinesEqualLength)
             .map(sv),
@@ -391,7 +412,7 @@ fn parse_fix_center_point_component(i: &mut &str) -> WResult<FixCenterPointCompo
     )
         .map(
             |(label, _dot, component, _equals, value)| FixCenterPointComponent {
-                circle: label,
+                object: label,
                 center_component: component,
                 value,
             },

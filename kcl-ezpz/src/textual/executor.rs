@@ -11,10 +11,13 @@ use crate::Lint;
 use crate::SolveOutcome;
 use crate::constraints::AngleKind;
 use crate::datatypes;
+use crate::datatypes::CircularArc;
 use crate::datatypes::DatumDistance;
 use crate::datatypes::DatumPoint;
 use crate::datatypes::LineSegment;
+use crate::textual::Arc;
 use crate::textual::geometry_variables::GeometryVariables;
+use crate::textual::geometry_variables::VARS_PER_ARC;
 use crate::textual::instruction::*;
 use crate::textual::{Circle, Component, Label, Point};
 
@@ -71,6 +74,24 @@ impl Problem {
                 radius_guess,
             );
         }
+        for arc in &self.inner_arcs {
+            // Each arc should have a guess for its 3 points (p, q, and center).
+            let center_label = format!("{}.center", arc.0);
+            let Some(center_guess) = guessmap_points.remove(&center_label) else {
+                return Err(Error::MissingGuess {
+                    label: center_label,
+                });
+            };
+            let a_label = format!("{}.a", arc.0);
+            let Some(a_guess) = guessmap_points.remove(&a_label) else {
+                return Err(Error::MissingGuess { label: a_label });
+            };
+            let b_label = format!("{}.b", arc.0);
+            let Some(b_guess) = guessmap_points.remove(&b_label) else {
+                return Err(Error::MissingGuess { label: b_label });
+            };
+            initial_guesses.push_arc(&mut id_generator, a_guess, b_guess, center_guess);
+        }
         if !guessmap_points.is_empty() {
             let labels: Vec<String> = guessmap_points.keys().cloned().collect();
             return Err(Error::UnusedGuesses { labels });
@@ -84,6 +105,7 @@ impl Problem {
         // were defined in the previous step.
         let mut constraints = Vec::new();
         let datum_point_for_label = |label: &Label| -> Result<DatumPoint, crate::Error> {
+            // Is the point a single geometric point?
             if let Some(point_id) = self.inner_points.iter().position(|p| p == &label.0) {
                 let ids = initial_guesses.get_point_ids(point_id);
                 return Ok(DatumPoint {
@@ -91,6 +113,7 @@ impl Problem {
                     y_id: ids.y,
                 });
             }
+            // Maybe it's a point in a circle?
             if let Some(circle_id) = self
                 .inner_circles
                 .iter()
@@ -102,6 +125,35 @@ impl Problem {
                     y_id: center.y,
                 });
             }
+            // Maybe it's a point in an arc?
+            // Is it an arc's center?
+            if let Some(arc_id) = self
+                .inner_arcs
+                .iter()
+                .position(|arc| format!("{}.center", arc.0) == label.0.as_str())
+            {
+                let center = initial_guesses.get_arc_ids(arc_id).center;
+                return Ok(center.into());
+            }
+            // Is it an arc's `p` point?
+            if let Some(arc_id) = self
+                .inner_arcs
+                .iter()
+                .position(|arc| format!("{}.a", arc.0) == label.0.as_str())
+            {
+                let a = initial_guesses.get_arc_ids(arc_id).a;
+                return Ok(a.into());
+            }
+            // Is it an arc's `b` point?
+            if let Some(arc_id) = self
+                .inner_arcs
+                .iter()
+                .position(|arc| format!("{}.b", arc.0) == label.0.as_str())
+            {
+                let b = initial_guesses.get_arc_ids(arc_id).b;
+                return Ok(b.into());
+            }
+            // Well, it wasn't any of the geometries we recognize.
             Err(Error::UndefinedPoint {
                 label: label.0.clone(),
             })
@@ -124,6 +176,7 @@ impl Problem {
             match instr {
                 Instruction::DeclarePoint(_) => {}
                 Instruction::DeclareCircle(_) => {}
+                Instruction::DeclareArc(_) => {}
                 Instruction::CircleRadius(CircleRadius { circle, radius }) => {
                     let circ = &circle.0;
                     let center_id = datum_point_for_label(&Label(format!("{circ}.center")))?;
@@ -135,6 +188,15 @@ impl Problem {
                         },
                         *radius,
                     ));
+                }
+                Instruction::ArcRadius(ArcRadius { arc_label, radius }) => {
+                    let arc_label = &arc_label.0;
+                    let circular_arc = CircularArc {
+                        center: datum_point_for_label(&Label(format!("{arc_label}.center")))?,
+                        a: datum_point_for_label(&Label(format!("{arc_label}.a")))?,
+                        b: datum_point_for_label(&Label(format!("{arc_label}.b")))?,
+                    };
+                    constraints.push(Constraint::ArcRadius(circular_arc, *radius));
                 }
                 Instruction::Tangent(Tangent {
                     circle,
@@ -188,12 +250,13 @@ impl Problem {
                     }
                 }
                 Instruction::FixCenterPointComponent(FixCenterPointComponent {
-                    circle,
+                    object,
                     center_component,
                     value,
                 }) => {
+                    // Is this center talking about a circle object?
                     if let Some(circle_id) =
-                        self.inner_circles.iter().position(|label| label == circle)
+                        self.inner_circles.iter().position(|label| label == object)
                     {
                         let center = initial_guesses.get_circle_ids(circle_id).center;
                         let id = match center_component {
@@ -201,9 +264,19 @@ impl Problem {
                             Component::Y => center.y,
                         };
                         constraints.push(Constraint::Fixed(id, *value));
+                    // Is this center talking about an arc object?
+                    } else if let Some(arc_id) =
+                        self.inner_arcs.iter().position(|label| label == object)
+                    {
+                        let center = initial_guesses.get_arc_ids(arc_id).center;
+                        let id = match center_component {
+                            Component::X => center.x,
+                            Component::Y => center.y,
+                        };
+                        constraints.push(Constraint::Fixed(id, *value));
                     } else {
                         return Err(Error::UndefinedPoint {
-                            label: circle.0.clone(),
+                            label: object.0.clone(),
                         });
                     }
                 }
@@ -280,6 +353,7 @@ impl Problem {
             initial_guesses,
             inner_points: &self.inner_points,
             inner_circles: &self.inner_circles,
+            inner_arcs: &self.inner_arcs,
         })
     }
 }
@@ -290,6 +364,7 @@ pub struct ConstraintSystem<'a> {
     initial_guesses: GeometryVariables,
     inner_points: &'a [Label],
     inner_circles: &'a [Label],
+    inner_arcs: &'a [Label],
 }
 
 impl ConstraintSystem<'_> {
@@ -312,6 +387,7 @@ impl ConstraintSystem<'_> {
         } = self.solve_no_metadata(config)?;
         let num_points = self.inner_points.len();
         let num_circles = self.inner_circles.len();
+        let num_arcs = self.inner_arcs.len();
 
         let mut final_points = IndexMap::with_capacity(num_points);
         for (i, point) in self.inner_points.iter().enumerate() {
@@ -337,11 +413,30 @@ impl ConstraintSystem<'_> {
                 },
             );
         }
+        let start_of_arcs = start_of_circles + 3 * self.inner_circles.len();
+        let mut final_arcs = IndexMap::with_capacity(num_arcs);
+        for (i, arc_label) in self.inner_arcs.iter().enumerate() {
+            let ax = final_values[start_of_arcs + VARS_PER_ARC * i];
+            let ay = final_values[start_of_arcs + VARS_PER_ARC * i + 1];
+            let bx = final_values[start_of_arcs + VARS_PER_ARC * i + 2];
+            let by = final_values[start_of_arcs + VARS_PER_ARC * i + 3];
+            let cx = final_values[start_of_arcs + VARS_PER_ARC * i + 4];
+            let cy = final_values[start_of_arcs + VARS_PER_ARC * i + 5];
+            final_arcs.insert(
+                arc_label.0.clone(),
+                Arc {
+                    center: Point { x: cx, y: cy },
+                    a: Point { x: ax, y: ay },
+                    b: Point { x: bx, y: by },
+                },
+            );
+        }
         Ok(Outcome {
             iterations,
             lints,
             points: final_points,
             circles: final_circles,
+            arcs: final_arcs,
             num_vars,
             num_eqs,
         })
@@ -354,6 +449,7 @@ pub struct Outcome {
     pub lints: Vec<Lint>,
     pub points: IndexMap<String, Point>,
     pub circles: IndexMap<String, Circle>,
+    pub arcs: IndexMap<String, Arc>,
     pub num_vars: usize,
     pub num_eqs: usize,
 }
@@ -367,5 +463,10 @@ impl Outcome {
     #[cfg(test)]
     pub fn get_circle(&self, label: &str) -> Option<Circle> {
         self.circles.get(label).copied()
+    }
+
+    #[cfg(test)]
+    pub fn get_arc(&self, label: &str) -> Option<Arc> {
+        self.arcs.get(label).copied()
     }
 }

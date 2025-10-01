@@ -60,7 +60,7 @@ install:
 
 # Like `install` but faster.
 @reinstall:
-    cargo install --path ezpz-cli --quiet --offline
+    cargo install --path ezpz-cli --quiet --offline --force
 
 # Create a new test case
 new-test name:

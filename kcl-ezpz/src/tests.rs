@@ -211,6 +211,15 @@ fn underdetermined_lines() {
 }
 
 #[test]
+fn arc_radius() {
+    let solved = run("arc_radius");
+    let arc = solved.get_arc("a").unwrap();
+    assert_points_eq(arc.center, Point { x: 0.0, y: 0.0 });
+    assert_points_eq(arc.a, Point { x: 0.0, y: 5.0 });
+    assert_points_eq(arc.b, Point { x: 5.0, y: 0.0 });
+}
+
+#[test]
 fn lints() {
     let txt = "# constraints
 point p

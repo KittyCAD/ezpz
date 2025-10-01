@@ -28,6 +28,7 @@ pub struct Problem {
     pub instructions: Vec<Instruction>,
     pub inner_points: Vec<Label>,
     pub inner_circles: Vec<Label>,
+    pub inner_arcs: Vec<Label>,
     pub point_guesses: Vec<PointGuess>,
     pub scalar_guesses: Vec<ScalarGuess>,
 }
@@ -49,6 +50,13 @@ pub struct Point {
 #[derive(Clone, Copy, PartialEq, Debug, Default)]
 pub struct Circle {
     pub radius: f64,
+    pub center: Point,
+}
+
+#[derive(Clone, Copy, PartialEq, Debug, Default)]
+pub struct Arc {
+    pub a: Point,
+    pub b: Point,
     pub center: Point,
 }
 

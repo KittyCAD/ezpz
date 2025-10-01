@@ -6,6 +6,7 @@ use super::{Component, Label};
 pub enum Instruction {
     DeclarePoint(DeclarePoint),
     DeclareCircle(DeclareCircle),
+    DeclareArc(DeclareArc),
     FixPointComponent(FixPointComponent),
     Vertical(Vertical),
     Horizontal(Horizontal),
@@ -16,6 +17,7 @@ pub enum Instruction {
     PointsCoincident(PointsCoincident),
     CircleRadius(CircleRadius),
     Tangent(Tangent),
+    ArcRadius(ArcRadius),
     FixCenterPointComponent(FixCenterPointComponent),
     LinesEqualLength(LinesEqualLength),
 }
@@ -43,6 +45,12 @@ pub struct Tangent {
     pub circle: Label,
     pub line_p0: Label,
     pub line_p1: Label,
+}
+
+#[derive(Debug)]
+pub struct ArcRadius {
+    pub arc_label: Label,
+    pub radius: f64,
 }
 
 #[derive(Debug)]
@@ -91,6 +99,11 @@ pub struct DeclareCircle {
 }
 
 #[derive(Debug)]
+pub struct DeclareArc {
+    pub label: Label,
+}
+
+#[derive(Debug)]
 pub struct FixPointComponent {
     pub point: Label,
     pub component: Component,
@@ -99,7 +112,7 @@ pub struct FixPointComponent {
 
 #[derive(Debug)]
 pub struct FixCenterPointComponent {
-    pub circle: Label,
+    pub object: Label,
     pub center_component: Component,
     pub value: f64,
 }
