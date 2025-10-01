@@ -111,7 +111,7 @@ impl Problem {
         let datum_point_for_label = |label: &Label| -> Result<DatumPoint, crate::Error> {
             // Is the point a single geometric point?
             if let Some(point_id) = self.inner_points.iter().position(|p| p == &label.0) {
-                let ids = initial_guesses.get_point_ids(point_id);
+                let ids = initial_guesses.point_ids(point_id);
                 return Ok(DatumPoint {
                     x_id: ids.x,
                     y_id: ids.y,
@@ -123,7 +123,7 @@ impl Problem {
                 .iter()
                 .position(|circ| format!("{}.center", circ.0) == label.0.as_str())
             {
-                let center = initial_guesses.get_circle_ids(circle_id).center;
+                let center = initial_guesses.circle_ids(circle_id).center;
                 return Ok(DatumPoint {
                     x_id: center.x,
                     y_id: center.y,
@@ -136,7 +136,7 @@ impl Problem {
                 .iter()
                 .position(|arc| format!("{}.center", arc.0) == label.0.as_str())
             {
-                let center = initial_guesses.get_arc_ids(arc_id).center;
+                let center = initial_guesses.arc_ids(arc_id).center;
                 return Ok(center.into());
             }
             // Is it an arc's `p` point?
@@ -145,7 +145,7 @@ impl Problem {
                 .iter()
                 .position(|arc| format!("{}.a", arc.0) == label.0.as_str())
             {
-                let a = initial_guesses.get_arc_ids(arc_id).a;
+                let a = initial_guesses.arc_ids(arc_id).a;
                 return Ok(a.into());
             }
             // Is it an arc's `b` point?
@@ -154,7 +154,7 @@ impl Problem {
                 .iter()
                 .position(|arc| format!("{}.b", arc.0) == label.0.as_str())
             {
-                let b = initial_guesses.get_arc_ids(arc_id).b;
+                let b = initial_guesses.arc_ids(arc_id).b;
                 return Ok(b.into());
             }
             // Well, it wasn't any of the geometries we recognize.
@@ -168,7 +168,7 @@ impl Problem {
                 .iter()
                 .position(|circ| format!("{}.radius", circ.0) == label.0.as_str())
             {
-                let ids = initial_guesses.get_circle_ids(circle_id);
+                let ids = initial_guesses.circle_ids(circle_id);
                 return Ok(DatumDistance { id: ids.radius });
             }
             Err(Error::UndefinedPoint {
@@ -230,7 +230,7 @@ impl Problem {
                     if let Some(point_id) =
                         self.inner_points.iter().position(|label| label == point)
                     {
-                        let ids = initial_guesses.get_point_ids(point_id);
+                        let ids = initial_guesses.point_ids(point_id);
                         let id = match component {
                             Component::X => ids.x,
                             Component::Y => ids.y,
@@ -240,7 +240,7 @@ impl Problem {
                         if let Some(circle_id) =
                             self.inner_circles.iter().position(|p| p.0 == circle_label)
                         {
-                            let center = initial_guesses.get_circle_ids(circle_id).center;
+                            let center = initial_guesses.circle_ids(circle_id).center;
                             let id = match component {
                                 Component::X => center.x,
                                 Component::Y => center.y,
@@ -262,7 +262,7 @@ impl Problem {
                     if let Some(circle_id) =
                         self.inner_circles.iter().position(|label| label == object)
                     {
-                        let center = initial_guesses.get_circle_ids(circle_id).center;
+                        let center = initial_guesses.circle_ids(circle_id).center;
                         let id = match center_component {
                             Component::X => center.x,
                             Component::Y => center.y,
@@ -272,7 +272,7 @@ impl Problem {
                     } else if let Some(arc_id) =
                         self.inner_arcs.iter().position(|label| label == object)
                     {
-                        let center = initial_guesses.get_arc_ids(arc_id).center;
+                        let center = initial_guesses.arc_ids(arc_id).center;
                         let id = match center_component {
                             Component::X => center.x,
                             Component::Y => center.y,
