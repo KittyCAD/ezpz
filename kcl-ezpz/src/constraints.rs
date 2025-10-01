@@ -37,6 +37,8 @@ pub enum Constraint {
     CircleRadius(Circle, f64),
     /// These lines should be the same distance.
     LinesEqualLength(LineSegment, LineSegment),
+    /// The arc should have the given radius.
+    ArcRadius(CircularArc, f64),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -91,6 +93,14 @@ impl Constraint {
             Constraint::LinesEqualLength(line0, line1) => {
                 row0.extend(line0.all_variables());
                 row0.extend(line1.all_variables());
+            }
+            Constraint::ArcRadius(arc, _radius) => {
+                row0.push(arc.center.id_x());
+                row0.push(arc.center.id_y());
+                row0.push(arc.a.id_x());
+                row0.push(arc.a.id_y());
+                row0.push(arc.b.id_x());
+                row0.push(arc.b.id_y());
             }
         }
     }
@@ -244,6 +254,20 @@ impl Constraint {
                 let len1 = l1.0.euclidean_distance(l1.1);
                 output.push(len0 - len1);
             }
+            Constraint::ArcRadius(arc, radius) => {
+                // This is really just equivalent to 2 constraints,
+                // distance(center, a) and distance(center, b).
+                let constraints = (
+                    Constraint::Distance(arc.center, arc.a, *radius),
+                    Constraint::Distance(arc.center, arc.b, *radius),
+                );
+                constraints
+                    .0
+                    .residual(layout, current_assignments, output, output1);
+                constraints
+                    .1
+                    .residual(layout, current_assignments, output1, output);
+            }
         }
     }
 
@@ -260,6 +284,7 @@ impl Constraint {
             Constraint::PointsCoincident(..) => 2,
             Constraint::CircleRadius(..) => 1,
             Constraint::LinesEqualLength(..) => 1,
+            Constraint::ArcRadius(..) => 2,
         }
     }
 
@@ -627,6 +652,20 @@ impl Constraint {
                     partial_derivative: 1.0,
                 })
             }
+            Constraint::ArcRadius(arc, radius) => {
+                // This is really just equivalent to 2 constraints,
+                // distance(center, a) and distance(center, b).
+                let constraints = (
+                    Constraint::Distance(arc.center, arc.a, *radius),
+                    Constraint::Distance(arc.center, arc.b, *radius),
+                );
+                constraints
+                    .0
+                    .jacobian_rows(layout, current_assignments, row0, row1);
+                constraints
+                    .1
+                    .jacobian_rows(layout, current_assignments, row1, row0);
+            }
         }
     }
 
@@ -642,6 +681,7 @@ impl Constraint {
             Constraint::PointsCoincident(..) => "PointsCoincident",
             Constraint::CircleRadius(..) => "CircleRadius",
             Constraint::LinesEqualLength(..) => "LinesEqualLength",
+            Constraint::ArcRadius(..) => "ArcRadius",
         }
     }
 }

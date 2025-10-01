@@ -128,7 +128,8 @@ impl Circle {
 }
 
 /// Arc on the perimeter of a circle.
-#[allow(dead_code)]
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct CircularArc {
     /// Center of the circle
     pub center: DatumPoint,
