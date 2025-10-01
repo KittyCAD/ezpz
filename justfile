@@ -1,4 +1,4 @@
-clippy-flags := "--workspace --tests --benches --examples"
+clippy-flags := "--workspace --tests --benches --examples --all-targets"
 gen := "test_cases/massive_parallel_system/gen_big_problem.py"
 
 # Check most of CI, but locally.
