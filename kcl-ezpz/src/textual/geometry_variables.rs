@@ -7,8 +7,8 @@ const VARS_PER_CIRCLE: usize = 3;
 pub const VARS_PER_ARC: usize = 6;
 
 /// Stores variables for different constrainable geometry.
-#[derive(Default, Clone, Debug)]
-pub struct GeometryVariables<S: State> {
+#[derive(Clone, Debug)]
+pub struct GeometryVariables<S> {
     /// List of variables, each with an ID and a value.
     // Layout of this vec:
     // - All variables for points are stored first,
@@ -24,17 +24,31 @@ pub struct GeometryVariables<S: State> {
     state: PhantomData<S>,
 }
 
+// Must implement manually instead of deriving,
+// because S does not implement Default.
+impl<S> Default for GeometryVariables<S> {
+    fn default() -> Self {
+        Self {
+            variables: Default::default(),
+            num_points: Default::default(),
+            num_circles: Default::default(),
+            num_arcs: Default::default(),
+            state: Default::default(),
+        }
+    }
+}
+
 pub trait State {}
 
-#[derive(Default)]
 pub struct PointsState;
 impl State for PointsState {}
-#[derive(Default)]
+
 pub struct CirclesState;
 impl State for CirclesState {}
-#[derive(Default)]
+
 pub struct ArcsState;
 impl State for ArcsState {}
+
 #[derive(Clone)]
 pub struct DoneState;
 impl State for DoneState {}
@@ -55,14 +69,14 @@ impl<S: State> GeometryVariables<S> {
     }
 
     /// Look up the variables for a given 2D point.
-    pub fn get_point_ids(&self, point_id: usize) -> PointVars {
+    pub fn point_ids(&self, point_id: usize) -> PointVars {
         let x = self.variables[VARS_PER_POINT * point_id].0;
         let y = self.variables[VARS_PER_POINT * point_id + 1].0;
         PointVars { x, y }
     }
 
     /// Look up the variables for a given circle.
-    pub fn get_circle_ids(&self, circle_id: usize) -> CircleVars {
+    pub fn circle_ids(&self, circle_id: usize) -> CircleVars {
         let start_of_circles = VARS_PER_POINT * self.num_points;
         let x = self.variables[start_of_circles + VARS_PER_CIRCLE * circle_id].0;
         let y = self.variables[start_of_circles + VARS_PER_CIRCLE * circle_id + 1].0;
@@ -74,7 +88,7 @@ impl<S: State> GeometryVariables<S> {
     }
 
     /// Look up the variables for a given arc.
-    pub fn get_arc_ids(&self, arc_id: usize) -> ArcVars {
+    pub fn arc_ids(&self, arc_id: usize) -> ArcVars {
         let start_of_arcs = VARS_PER_POINT * self.num_points;
         let ax = self.variables[start_of_arcs + VARS_PER_ARC * arc_id].0;
         let ay = self.variables[start_of_arcs + VARS_PER_ARC * arc_id + 1].0;
