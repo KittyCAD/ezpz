@@ -68,6 +68,10 @@ fn main() {
             std::process::exit(1);
         }
     };
+    handle_output(soln, cli)
+}
+
+fn handle_output(soln: (Outcome, Duration), cli: Cli) {
     print_output(&soln, cli.show_points);
     if let Some(ref p) = cli.gnuplot_png_path {
         let output_path = p.display().to_string();
@@ -442,6 +446,22 @@ fn read_problem(cli: &Cli) -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use std::process::{Command, Stdio};
+
+    use crate::{Cli, handle_output, main_inner};
+
+    #[test]
+    fn test_tiny_inner() {
+        for case in ["tiny", "arc_radius", "circle"] {
+            let cli = Cli {
+                filepath: format!("../test_cases/{case}/problem.txt").into(),
+                gnuplot: Default::default(),
+                gnuplot_png_path: Some("test_image.png".into()),
+                show_points: true,
+            };
+            let soln = main_inner(&cli).unwrap().unwrap();
+            handle_output(soln, cli);
+        }
+    }
 
     #[test]
     fn test_tiny() {

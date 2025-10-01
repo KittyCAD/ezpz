@@ -5,4 +5,9 @@ package-lock.json
 flamegraph.svg
 lcov.info
 .vscode/
+
+# Often used in manual testing
 foo.png
+
+# Used in unit tests
+ezpz-cli/test_image.png 
