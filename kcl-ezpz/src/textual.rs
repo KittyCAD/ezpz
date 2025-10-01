@@ -53,6 +53,13 @@ pub struct Circle {
     pub center: Point,
 }
 
+#[derive(Clone, Copy, PartialEq, Debug, Default)]
+pub struct Arc {
+    pub a: Point,
+    pub b: Point,
+    pub center: Point,
+}
+
 impl std::fmt::Display for Point {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "({},{})", self.x, self.y)

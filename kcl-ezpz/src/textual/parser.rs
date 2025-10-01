@@ -3,8 +3,9 @@ use crate::{
     textual::{
         ScalarGuess,
         instruction::{
-            AngleLine, CircleRadius, DeclareArc, DeclareCircle, Distance, FixCenterPointComponent,
-            LinesEqualLength, Parallel, Perpendicular, PointsCoincident, Tangent,
+            AngleLine, ArcRadius, CircleRadius, DeclareArc, DeclareCircle, Distance,
+            FixCenterPointComponent, LinesEqualLength, Parallel, Perpendicular, PointsCoincident,
+            Tangent,
         },
     },
 };
@@ -235,6 +236,13 @@ pub fn parse_tangent(i: &mut &str) -> WResult<Tangent> {
     })
 }
 
+pub fn parse_arc_radius(i: &mut &str) -> WResult<ArcRadius> {
+    let _ = "arc_radius".parse_next(i)?;
+    ignore_ws(i);
+    let (arc_label, _, radius) = inside_brackets((parse_label, commasep, parse_number), i)?;
+    Ok(ArcRadius { arc_label, radius })
+}
+
 pub fn parse_lines_equal_length(i: &mut &str) -> WResult<LinesEqualLength> {
     let _ = "lines_equal_length".parse_next(i)?;
     ignore_ws(i);
@@ -312,6 +320,7 @@ fn parse_instruction(i: &mut &str) -> WResult<Vec<Instruction>> {
         parse_angle_line.map(Instruction::AngleLine).map(sv),
         parse_circle_radius.map(Instruction::CircleRadius).map(sv),
         parse_tangent.map(Instruction::Tangent).map(sv),
+        parse_arc_radius.map(Instruction::ArcRadius).map(sv),
         parse_lines_equal_length
             .map(Instruction::LinesEqualLength)
             .map(sv),

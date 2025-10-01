@@ -2,7 +2,7 @@ use crate::{Id, IdGenerator, datatypes::DatumPoint, textual::Point};
 
 const VARS_PER_POINT: usize = 2;
 const VARS_PER_CIRCLE: usize = 3;
-const VARS_PER_ARC: usize = 6;
+pub const VARS_PER_ARC: usize = 6;
 
 /// Stores variables for different constrainable geometry.
 #[derive(Default, Clone, Debug)]
@@ -70,13 +70,13 @@ impl GeometryVariables {
 
     /// Add variables for a arc.
     /// Once you call this, you cannot push 2D points or circles anymore.
-    pub fn push_arc(&mut self, id_generator: &mut IdGenerator, p: Point, q: Point, center: Point) {
+    pub fn push_arc(&mut self, id_generator: &mut IdGenerator, a: Point, b: Point, center: Point) {
         self.num_arcs += 1;
         let c = center;
-        self.variables.push((id_generator.next_id(), p.x));
-        self.variables.push((id_generator.next_id(), p.y));
-        self.variables.push((id_generator.next_id(), q.x));
-        self.variables.push((id_generator.next_id(), q.y));
+        self.variables.push((id_generator.next_id(), a.x));
+        self.variables.push((id_generator.next_id(), a.y));
+        self.variables.push((id_generator.next_id(), b.x));
+        self.variables.push((id_generator.next_id(), b.y));
         self.variables.push((id_generator.next_id(), c.x));
         self.variables.push((id_generator.next_id(), c.y));
     }

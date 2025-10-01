@@ -286,6 +286,7 @@ fn print_output((outcome, duration): &(Outcome, Duration), show_points: bool) {
         lints,
         points,
         circles,
+        arcs,
         num_vars,
         num_eqs,
     } = outcome;
@@ -302,6 +303,17 @@ fn print_output((outcome, duration): &(Outcome, Duration), show_points: bool) {
         for (label, kcl_ezpz::textual::Circle { radius, center }) in circles {
             let Point { x, y } = center;
             println!("\t{label}: center = ({x:.2}, {y:.2}), radius = {radius:.2}",);
+        }
+        println!("Arcs:");
+        for (label, kcl_ezpz::textual::Arc { a, b, center }) in arcs {
+            let Point { x, y } = center;
+            let ax = a.x;
+            let ay = a.y;
+            let bx = b.x;
+            let by = b.y;
+            println!(
+                "\t{label}: center = ({x:.2}, {y:.2}), a = ({ax:.2}, {ay:.2}), b = ({bx:.2}, {by:.2})",
+            );
         }
     }
 }

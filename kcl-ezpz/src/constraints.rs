@@ -94,13 +94,15 @@ impl Constraint {
                 row0.extend(line0.all_variables());
                 row0.extend(line1.all_variables());
             }
-            Constraint::ArcRadius(arc, _radius) => {
-                row0.push(arc.center.id_x());
-                row0.push(arc.center.id_y());
-                row0.push(arc.a.id_x());
-                row0.push(arc.a.id_y());
-                row0.push(arc.b.id_x());
-                row0.push(arc.b.id_y());
+            Constraint::ArcRadius(arc, radius) => {
+                // This is really just equivalent to 2 constraints,
+                // distance(center, a) and distance(center, b).
+                let constraints = (
+                    Constraint::Distance(arc.center, arc.a, *radius),
+                    Constraint::Distance(arc.center, arc.b, *radius),
+                );
+                constraints.0.nonzeroes(row0, row1);
+                constraints.1.nonzeroes(row1, row0);
             }
         }
     }

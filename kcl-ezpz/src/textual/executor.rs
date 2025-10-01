@@ -11,10 +11,13 @@ use crate::Lint;
 use crate::SolveOutcome;
 use crate::constraints::AngleKind;
 use crate::datatypes;
+use crate::datatypes::CircularArc;
 use crate::datatypes::DatumDistance;
 use crate::datatypes::DatumPoint;
 use crate::datatypes::LineSegment;
+use crate::textual::Arc;
 use crate::textual::geometry_variables::GeometryVariables;
+use crate::textual::geometry_variables::VARS_PER_ARC;
 use crate::textual::instruction::*;
 use crate::textual::{Circle, Component, Label, Point};
 
@@ -186,6 +189,15 @@ impl Problem {
                         *radius,
                     ));
                 }
+                Instruction::ArcRadius(ArcRadius { arc_label, radius }) => {
+                    let arc_label = &arc_label.0;
+                    let circular_arc = CircularArc {
+                        center: datum_point_for_label(&Label(format!("{arc_label}.center")))?,
+                        a: datum_point_for_label(&Label(format!("{arc_label}.a")))?,
+                        b: datum_point_for_label(&Label(format!("{arc_label}.b")))?,
+                    };
+                    constraints.push(Constraint::ArcRadius(circular_arc, *radius));
+                }
                 Instruction::Tangent(Tangent {
                     circle,
                     line_p0,
@@ -341,6 +353,7 @@ impl Problem {
             initial_guesses,
             inner_points: &self.inner_points,
             inner_circles: &self.inner_circles,
+            inner_arcs: &self.inner_arcs,
         })
     }
 }
@@ -351,6 +364,7 @@ pub struct ConstraintSystem<'a> {
     initial_guesses: GeometryVariables,
     inner_points: &'a [Label],
     inner_circles: &'a [Label],
+    inner_arcs: &'a [Label],
 }
 
 impl ConstraintSystem<'_> {
@@ -373,6 +387,7 @@ impl ConstraintSystem<'_> {
         } = self.solve_no_metadata(config)?;
         let num_points = self.inner_points.len();
         let num_circles = self.inner_circles.len();
+        let num_arcs = self.inner_arcs.len();
 
         let mut final_points = IndexMap::with_capacity(num_points);
         for (i, point) in self.inner_points.iter().enumerate() {
@@ -398,11 +413,30 @@ impl ConstraintSystem<'_> {
                 },
             );
         }
+        let start_of_arcs = start_of_circles + 3 * self.inner_circles.len();
+        let mut final_arcs = IndexMap::with_capacity(num_arcs);
+        for (i, arc_label) in self.inner_arcs.iter().enumerate() {
+            let ax = final_values[start_of_arcs + VARS_PER_ARC * i];
+            let ay = final_values[start_of_arcs + VARS_PER_ARC * i + 1];
+            let bx = final_values[start_of_arcs + VARS_PER_ARC * i + 2];
+            let by = final_values[start_of_arcs + VARS_PER_ARC * i + 3];
+            let cx = final_values[start_of_arcs + VARS_PER_ARC * i + 4];
+            let cy = final_values[start_of_arcs + VARS_PER_ARC * i + 5];
+            final_arcs.insert(
+                arc_label.0.clone(),
+                Arc {
+                    center: Point { x: cx, y: cy },
+                    a: Point { x: ax, y: ay },
+                    b: Point { x: bx, y: by },
+                },
+            );
+        }
         Ok(Outcome {
             iterations,
             lints,
             points: final_points,
             circles: final_circles,
+            arcs: final_arcs,
             num_vars,
             num_eqs,
         })
@@ -415,6 +449,7 @@ pub struct Outcome {
     pub lints: Vec<Lint>,
     pub points: IndexMap<String, Point>,
     pub circles: IndexMap<String, Circle>,
+    pub arcs: IndexMap<String, Arc>,
     pub num_vars: usize,
     pub num_eqs: usize,
 }
@@ -428,5 +463,10 @@ impl Outcome {
     #[cfg(test)]
     pub fn get_circle(&self, label: &str) -> Option<Circle> {
         self.circles.get(label).copied()
+    }
+
+    #[cfg(test)]
+    pub fn get_arc(&self, label: &str) -> Option<Arc> {
+        self.arcs.get(label).copied()
     }
 }
