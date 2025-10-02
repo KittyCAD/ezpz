@@ -3,6 +3,10 @@ point p0
 point p1
 point p2
 point p3
+line(p0, p1)
+line(p1, p2)
+line(p2, p3)
+line(p3, p0)
 p0 = (1,1)
 horizontal(p0, p1)
 horizontal(p2, p3)

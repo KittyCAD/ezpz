@@ -108,6 +108,7 @@ fn print_output((outcome, duration): &(Outcome, Duration), show_points: bool) {
         arcs,
         num_vars,
         num_eqs,
+        lines: _, // these are only used for visuals
     } = outcome;
     print_warnings(warnings);
     print_problem_size(*num_vars, *num_eqs);

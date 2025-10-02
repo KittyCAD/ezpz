@@ -1,14 +1,14 @@
 use std::f64::consts::PI;
 
-use kcl_ezpz::textual::{Arc, Circle, Outcome};
+use kcl_ezpz::textual::{Arc, Circle, Outcome, Point};
 use plotters::{coord::types::RangedCoordf64, prelude::*};
 
 const POINT_COLOR: RGBColor = RGBColor(0x58, 0x50, 0x8d);
-// const ARC_COLOR: RGBColor = RGBColor(0x00, 0x3f, 0x5c);
+const LINE_COLOR: RGBColor = RGBColor(0xff, 0xa6, 0x00);
 const ARC_COLOR: RGBColor = RGBColor(0xff, 0x63, 0x61);
 const CIRCLE_COLOR: RGBColor = RGBColor(0xbc, 0x50, 0x90);
+// const LINE_COLOR: RGBColor = RGBColor(0xff, 0x63, 0x61);
 // Others:
-// #ff6361
 // #ffa600
 
 use crate::Cli;
@@ -20,6 +20,7 @@ pub fn save_png(cli: &Cli, soln: &Outcome, output_path: String) -> anyhow::Resul
     let points = points_from_soln(soln);
     let circles = circles_from_soln(soln);
     let arcs = arcs_from_soln(soln);
+    let lines = lines_from_soln(soln);
     let bounds = Bounds::new(&points, &circles, &arcs);
 
     let width = 800;
@@ -49,8 +50,14 @@ pub fn save_png(cli: &Cli, soln: &Outcome, output_path: String) -> anyhow::Resul
         draw_circle(&mut chart, center, radius, label)?;
     }
 
+    // Draw the arcs
     for (Arc { a, b, center }, _label) in arcs {
         draw_arc(&mut chart, a, b, center, center.euclidean_distance(a))?;
+    }
+
+    // Draw the lines
+    for line in lines {
+        draw_line(&mut chart, line.0, line.1)?;
     }
 
     // Finished.
@@ -60,7 +67,7 @@ pub fn save_png(cli: &Cli, soln: &Outcome, output_path: String) -> anyhow::Resul
 }
 
 struct PointToDraw {
-    point: kcl_ezpz::textual::Point,
+    point: Point,
     label: String,
     color: RGBColor,
 }
@@ -112,6 +119,16 @@ fn arcs_from_soln(soln: &Outcome) -> Vec<(Arc, String)> {
         .collect()
 }
 
+fn lines_from_soln(soln: &Outcome) -> Vec<(Point, Point)> {
+    let mut out = Vec::new();
+    for line in &soln.lines {
+        let p0 = soln.points.get(&String::from(line.0.clone())).unwrap();
+        let p1 = soln.points.get(&String::from(line.1.clone())).unwrap();
+        out.push((*p0, *p1));
+    }
+    out
+}
+
 /// Span of the chart area
 struct Bounds {
     min_x: f64,
@@ -160,7 +177,7 @@ impl Bounds {
 
 fn draw_circle<DB: DrawingBackend>(
     chart: &mut ChartContext<DB, Cartesian2d<RangedCoordf64, RangedCoordf64>>,
-    center: kcl_ezpz::textual::Point,
+    center: Point,
     radius: f64,
     label: String,
 ) -> anyhow::Result<()>
@@ -239,12 +256,29 @@ where
     Ok(())
 }
 
+/// Draws a straight line between p0 and p1.
+fn draw_line<DB: DrawingBackend>(
+    chart: &mut ChartContext<DB, Cartesian2d<RangedCoordf64, RangedCoordf64>>,
+    p0: Point,
+    p1: Point,
+) -> anyhow::Result<()>
+where
+    <DB as plotters::prelude::DrawingBackend>::ErrorType: 'static,
+{
+    let color = LINE_COLOR;
+    chart.draw_series([PathElement::new(
+        vec![(p0.x, p0.y), (p1.x, p1.y)],
+        color.stroke_width(3),
+    )])?;
+    Ok(())
+}
+
 /// Draws a circular arc between p0 and p1. The circle's radius and center are given as params.
 fn draw_arc<DB: DrawingBackend>(
     chart: &mut ChartContext<DB, Cartesian2d<RangedCoordf64, RangedCoordf64>>,
-    p0: kcl_ezpz::textual::Point,
-    p1: kcl_ezpz::textual::Point,
-    center: kcl_ezpz::textual::Point,
+    p0: Point,
+    p1: Point,
+    center: Point,
     radius: f64,
 ) -> anyhow::Result<()>
 where
