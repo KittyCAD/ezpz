@@ -87,4 +87,4 @@ fuzz-check:
 
 [linux]
 install-viz-deps:
-    sudo apt install -y pkg-config libfreetype6-dev libfontconfig1-dev
+    sudo apt install -y pkg-config libfontconfig1-dev
