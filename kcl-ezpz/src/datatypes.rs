@@ -2,6 +2,10 @@ use libm::{cos, sin};
 
 use crate::{IdGenerator, id::Id};
 
+pub trait Datum {
+    fn all_variables(&self) -> impl IntoIterator<Item = Id>;
+}
+
 #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct Angle {
@@ -40,6 +44,12 @@ impl DatumDistance {
     }
 }
 
+impl Datum for DatumDistance {
+    fn all_variables(&self) -> impl IntoIterator<Item = Id> {
+        [self.id]
+    }
+}
+
 /// 2D point.
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
@@ -55,9 +65,7 @@ impl DatumPoint {
             y_id: id_generator.next_id(),
         }
     }
-}
 
-impl DatumPoint {
     /// Id for the X component of the point.
     pub fn id_x(&self) -> Id {
         self.x_id
@@ -66,6 +74,12 @@ impl DatumPoint {
     /// Id for the Y component of the point.
     pub fn id_y(&self) -> Id {
         self.y_id
+    }
+}
+
+impl Datum for DatumPoint {
+    fn all_variables(&self) -> impl IntoIterator<Item = Id> {
+        [self.id_x(), self.id_y()]
     }
 }
 
@@ -100,9 +114,10 @@ impl LineSegment {
     pub fn new(p0: DatumPoint, p1: DatumPoint) -> Self {
         Self { p0, p1 }
     }
+}
 
-    /// Get all IDs of all variables, i.e. p0.x, p0.y, p1.x, p1.y
-    pub fn all_variables(&self) -> [Id; 4] {
+impl Datum for LineSegment {
+    fn all_variables(&self) -> impl IntoIterator<Item = Id> {
         [
             self.p0.id_x(),
             self.p0.id_y(),
@@ -120,9 +135,9 @@ pub struct Circle {
     pub radius: DatumDistance,
 }
 
-impl Circle {
+impl Datum for Circle {
     /// Get all IDs of all variables, i.e. center components and radius.
-    pub fn all_variables(&self) -> [Id; 3] {
+    fn all_variables(&self) -> impl IntoIterator<Item = Id> {
         [self.center.id_x(), self.center.id_y(), self.radius.id]
     }
 }
