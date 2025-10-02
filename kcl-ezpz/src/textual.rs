@@ -67,8 +67,7 @@ impl std::fmt::Display for Point {
 }
 
 impl Point {
-    #[cfg(test)]
-    pub(crate) fn euclidean_distance(&self, r: Point) -> f64 {
+    pub fn euclidean_distance(&self, r: Point) -> f64 {
         use crate::vector::V;
         V::new(self.x, self.y).euclidean_distance(V::new(r.x, r.y))
     }

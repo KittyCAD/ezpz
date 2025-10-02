@@ -12,17 +12,18 @@ jobs:
     runs-on: ubuntu-latest-8-cores
     steps:
       - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@just
+      - name: Install deps
+        run: just install-viz-deps
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
       - uses: taiki-e/install-action@cargo-llvm-cov
       - uses: taiki-e/install-action@nextest
       - uses: Swatinem/rust-cache@v2.8.0
-      - uses: taiki-e/install-action@just
 
       - name: cargo test
         shell: bash
         run: |
-          sudo apt-get install -y gnuplot
           just test-with-coverage
         env:
           RUST_BACKTRACE: 1
