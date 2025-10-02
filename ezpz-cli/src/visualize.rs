@@ -1,3 +1,5 @@
+use std::f64::consts::PI;
+
 use kcl_ezpz::textual::{Arc, Circle, Outcome};
 use plotters::{coord::types::RangedCoordf64, prelude::*};
 
@@ -47,7 +49,7 @@ pub fn save_png(cli: &Cli, soln: &Outcome, output_path: String) -> anyhow::Resul
         draw_circle(&mut chart, center, radius, label)?;
     }
 
-    for (Arc { a, b, center }, label) in arcs {
+    for (Arc { a, b, center }, _label) in arcs {
         draw_arc(&mut chart, a, b, center, center.euclidean_distance(a))?;
     }
 
@@ -259,29 +261,28 @@ where
     let mut delta = potential_end - start_angle;
 
     // Normalize to the shortest signed delta in (-PI, PI].
-    while delta <= -std::f64::consts::PI {
-        delta += 2.0 * std::f64::consts::PI;
+    while delta <= -PI {
+        delta += 2.0 * PI;
     }
-    while delta > std::f64::consts::PI {
-        delta -= 2.0 * std::f64::consts::PI;
+    while delta > PI {
+        delta -= 2.0 * PI;
     }
-    // Use about one segment per ~10 degrees, with at least two points.
-    let interval_degrees = 10.0;
-    let steps = (delta.abs() / (std::f64::consts::PI / (180.0 / interval_degrees))).ceil();
+
+    // Sample several straight lines along the arc.
+    let interval_degrees = 2.0;
+    let steps = (delta.abs() / (PI / (180.0 / interval_degrees))).ceil();
     let steps = (steps as usize).max(1);
 
-    let mut points = Vec::with_capacity(steps + 1);
-    for step in 0..=steps {
-        let t = step as f64 / steps as f64;
-        let angle = start_angle + delta * t;
-        let x = center.x + radius * angle.cos();
-        let y = center.y + radius * angle.sin();
-        points.push((x, y));
-    }
+    let points: Vec<_> = (0..=steps)
+        .map(|step| {
+            let t = step as f64 / steps as f64;
+            let angle = start_angle + delta * t;
+            let x = center.x + radius * angle.cos();
+            let y = center.y + radius * angle.sin();
+            (x, y)
+        })
+        .collect();
 
-    chart.draw_series(std::iter::once(PathElement::new(
-        points,
-        color.stroke_width(3),
-    )))?;
+    chart.draw_series([PathElement::new(points, color.stroke_width(3))])?;
     Ok(())
 }
