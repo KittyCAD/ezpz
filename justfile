@@ -85,6 +85,7 @@ fuzz-check:
 fuzz-check:
     cargo +nightly fuzz check --target aarch64-apple-darwin
 
+# Install dependencies needed for ezpz's CLI to render graphics
 [linux]
 install-viz-deps:
     sudo apt install -y pkg-config libfontconfig1-dev

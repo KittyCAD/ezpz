@@ -47,6 +47,10 @@ pub fn save_png(cli: &Cli, soln: &Outcome, output_path: String) -> anyhow::Resul
         draw_circle(&mut chart, center, radius, label)?;
     }
 
+    for (Arc { a, b, center }, label) in arcs {
+        draw_arc(&mut chart, a, b, center, center.euclidean_distance(a))?;
+    }
+
     // Finished.
     root.present()?;
     println!("Plot saved to {output_path}");
@@ -231,4 +235,19 @@ where
         },
     ))?;
     Ok(())
+}
+
+/// Draws a circular arc between p0 and p1. The circle's radius and center are given as params.
+fn draw_arc<DB: DrawingBackend>(
+    chart: &mut ChartContext<DB, Cartesian2d<RangedCoordf64, RangedCoordf64>>,
+    p0: kcl_ezpz::textual::Point,
+    p1: kcl_ezpz::textual::Point,
+    center: kcl_ezpz::textual::Point,
+    radius: f64,
+) -> anyhow::Result<()>
+where
+    <DB as plotters::prelude::DrawingBackend>::ErrorType: 'static,
+{
+    let color = ARC_COLOR;
+    todo!()
 }
