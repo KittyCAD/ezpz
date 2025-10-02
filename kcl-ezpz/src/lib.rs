@@ -66,12 +66,12 @@ pub enum NonLinearSystemError {
 pub struct SolveOutcome {
     pub final_values: Vec<f64>,
     pub iterations: usize,
-    pub lints: Vec<Lint>,
+    pub warnings: Vec<Warning>,
 }
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(Eq, PartialEq))]
-pub struct Lint {
+pub struct Warning {
     pub about_constraint: Option<usize>,
     pub content: String,
 }
@@ -79,7 +79,7 @@ pub struct Lint {
 #[derive(Debug)]
 pub struct FailureOutcome {
     pub error: Error,
-    pub lints: Vec<Lint>,
+    pub warnings: Vec<Warning>,
     pub num_vars: usize,
     pub num_eqs: usize,
 }
@@ -94,7 +94,7 @@ pub fn solve(
     let num_vars = initial_guesses.len();
     let num_eqs = constraints.iter().map(|c| c.residual_dim()).sum();
     let (all_variables, mut values): (Vec<Id>, Vec<f64>) = initial_guesses.into_iter().unzip();
-    let lints = lint(constraints);
+    let warnings = lint(constraints);
     let initial_values = values.clone();
 
     let mut model = match Model::new(constraints, all_variables, initial_values, config) {
@@ -102,7 +102,7 @@ pub fn solve(
         Err(e) => {
             return Err(FailureOutcome {
                 error: e.into(),
-                lints,
+                warnings,
                 num_vars,
                 num_eqs,
             });
@@ -119,7 +119,7 @@ pub fn solve(
         Err(e) => {
             return Err(FailureOutcome {
                 error: e,
-                lints,
+                warnings,
                 num_vars,
                 num_eqs,
             });
@@ -129,7 +129,7 @@ pub fn solve(
     Ok(SolveOutcome {
         final_values: values,
         iterations,
-        lints,
+        warnings,
     })
 }
 
@@ -137,8 +137,8 @@ fn nearly_eq(a: f64, b: f64) -> bool {
     (a - b).abs() < EPSILON
 }
 
-fn lint(constraints: &[Constraint]) -> Vec<Lint> {
-    let mut lints = Vec::default();
+fn lint(constraints: &[Constraint]) -> Vec<Warning> {
+    let mut warnings = Vec::default();
     for (i, constraint) in constraints.iter().enumerate() {
         match constraint {
             Constraint::LinesAtAngle(_, _, constraints::AngleKind::Other(theta))
@@ -146,7 +146,7 @@ fn lint(constraints: &[Constraint]) -> Vec<Lint> {
                     || nearly_eq(theta.to_degrees(), 360.0)
                     || nearly_eq(theta.to_degrees(), 180.0) =>
             {
-                lints.push(Lint {
+                warnings.push(Warning {
                     about_constraint: Some(i),
                     content: content_for_angle(true, theta.to_degrees()),
                 });
@@ -154,7 +154,7 @@ fn lint(constraints: &[Constraint]) -> Vec<Lint> {
             Constraint::LinesAtAngle(_, _, constraints::AngleKind::Other(theta))
                 if nearly_eq(theta.to_degrees(), 90.0) || nearly_eq(theta.to_degrees(), -90.0) =>
             {
-                lints.push(Lint {
+                warnings.push(Warning {
                     about_constraint: Some(i),
                     content: content_for_angle(false, theta.to_degrees()),
                 });
@@ -162,7 +162,7 @@ fn lint(constraints: &[Constraint]) -> Vec<Lint> {
             _ => {}
         }
     }
-    lints
+    warnings
 }
 
 fn content_for_angle(is_parallel: bool, actual_degrees: f64) -> String {

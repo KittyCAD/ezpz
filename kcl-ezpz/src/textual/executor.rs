@@ -7,8 +7,8 @@ use crate::Constraint;
 use crate::Error;
 use crate::FailureOutcome;
 use crate::IdGenerator;
-use crate::Lint;
 use crate::SolveOutcome;
+use crate::Warning;
 use crate::constraints::AngleKind;
 use crate::datatypes;
 use crate::datatypes::CircularArc;
@@ -396,7 +396,7 @@ impl ConstraintSystem<'_> {
         // Pass into the solver.
         let SolveOutcome {
             iterations,
-            lints,
+            warnings,
             final_values,
         } = self.solve_no_metadata(config)?;
         let num_points = self.inner_points.len();
@@ -447,7 +447,7 @@ impl ConstraintSystem<'_> {
         }
         Ok(Outcome {
             iterations,
-            lints,
+            warnings,
             points: final_points,
             circles: final_circles,
             arcs: final_arcs,
@@ -460,7 +460,7 @@ impl ConstraintSystem<'_> {
 #[derive(Debug)]
 pub struct Outcome {
     pub iterations: usize,
-    pub lints: Vec<Lint>,
+    pub warnings: Vec<Warning>,
     pub points: IndexMap<String, Point>,
     pub circles: IndexMap<String, Circle>,
     pub arcs: IndexMap<String, Arc>,
