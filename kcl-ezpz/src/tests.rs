@@ -1,7 +1,10 @@
 use std::str::FromStr;
 
 use super::*;
-use crate::textual::{Outcome, Point, Problem};
+use crate::{
+    datatypes::Angle,
+    textual::{Outcome, Point, Problem},
+};
 
 fn run(test_case: &str) -> Outcome {
     let txt = std::fs::read_to_string(format!("../test_cases/{test_case}/problem.txt")).unwrap();
@@ -255,13 +258,10 @@ s roughly (5, 6)
     let problem = Problem::from_str(txt).unwrap();
     let solved = problem.to_constraint_system().unwrap().solve().unwrap();
     assert!(!solved.warnings.is_empty());
-    assert_eq!(
-        solved.warnings,
-        vec![Warning {
-            about_constraint: Some(7),
-            content: content_for_angle(true, 0.0),
-        }]
-    );
+    assert!(solved.warnings.contains(&Warning {
+        about_constraint: Some(7),
+        content: WarningContent::ShouldBeParallel(Angle::from_radians(0.0))
+    }),);
 }
 
 #[track_caller]

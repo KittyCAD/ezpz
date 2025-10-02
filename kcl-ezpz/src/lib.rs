@@ -9,6 +9,7 @@ pub use crate::solver::Config;
 pub use crate::id::{Id, IdGenerator};
 use crate::solver::Model;
 use faer::sparse::CreationError;
+pub use warnings::{Warning, WarningContent};
 
 /// Each kind of constraint we support.
 mod constraints;
@@ -24,6 +25,7 @@ mod tests;
 /// Parser for textual representation of these problems.
 pub mod textual;
 mod vector;
+mod warnings;
 
 const EPSILON: f64 = 1e-4;
 
@@ -70,13 +72,6 @@ pub struct SolveOutcome {
 }
 
 #[derive(Debug)]
-#[cfg_attr(test, derive(Eq, PartialEq))]
-pub struct Warning {
-    pub about_constraint: Option<usize>,
-    pub content: String,
-}
-
-#[derive(Debug)]
 pub struct FailureOutcome {
     pub error: Error,
     pub warnings: Vec<Warning>,
@@ -94,7 +89,7 @@ pub fn solve(
     let num_vars = initial_guesses.len();
     let num_eqs = constraints.iter().map(|c| c.residual_dim()).sum();
     let (all_variables, mut values): (Vec<Id>, Vec<f64>) = initial_guesses.into_iter().unzip();
-    let warnings = lint(constraints);
+    let mut warnings = warnings::lint(constraints);
     let initial_values = values.clone();
 
     let mut model = match Model::new(constraints, all_variables, initial_values, config) {
@@ -108,13 +103,14 @@ pub fn solve(
             });
         }
     };
-    let iterations = match newton_faer::solve(
+    let outcome = newton_faer::solve(
         &mut model,
         &mut values,
         newton_faer::NewtonCfg::sparse().with_adaptive(true),
     )
-    .map_err(|errs| Error::Solver(Box::new(errs.into_error())))
-    {
+    .map_err(|errs| Error::Solver(Box::new(errs.into_error())));
+    warnings.extend(model.warnings.lock().unwrap().drain(..));
+    let iterations = match outcome {
         Ok(o) => o,
         Err(e) => {
             return Err(FailureOutcome {
@@ -131,48 +127,4 @@ pub fn solve(
         iterations,
         warnings,
     })
-}
-
-fn nearly_eq(a: f64, b: f64) -> bool {
-    (a - b).abs() < EPSILON
-}
-
-fn lint(constraints: &[Constraint]) -> Vec<Warning> {
-    let mut warnings = Vec::default();
-    for (i, constraint) in constraints.iter().enumerate() {
-        match constraint {
-            Constraint::LinesAtAngle(_, _, constraints::AngleKind::Other(theta))
-                if nearly_eq(theta.to_degrees(), 0.0)
-                    || nearly_eq(theta.to_degrees(), 360.0)
-                    || nearly_eq(theta.to_degrees(), 180.0) =>
-            {
-                warnings.push(Warning {
-                    about_constraint: Some(i),
-                    content: content_for_angle(true, theta.to_degrees()),
-                });
-            }
-            Constraint::LinesAtAngle(_, _, constraints::AngleKind::Other(theta))
-                if nearly_eq(theta.to_degrees(), 90.0) || nearly_eq(theta.to_degrees(), -90.0) =>
-            {
-                warnings.push(Warning {
-                    about_constraint: Some(i),
-                    content: content_for_angle(false, theta.to_degrees()),
-                });
-            }
-            _ => {}
-        }
-    }
-    warnings
-}
-
-fn content_for_angle(is_parallel: bool, actual_degrees: f64) -> String {
-    format!(
-        "Suggest using AngleKind::{} instead of AngleKind::Other({}deg)",
-        if is_parallel {
-            "Parallel"
-        } else {
-            "Perpendicular"
-        },
-        actual_degrees
-    )
 }

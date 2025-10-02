@@ -137,6 +137,7 @@ impl Constraint {
         // Implicitly output0, i.e. residual for first row.
         output: &mut Vec<f64>,
         output1: &mut Vec<f64>,
+        degenerate: &mut bool,
     ) {
         match self {
             Constraint::LineTangentToCircle(line, circle) => {
@@ -161,6 +162,7 @@ impl Constraint {
                 if mag_v < EPSILON {
                     // If line has no length, then the residual is 0, regardless of anything else.
                     output.push(0.0);
+                    *degenerate = true;
                     return;
                 }
                 let w = circle_center - p1;
@@ -229,6 +231,7 @@ impl Constraint {
                         let is_invalid = (mag0 < EPSILON) || (mag1 < EPSILON);
                         if is_invalid {
                             output.push(0.0);
+                            *degenerate = true;
                             return;
                         }
 
@@ -273,10 +276,10 @@ impl Constraint {
                 );
                 constraints
                     .0
-                    .residual(layout, current_assignments, output, output1);
+                    .residual(layout, current_assignments, output, output1, degenerate);
                 constraints
                     .1
-                    .residual(layout, current_assignments, output1, output);
+                    .residual(layout, current_assignments, output1, output, degenerate);
             }
             Constraint::Arc(arc) => {
                 let ax = current_assignments[layout.index_of(arc.a.id_x())];
@@ -325,6 +328,7 @@ impl Constraint {
         current_assignments: &[f64],
         row0: &mut Vec<JacobianVar>,
         row1: &mut Vec<JacobianVar>,
+        degenerate: &mut bool,
     ) {
         match self {
             Constraint::LineTangentToCircle(line, circle) => {
@@ -352,6 +356,7 @@ impl Constraint {
                 let mag_v_cubed = mag_v.powi(3);
 
                 if mag_v_sq < EPSILON {
+                    *degenerate = true;
                     return;
                 }
 
@@ -415,6 +420,7 @@ impl Constraint {
 
                 let dist = V::new(x0, y0).euclidean_distance(V::new(x1, y1));
                 if dist < EPSILON {
+                    *degenerate = true;
                     return;
                 }
                 let dr_dx0 = (x0 - x1) / dist;
@@ -557,6 +563,7 @@ impl Constraint {
                         let is_invalid = (mag0 < EPSILON) || (mag1 < EPSILON);
                         if is_invalid {
                             // All zeroes
+                            *degenerate = true;
                             return;
                         }
 
@@ -604,6 +611,7 @@ impl Constraint {
 
                 // Avoid division by 0
                 if len0 < EPSILON || len1 < EPSILON {
+                    *degenerate = true;
                     return;
                 }
 
@@ -687,10 +695,10 @@ impl Constraint {
                 );
                 constraints
                     .0
-                    .jacobian_rows(layout, current_assignments, row0, row1);
+                    .jacobian_rows(layout, current_assignments, row0, row1, degenerate);
                 constraints
                     .1
-                    .jacobian_rows(layout, current_assignments, row1, row0);
+                    .jacobian_rows(layout, current_assignments, row1, row0, degenerate);
             }
             Constraint::Arc(arc) => {
                 // Residual: R = (x1-xc)²+(y1-yc)² - (x2-xc)²-(y2-yc)²
