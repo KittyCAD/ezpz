@@ -231,7 +231,7 @@ fn arc_equidistant() {
 }
 
 #[test]
-fn lints() {
+fn warnings() {
     let txt = "# constraints
 point p
 point q
@@ -254,10 +254,10 @@ s roughly (5, 6)
 ";
     let problem = Problem::from_str(txt).unwrap();
     let solved = problem.to_constraint_system().unwrap().solve().unwrap();
-    assert!(!solved.lints.is_empty());
+    assert!(!solved.warnings.is_empty());
     assert_eq!(
-        solved.lints,
-        vec![Lint {
+        solved.warnings,
+        vec![Warning {
             about_constraint: Some(7),
             content: content_for_angle(true, 0.0),
         }]

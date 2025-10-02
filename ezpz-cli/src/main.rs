@@ -8,7 +8,7 @@ use std::{
 
 use clap::Parser;
 use kcl_ezpz::{
-    FailureOutcome, Lint,
+    FailureOutcome, Warning,
     textual::{Arc, Circle, Outcome, Point, Problem},
 };
 
@@ -338,14 +338,14 @@ fn main_inner(cli: &Cli) -> Result<RunResult, String> {
 fn print_output((outcome, duration): &(Outcome, Duration), show_points: bool) {
     let Outcome {
         iterations,
-        lints,
+        warnings,
         points,
         circles,
         arcs,
         num_vars,
         num_eqs,
     } = outcome;
-    print_lints(lints);
+    print_warnings(warnings);
     print_problem_size(*num_vars, *num_eqs);
     println!("Iterations needed: {iterations}");
     print_performance(*duration);
@@ -386,11 +386,11 @@ fn print_performance(duration: Duration) {
     println!("i.e. {solves_per_second} solves per second");
 }
 
-fn print_lints(lints: &[Lint]) {
+fn print_warnings(warnings: &[Warning]) {
     use colored::Colorize;
-    if !lints.is_empty() {
-        println!("Lints:");
-        for lint in lints {
+    if !warnings.is_empty() {
+        println!("Warnings:");
+        for lint in warnings {
             println!("\t{}", lint.content.yellow());
         }
     }
@@ -411,11 +411,11 @@ fn print_failure_output(outcome: FailureOutcome) {
     use colored::Colorize;
     let FailureOutcome {
         error,
-        lints,
+        warnings,
         num_vars,
         num_eqs,
     } = outcome;
-    print_lints(&lints);
+    print_warnings(&warnings);
     print_problem_size(num_vars, num_eqs);
     eprintln!("{}: {}", "Could not solve system".red(), error);
     if num_eqs > num_vars {
