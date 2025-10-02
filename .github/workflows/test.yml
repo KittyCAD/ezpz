@@ -22,7 +22,6 @@ jobs:
       - name: cargo test
         shell: bash
         run: |
-          sudo apt-get install -y gnuplot
           just test-with-coverage
         env:
           RUST_BACKTRACE: 1

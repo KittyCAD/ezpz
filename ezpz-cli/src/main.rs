@@ -59,15 +59,19 @@ fn main() {
             std::process::exit(1);
         }
     };
-    handle_output(soln, cli)
+    if let Err(e) = handle_output(soln, cli) {
+        eprintln!("Error: {e}");
+        std::process::exit(1);
+    }
 }
 
-fn handle_output(soln: (Outcome, Duration), cli: Cli) {
+fn handle_output(soln: (Outcome, Duration), cli: Cli) -> anyhow::Result<()> {
     print_output(&soln, cli.show_points);
     if let Some(ref p) = cli.image_path {
         let output_path = p.to_string();
-        visualize::save_png(&cli, &soln.0, output_path);
+        visualize::save_png(&cli, &soln.0, output_path)?;
     }
+    Ok(())
 }
 
 type RunResult = Result<(Outcome, Duration), FailureOutcome>;
@@ -217,7 +221,7 @@ mod tests {
                 show_points: true,
             };
             let soln = main_inner(&cli).unwrap().unwrap();
-            handle_output(soln, cli);
+            handle_output(soln, cli).unwrap();
         }
     }
 
