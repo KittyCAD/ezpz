@@ -16,6 +16,8 @@ jobs:
             components: clippy
         - uses: Swatinem/rust-cache@v2.8.0
 
+        - name: Install deps
+          run: just install-viz-deps
         - name: Check lints
           run: just lint
 

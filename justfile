@@ -84,3 +84,7 @@ fuzz-check:
 [macos]
 fuzz-check:
     cargo +nightly fuzz check --target aarch64-apple-darwin
+
+[linux]
+install-viz-deps:
+    sudo apt install -y pkg-config libfreetype6-dev libfontconfig1-dev
