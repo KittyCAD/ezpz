@@ -1,7 +1,10 @@
 use std::str::FromStr;
 
 use super::*;
-use crate::textual::{Outcome, Point, Problem};
+use crate::{
+    datatypes::Angle,
+    textual::{Outcome, Point, Problem},
+};
 
 fn run(test_case: &str) -> Outcome {
     let txt = std::fs::read_to_string(format!("../test_cases/{test_case}/problem.txt")).unwrap();

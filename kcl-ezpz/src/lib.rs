@@ -2,7 +2,6 @@
 //! Solves 2D constraint systems.
 
 pub use crate::constraints::Constraint;
-use crate::datatypes::Angle;
 pub use crate::solver::Config;
 // Only public for now so that I can benchmark it.
 // TODO: Replace this with an end-to-end benchmark,
@@ -10,6 +9,7 @@ pub use crate::solver::Config;
 pub use crate::id::{Id, IdGenerator};
 use crate::solver::Model;
 use faer::sparse::CreationError;
+pub use warnings::{Warning, WarningContent};
 
 /// Each kind of constraint we support.
 mod constraints;
@@ -25,6 +25,7 @@ mod tests;
 /// Parser for textual representation of these problems.
 pub mod textual;
 mod vector;
+mod warnings;
 
 const EPSILON: f64 = 1e-4;
 
@@ -71,45 +72,6 @@ pub struct SolveOutcome {
 }
 
 #[derive(Debug)]
-#[cfg_attr(test, derive(PartialEq))]
-pub struct Warning {
-    pub about_constraint: Option<usize>,
-    pub content: WarningContent,
-}
-
-#[derive(Debug)]
-#[cfg_attr(test, derive(PartialEq))]
-#[non_exhaustive]
-pub enum WarningContent {
-    Degenerate,
-    ShouldBeParallel(Angle),
-    ShouldBePerpendicular(Angle),
-}
-
-impl std::fmt::Display for WarningContent {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            WarningContent::Degenerate => write!(
-                f,
-                "This geometry is degenerate, meaning two points are so close together that they practically overlap. This is probably unintentional, you probably should place your initial guesses further apart or choose different constraints."
-            ),
-            WarningContent::ShouldBeParallel(angle) => {
-                write!(
-                    f,
-                    "Instead of constraining to {angle}, constrain to Parallel"
-                )
-            }
-            WarningContent::ShouldBePerpendicular(angle) => {
-                write!(
-                    f,
-                    "Instead of constraining to {angle}, constraint to Perpendicular"
-                )
-            }
-        }
-    }
-}
-
-#[derive(Debug)]
 pub struct FailureOutcome {
     pub error: Error,
     pub warnings: Vec<Warning>,
@@ -127,7 +89,7 @@ pub fn solve(
     let num_vars = initial_guesses.len();
     let num_eqs = constraints.iter().map(|c| c.residual_dim()).sum();
     let (all_variables, mut values): (Vec<Id>, Vec<f64>) = initial_guesses.into_iter().unzip();
-    let mut warnings = lint(constraints);
+    let mut warnings = warnings::lint(constraints);
     let initial_values = values.clone();
 
     let mut model = match Model::new(constraints, all_variables, initial_values, config) {
@@ -165,36 +127,4 @@ pub fn solve(
         iterations,
         warnings,
     })
-}
-
-fn nearly_eq(a: f64, b: f64) -> bool {
-    (a - b).abs() < EPSILON
-}
-
-fn lint(constraints: &[Constraint]) -> Vec<Warning> {
-    let mut warnings = Vec::default();
-    for (i, constraint) in constraints.iter().enumerate() {
-        match constraint {
-            Constraint::LinesAtAngle(_, _, constraints::AngleKind::Other(theta))
-                if nearly_eq(theta.to_degrees(), 0.0)
-                    || nearly_eq(theta.to_degrees(), 360.0)
-                    || nearly_eq(theta.to_degrees(), 180.0) =>
-            {
-                warnings.push(Warning {
-                    about_constraint: Some(i),
-                    content: WarningContent::ShouldBeParallel(*theta),
-                });
-            }
-            Constraint::LinesAtAngle(_, _, constraints::AngleKind::Other(theta))
-                if nearly_eq(theta.to_degrees(), 90.0) || nearly_eq(theta.to_degrees(), -90.0) =>
-            {
-                warnings.push(Warning {
-                    about_constraint: Some(i),
-                    content: WarningContent::ShouldBePerpendicular(*theta),
-                });
-            }
-            _ => {}
-        }
-    }
-    warnings
 }
