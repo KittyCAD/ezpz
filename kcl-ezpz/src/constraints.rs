@@ -15,6 +15,7 @@ fn wrap_angle_delta(delta: f64) -> f64 {
 /// Each geometric constraint we support.
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
+#[non_exhaustive]
 pub enum Constraint {
     /// This line must be tangent to the circle
     /// (i.e. touches its perimeter in exactly one place)

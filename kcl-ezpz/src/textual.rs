@@ -9,7 +9,7 @@ pub use executor::Outcome;
 use instruction::Instruction;
 use winnow::Parser;
 
-use crate::{textual::parser::parse_problem, vector::V};
+use crate::textual::parser::parse_problem;
 
 #[derive(Debug, PartialEq)]
 pub struct PointGuess {
@@ -67,8 +67,9 @@ impl std::fmt::Display for Point {
 }
 
 impl Point {
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub(crate) fn euclidean_distance(&self, r: Point) -> f64 {
+        use crate::vector::V;
         V::new(self.x, self.y).euclidean_distance(V::new(r.x, r.y))
     }
 }
@@ -97,15 +98,6 @@ impl PartialEq<&str> for Label {
 impl PartialEq<String> for Label {
     fn eq(&self, other: &String) -> bool {
         &self.0 == other
-    }
-}
-
-impl Problem {
-    pub fn points(&self) -> &[Label] {
-        &self.inner_points
-    }
-    pub fn circles(&self) -> &[Label] {
-        &self.inner_circles
     }
 }
 
