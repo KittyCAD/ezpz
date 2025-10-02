@@ -1,3 +1,5 @@
+use std::f64::consts::PI;
+
 use kcl_ezpz::textual::{Arc, Circle, Outcome};
 use plotters::{coord::types::RangedCoordf64, prelude::*};
 
@@ -45,6 +47,10 @@ pub fn save_png(cli: &Cli, soln: &Outcome, output_path: String) -> anyhow::Resul
     // Draw the circles
     for (Circle { radius, center }, label) in circles {
         draw_circle(&mut chart, center, radius, label)?;
+    }
+
+    for (Arc { a, b, center }, _label) in arcs {
+        draw_arc(&mut chart, a, b, center, center.euclidean_distance(a))?;
     }
 
     // Finished.
@@ -230,5 +236,53 @@ where
                 + Text::new(point.label.clone(), (10, -10), LABEL_STYLE.into_font())
         },
     ))?;
+    Ok(())
+}
+
+/// Draws a circular arc between p0 and p1. The circle's radius and center are given as params.
+fn draw_arc<DB: DrawingBackend>(
+    chart: &mut ChartContext<DB, Cartesian2d<RangedCoordf64, RangedCoordf64>>,
+    p0: kcl_ezpz::textual::Point,
+    p1: kcl_ezpz::textual::Point,
+    center: kcl_ezpz::textual::Point,
+    radius: f64,
+) -> anyhow::Result<()>
+where
+    <DB as plotters::prelude::DrawingBackend>::ErrorType: 'static,
+{
+    let color = ARC_COLOR;
+    // Bail out if radius is effectively zero; nothing sensible to render.
+    if radius.abs() < f64::EPSILON {
+        return Ok(());
+    }
+
+    let start_angle = (p0.y - center.y).atan2(p0.x - center.x);
+    let potential_end = (p1.y - center.y).atan2(p1.x - center.x);
+    let mut delta = potential_end - start_angle;
+
+    // Normalize to the shortest signed delta in (-PI, PI].
+    while delta <= -PI {
+        delta += 2.0 * PI;
+    }
+    while delta > PI {
+        delta -= 2.0 * PI;
+    }
+
+    // Sample several straight lines along the arc.
+    let interval_degrees = 2.0;
+    let steps = (delta.abs() / (PI / (180.0 / interval_degrees))).ceil();
+    let steps = (steps as usize).max(1);
+
+    let points: Vec<_> = (0..=steps)
+        .map(|step| {
+            let t = step as f64 / steps as f64;
+            let angle = start_angle + delta * t;
+            let x = center.x + radius * angle.cos();
+            let y = center.y + radius * angle.sin();
+            (x, y)
+        })
+        .collect();
+
+    chart.draw_series([PathElement::new(points, color.stroke_width(3))])?;
     Ok(())
 }
