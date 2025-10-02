@@ -202,6 +202,15 @@ impl Problem {
                     };
                     constraints.push(Constraint::ArcRadius(circular_arc, *radius));
                 }
+                Instruction::IsArc(IsArc { arc_label }) => {
+                    let arc_label = &arc_label.0;
+                    let circular_arc = CircularArc {
+                        center: datum_point_for_label(&Label(format!("{arc_label}.center")))?,
+                        a: datum_point_for_label(&Label(format!("{arc_label}.a")))?,
+                        b: datum_point_for_label(&Label(format!("{arc_label}.b")))?,
+                    };
+                    constraints.push(Constraint::Arc(circular_arc));
+                }
                 Instruction::Tangent(Tangent {
                     circle,
                     line_p0,

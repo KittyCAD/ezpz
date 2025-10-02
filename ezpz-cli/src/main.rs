@@ -96,7 +96,6 @@ fn save_gnuplot_png(cli: &Cli, soln: &Outcome, output_path: String) {
         GnuplotMode::WriteFile(output_path),
     ));
     gnuplot_program.push_str("unset output"); // closes file
-    eprintln!("{gnuplot_program}");
     let mut child = std::process::Command::new("gnuplot")
         .args(["-persist", "-"])
         .stdin(std::process::Stdio::piped())

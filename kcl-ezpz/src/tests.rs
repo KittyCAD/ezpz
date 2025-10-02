@@ -220,6 +220,17 @@ fn arc_radius() {
 }
 
 #[test]
+fn arc_equidistant() {
+    let solved = run("arc_equidistant");
+    let arc = solved.get_arc("a").unwrap();
+    assert_points_eq(arc.center, Point { x: 0.0, y: 0.0 });
+    assert_nearly_eq(
+        arc.a.euclidean_distance(arc.center),
+        arc.b.euclidean_distance(arc.center),
+    );
+}
+
+#[test]
 fn lints() {
     let txt = "# constraints
 point p

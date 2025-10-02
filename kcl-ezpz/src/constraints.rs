@@ -709,7 +709,7 @@ impl Constraint {
                 let cx = current_assignments[layout.index_of(arc.center.id_x())];
                 let cy = current_assignments[layout.index_of(arc.center.id_y())];
 
-                // a = 1, b = 2
+                // TODO: Handle degenerate case here
 
                 // Calculate derivative values.
                 let dx_a = (ax - cx) * 2.0;

@@ -20,6 +20,7 @@ pub enum Instruction {
     ArcRadius(ArcRadius),
     FixCenterPointComponent(FixCenterPointComponent),
     LinesEqualLength(LinesEqualLength),
+    IsArc(IsArc),
 }
 
 #[derive(Debug)]
@@ -57,6 +58,11 @@ pub struct ArcRadius {
 pub struct LinesEqualLength {
     pub line0: (Label, Label),
     pub line1: (Label, Label),
+}
+
+#[derive(Debug)]
+pub struct IsArc {
+    pub arc_label: Label,
 }
 
 #[derive(Debug)]
