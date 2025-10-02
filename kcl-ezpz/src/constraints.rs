@@ -74,7 +74,8 @@ impl Constraint {
                 row0.extend(circle.all_variables());
             }
             Constraint::Distance(p0, p1, _dist) => {
-                row0.extend([p0.id_x(), p0.id_y(), p1.id_x(), p1.id_y()])
+                row0.extend(p0.all_variables());
+                row0.extend(p1.all_variables());
             }
             Constraint::Vertical(line) => row0.extend([line.p0.id_x(), line.p1.id_x()]),
             Constraint::Horizontal(line) => row0.extend([line.p0.id_y(), line.p1.id_y()]),
