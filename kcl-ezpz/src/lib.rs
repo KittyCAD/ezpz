@@ -28,6 +28,7 @@ mod vector;
 const EPSILON: f64 = 1e-4;
 
 #[derive(thiserror::Error, Debug)]
+#[non_exhaustive]
 pub enum Error {
     #[error("{0}")]
     NonLinearSystemError(#[from] NonLinearSystemError),
@@ -42,6 +43,7 @@ pub enum Error {
 }
 
 #[derive(thiserror::Error, Debug)]
+#[non_exhaustive]
 pub enum NonLinearSystemError {
     #[error("ID {0} not found")]
     NotFound(Id),
