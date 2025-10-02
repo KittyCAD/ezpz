@@ -4,8 +4,8 @@ use crate::{
         ScalarGuess,
         instruction::{
             AngleLine, ArcRadius, CircleRadius, DeclareArc, DeclareCircle, Distance,
-            FixCenterPointComponent, LinesEqualLength, Parallel, Perpendicular, PointsCoincident,
-            Tangent,
+            FixCenterPointComponent, IsArc, LinesEqualLength, Parallel, Perpendicular,
+            PointsCoincident, Tangent,
         },
     },
 };
@@ -243,6 +243,13 @@ pub fn parse_arc_radius(i: &mut &str) -> WResult<ArcRadius> {
     Ok(ArcRadius { arc_label, radius })
 }
 
+pub fn parse_is_arc(i: &mut &str) -> WResult<IsArc> {
+    let _ = "is_arc".parse_next(i)?;
+    ignore_ws(i);
+    let arc_label = inside_brackets(parse_label, i)?;
+    Ok(IsArc { arc_label })
+}
+
 pub fn parse_lines_equal_length(i: &mut &str) -> WResult<LinesEqualLength> {
     let _ = "lines_equal_length".parse_next(i)?;
     ignore_ws(i);
@@ -321,6 +328,7 @@ fn parse_instruction(i: &mut &str) -> WResult<Vec<Instruction>> {
         parse_circle_radius.map(Instruction::CircleRadius).map(sv),
         parse_tangent.map(Instruction::Tangent).map(sv),
         parse_arc_radius.map(Instruction::ArcRadius).map(sv),
+        parse_is_arc.map(Instruction::IsArc).map(sv),
         parse_lines_equal_length
             .map(Instruction::LinesEqualLength)
             .map(sv),
