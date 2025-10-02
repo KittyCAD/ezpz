@@ -21,6 +21,7 @@ pub enum Instruction {
     FixCenterPointComponent(FixCenterPointComponent),
     LinesEqualLength(LinesEqualLength),
     IsArc(IsArc),
+    Line(Line),
 }
 
 #[derive(Debug)]
@@ -63,6 +64,12 @@ pub struct LinesEqualLength {
 #[derive(Debug)]
 pub struct IsArc {
     pub arc_label: Label,
+}
+
+#[derive(Debug)]
+pub struct Line {
+    pub p0: Label,
+    pub p1: Label,
 }
 
 #[derive(Debug)]

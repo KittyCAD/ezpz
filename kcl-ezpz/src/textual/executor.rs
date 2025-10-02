@@ -181,6 +181,7 @@ impl Problem {
                 Instruction::DeclarePoint(_) => {}
                 Instruction::DeclareCircle(_) => {}
                 Instruction::DeclareArc(_) => {}
+                Instruction::Line(_) => {}
                 Instruction::CircleRadius(CircleRadius { circle, radius }) => {
                     let circ = &circle.0;
                     let center_id = datum_point_for_label(&Label(format!("{circ}.center")))?;
@@ -368,6 +369,7 @@ impl Problem {
             inner_points: &self.inner_points,
             inner_circles: &self.inner_circles,
             inner_arcs: &self.inner_arcs,
+            inner_lines: &self.inner_lines,
         })
     }
 }
@@ -379,6 +381,7 @@ pub struct ConstraintSystem<'a> {
     inner_points: &'a [Label],
     inner_circles: &'a [Label],
     inner_arcs: &'a [Label],
+    inner_lines: &'a [(Label, Label)],
 }
 
 impl ConstraintSystem<'_> {
@@ -452,6 +455,7 @@ impl ConstraintSystem<'_> {
             circles: final_circles,
             arcs: final_arcs,
             num_vars,
+            lines: self.inner_lines.to_vec(),
             num_eqs,
         })
     }
@@ -464,6 +468,7 @@ pub struct Outcome {
     pub points: IndexMap<String, Point>,
     pub circles: IndexMap<String, Circle>,
     pub arcs: IndexMap<String, Arc>,
+    pub lines: Vec<(Label, Label)>,
     pub num_vars: usize,
     pub num_eqs: usize,
 }

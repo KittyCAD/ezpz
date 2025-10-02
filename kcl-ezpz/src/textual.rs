@@ -29,6 +29,7 @@ pub struct Problem {
     pub inner_points: Vec<Label>,
     pub inner_circles: Vec<Label>,
     pub inner_arcs: Vec<Label>,
+    pub inner_lines: Vec<(Label, Label)>,
     pub point_guesses: Vec<PointGuess>,
     pub scalar_guesses: Vec<ScalarGuess>,
 }
@@ -85,6 +86,12 @@ pub struct Label(String);
 impl From<&str> for Label {
     fn from(value: &str) -> Self {
         Self(value.to_owned())
+    }
+}
+
+impl From<Label> for String {
+    fn from(value: Label) -> Self {
+        value.0
     }
 }
 

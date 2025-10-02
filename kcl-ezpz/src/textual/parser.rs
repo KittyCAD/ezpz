@@ -4,7 +4,7 @@ use crate::{
         ScalarGuess,
         instruction::{
             AngleLine, ArcRadius, CircleRadius, DeclareArc, DeclareCircle, Distance,
-            FixCenterPointComponent, IsArc, LinesEqualLength, Parallel, Perpendicular,
+            FixCenterPointComponent, IsArc, Line, LinesEqualLength, Parallel, Perpendicular,
             PointsCoincident, Tangent,
         },
     },
@@ -30,6 +30,7 @@ pub fn parse_problem(i: &mut &str) -> WResult<Problem> {
     let mut inner_points = Vec::new();
     let mut inner_circles = Vec::new();
     let mut inner_arcs = Vec::new();
+    let mut inner_lines = Vec::new();
     for instr in instructions.iter().flatten() {
         if let Instruction::DeclarePoint(dp) = instr {
             inner_points.push(dp.label.clone());
@@ -39,6 +40,9 @@ pub fn parse_problem(i: &mut &str) -> WResult<Problem> {
         }
         if let Instruction::DeclareArc(dc) = instr {
             inner_arcs.push(dc.label.clone());
+        }
+        if let Instruction::Line(line) = instr {
+            inner_lines.push((line.p0.clone(), line.p1.clone()));
         }
     }
     newline.parse_next(i)?;
@@ -63,6 +67,7 @@ pub fn parse_problem(i: &mut &str) -> WResult<Problem> {
         inner_points,
         inner_circles,
         inner_arcs,
+        inner_lines,
         point_guesses,
         scalar_guesses,
     })
@@ -250,6 +255,13 @@ pub fn parse_is_arc(i: &mut &str) -> WResult<IsArc> {
     Ok(IsArc { arc_label })
 }
 
+pub fn parse_line(i: &mut &str) -> WResult<Line> {
+    let _ = "line".parse_next(i)?;
+    ignore_ws(i);
+    let (p0, _, p1) = inside_brackets((parse_label, commasep, parse_label), i)?;
+    Ok(Line { p0, p1 })
+}
+
 pub fn parse_lines_equal_length(i: &mut &str) -> WResult<LinesEqualLength> {
     let _ = "lines_equal_length".parse_next(i)?;
     ignore_ws(i);
@@ -329,6 +341,7 @@ fn parse_instruction(i: &mut &str) -> WResult<Vec<Instruction>> {
         parse_tangent.map(Instruction::Tangent).map(sv),
         parse_arc_radius.map(Instruction::ArcRadius).map(sv),
         parse_is_arc.map(Instruction::IsArc).map(sv),
+        parse_line.map(Instruction::Line).map(sv),
         parse_lines_equal_length
             .map(Instruction::LinesEqualLength)
             .map(sv),
