@@ -295,6 +295,9 @@ where
     let mut delta = potential_end - start_angle;
 
     // Normalize to the shortest signed delta in (-PI, PI].
+    // Note this always draws the minor arc. Currently the arcs in EZPZ don't
+    // track whether they're major or minor
+    // (or equivalently, which point A or B is the start or end)
     while delta <= -PI {
         delta += 2.0 * PI;
     }
