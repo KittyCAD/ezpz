@@ -249,5 +249,39 @@ where
     <DB as plotters::prelude::DrawingBackend>::ErrorType: 'static,
 {
     let color = ARC_COLOR;
-    todo!()
+    // Bail out if radius is effectively zero; nothing sensible to render.
+    if radius.abs() < f64::EPSILON {
+        return Ok(());
+    }
+
+    let start_angle = (p0.y - center.y).atan2(p0.x - center.x);
+    let potential_end = (p1.y - center.y).atan2(p1.x - center.x);
+    let mut delta = potential_end - start_angle;
+
+    // Normalize to the shortest signed delta in (-PI, PI].
+    while delta <= -std::f64::consts::PI {
+        delta += 2.0 * std::f64::consts::PI;
+    }
+    while delta > std::f64::consts::PI {
+        delta -= 2.0 * std::f64::consts::PI;
+    }
+    // Use about one segment per ~10 degrees, with at least two points.
+    let interval_degrees = 10.0;
+    let steps = (delta.abs() / (std::f64::consts::PI / (180.0 / interval_degrees))).ceil();
+    let steps = (steps as usize).max(1);
+
+    let mut points = Vec::with_capacity(steps + 1);
+    for step in 0..=steps {
+        let t = step as f64 / steps as f64;
+        let angle = start_angle + delta * t;
+        let x = center.x + radius * angle.cos();
+        let y = center.y + radius * angle.sin();
+        points.push((x, y));
+    }
+
+    chart.draw_series(std::iter::once(PathElement::new(
+        points,
+        color.stroke_width(3),
+    )))?;
+    Ok(())
 }
