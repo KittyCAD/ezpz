@@ -391,7 +391,7 @@ fn print_warnings(warnings: &[Warning]) {
     if !warnings.is_empty() {
         println!("Warnings:");
         for lint in warnings {
-            println!("\t{}", lint.content.yellow());
+            println!("\t{}", lint.content.to_string().yellow());
         }
     }
 }

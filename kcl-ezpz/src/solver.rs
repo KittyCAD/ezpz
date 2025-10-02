@@ -1,7 +1,11 @@
+use std::sync::Mutex;
+
 use faer::sparse::{Pair, SymbolicSparseColMat};
 use newton_faer::{JacobianCache, NonlinearSystem, RowMap};
 
-use crate::{Constraint, NonLinearSystemError, constraints::JacobianVar, id::Id};
+use crate::{
+    Constraint, NonLinearSystemError, Warning, WarningContent, constraints::JacobianVar, id::Id,
+};
 
 // Roughly. Most constraints will only involve roughly 4 variables.
 // May as well round up to the nearest power of 2.
@@ -93,7 +97,7 @@ impl JacobianCache<f64> for Jc {
 
 /// The problem to actually solve.
 /// Note that the initial values of each variable are required for Tikhonov regularization.
-pub struct Model<'c> {
+pub(crate) struct Model<'c> {
     layout: Layout,
     jc: Jc,
     constraints: &'c [Constraint],
@@ -101,6 +105,7 @@ pub struct Model<'c> {
     row1_scratch: Vec<JacobianVar>,
     initial_values: Vec<f64>,
     config: Config,
+    pub(crate) warnings: Mutex<Vec<Warning>>,
 }
 
 fn validate_variables(
@@ -214,6 +219,7 @@ impl<'c> Model<'c> {
 
         // All done.
         Ok(Self {
+            warnings: Default::default(),
             config,
             layout,
             jc: Jc {
@@ -257,7 +263,8 @@ impl NonlinearSystem for Model<'_> {
         let mut residuals1 = Vec::new();
 
         // Compute constraint residuals.
-        for constraint in self.constraints {
+        for (i, constraint) in self.constraints.iter().enumerate() {
+            let mut degenerate = false;
             residuals0.clear();
             residuals1.clear();
             constraint.residual(
@@ -265,6 +272,7 @@ impl NonlinearSystem for Model<'_> {
                 current_assignments,
                 &mut residuals0,
                 &mut residuals1,
+                &mut degenerate,
             );
             debug_assert_eq!(
                 if !residuals0.is_empty() { 1 } else { 0 }
@@ -276,6 +284,13 @@ impl NonlinearSystem for Model<'_> {
                 if !residuals0.is_empty() { 1 } else { 0 }
                     + if !residuals1.is_empty() { 1 } else { 0 },
             );
+            if degenerate {
+                let mut warnings = self.warnings.lock().unwrap();
+                warnings.push(Warning {
+                    about_constraint: Some(i),
+                    content: WarningContent::Degenerate,
+                })
+            }
             for row in [&residuals0, &residuals1]
                 .iter()
                 .take(constraint.residual_dim())
@@ -309,7 +324,8 @@ impl NonlinearSystem for Model<'_> {
 
         // Build values by iterating through constraints in the same order as their construction.
         let mut row_num = 0;
-        for constraint in self.constraints {
+        for (i, constraint) in self.constraints.iter().enumerate() {
+            let mut degenerate = false;
             self.row0_scratch.clear();
             self.row1_scratch.clear();
             constraint.jacobian_rows(
@@ -317,7 +333,15 @@ impl NonlinearSystem for Model<'_> {
                 current_assignments,
                 &mut self.row0_scratch,
                 &mut self.row1_scratch,
+                &mut degenerate,
             );
+            if degenerate {
+                let mut warnings = self.warnings.lock().unwrap();
+                warnings.push(Warning {
+                    about_constraint: Some(i),
+                    content: WarningContent::Degenerate,
+                })
+            }
 
             // For each variable in this constraint's set of partial derivatives (Jacobian slice).
             for row in [&self.row0_scratch, &self.row1_scratch]

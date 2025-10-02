@@ -9,26 +9,49 @@ pub trait Datum {
 #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct Angle {
-    degrees: f64,
+    val: f64,
+    degrees: bool,
+}
+
+impl std::fmt::Display for Angle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.degrees {
+            write!(f, "{}deg", self.val)
+        } else {
+            write!(f, "{}rad", self.val)
+        }
+    }
 }
 
 impl Angle {
     pub fn from_degrees(degrees: f64) -> Self {
-        Self { degrees }
+        Self {
+            val: degrees,
+            degrees: true,
+        }
     }
 
     pub fn from_radians(radians: f64) -> Self {
         Self {
-            degrees: radians.to_degrees(),
+            val: radians,
+            degrees: false,
         }
     }
 
     pub fn to_degrees(self) -> f64 {
-        self.degrees
+        if self.degrees {
+            self.val
+        } else {
+            self.val.to_degrees()
+        }
     }
 
     pub fn to_radians(self) -> f64 {
-        self.degrees.to_radians()
+        if self.degrees {
+            self.val.to_radians()
+        } else {
+            self.val
+        }
     }
 }
 
