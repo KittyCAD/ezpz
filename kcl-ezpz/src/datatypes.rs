@@ -155,3 +155,16 @@ pub struct CircularArc {
     /// Distance(A,center) == Distance(B,center)
     pub b: DatumPoint,
 }
+
+impl Datum for CircularArc {
+    fn all_variables(&self) -> impl IntoIterator<Item = Id> {
+        [
+            self.a.id_x(),
+            self.a.id_y(),
+            self.b.id_x(),
+            self.b.id_y(),
+            self.center.id_x(),
+            self.center.id_y(),
+        ]
+    }
+}

@@ -40,6 +40,9 @@ pub enum Constraint {
     LinesEqualLength(LineSegment, LineSegment),
     /// The arc should have the given radius.
     ArcRadius(CircularArc, f64),
+    /// These 3 points should form an arc,
+    /// i.e. `a` and `b` should be equidistant from `center`.
+    Arc(CircularArc),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -105,6 +108,9 @@ impl Constraint {
                 );
                 constraints.0.nonzeroes(row0, row1);
                 constraints.1.nonzeroes(row1, row0);
+            }
+            Constraint::Arc(arc) => {
+                row0.extend(arc.all_variables());
             }
         }
     }
@@ -272,6 +278,21 @@ impl Constraint {
                     .1
                     .residual(layout, current_assignments, output1, output);
             }
+            Constraint::Arc(arc) => {
+                let ax = current_assignments[layout.index_of(arc.a.id_x())];
+                let ay = current_assignments[layout.index_of(arc.a.id_y())];
+                let bx = current_assignments[layout.index_of(arc.b.id_x())];
+                let by = current_assignments[layout.index_of(arc.b.id_y())];
+                let cx = current_assignments[layout.index_of(arc.center.id_x())];
+                let cy = current_assignments[layout.index_of(arc.center.id_y())];
+                // For numerical stability and simpler derivatives, we compare the squared
+                // distances. The residual is zero if the distances are equal.
+                // R = distance(center, a)² - distance(center, b)²
+                let dist0_sq = (ax - cx).powi(2) + (ay - cy).powi(2);
+                let dist1_sq = (bx - cx).powi(2) + (by - cy).powi(2);
+
+                output.push(dist0_sq - dist1_sq);
+            }
         }
     }
 
@@ -289,6 +310,7 @@ impl Constraint {
             Constraint::CircleRadius(..) => 1,
             Constraint::LinesEqualLength(..) => 1,
             Constraint::ArcRadius(..) => 2,
+            Constraint::Arc(..) => 1,
         }
     }
 
@@ -670,6 +692,59 @@ impl Constraint {
                     .1
                     .jacobian_rows(layout, current_assignments, row1, row0);
             }
+            Constraint::Arc(arc) => {
+                // Residual: R = (x1-xc)²+(y1-yc)² - (x2-xc)²-(y2-yc)²
+                // The partial derivatives are:
+                // ∂R/∂x1 = 2*(x1-xc)
+                // ∂R/∂y1 = 2*(y1-yc)
+                // ∂R/∂x2 = -2*(x2-xc)
+                // ∂R/∂y2 = -2*(y2-yc)
+                // ∂R/∂xc = 2*(x2-x1)
+                // ∂R/∂yc = 2*(y2-y1)
+
+                let ax = current_assignments[layout.index_of(arc.a.id_x())];
+                let ay = current_assignments[layout.index_of(arc.a.id_y())];
+                let bx = current_assignments[layout.index_of(arc.b.id_x())];
+                let by = current_assignments[layout.index_of(arc.b.id_y())];
+                let cx = current_assignments[layout.index_of(arc.center.id_x())];
+                let cy = current_assignments[layout.index_of(arc.center.id_y())];
+
+                // a = 1, b = 2
+
+                // Calculate derivative values.
+                let dx_a = (ax - cx) * 2.0;
+                let dy_a = (ay - cy) * 2.0;
+                let dx_b = (bx - cx) * -2.0;
+                let dy_b = (by - cy) * -2.0;
+                let dx_c = (bx - ax) * 2.0;
+                let dy_c = (by - ay) * 2.0;
+                row0.extend([
+                    JacobianVar {
+                        id: arc.a.id_x(),
+                        partial_derivative: dx_a,
+                    },
+                    JacobianVar {
+                        id: arc.a.id_y(),
+                        partial_derivative: dy_a,
+                    },
+                    JacobianVar {
+                        id: arc.b.id_x(),
+                        partial_derivative: dx_b,
+                    },
+                    JacobianVar {
+                        id: arc.b.id_y(),
+                        partial_derivative: dy_b,
+                    },
+                    JacobianVar {
+                        id: arc.center.id_x(),
+                        partial_derivative: dx_c,
+                    },
+                    JacobianVar {
+                        id: arc.center.id_y(),
+                        partial_derivative: dy_c,
+                    },
+                ])
+            }
         }
     }
 
@@ -686,6 +761,7 @@ impl Constraint {
             Constraint::CircleRadius(..) => "CircleRadius",
             Constraint::LinesEqualLength(..) => "LinesEqualLength",
             Constraint::ArcRadius(..) => "ArcRadius",
+            Constraint::Arc(..) => "Arc",
         }
     }
 }
