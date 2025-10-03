@@ -97,7 +97,7 @@ impl<T: ComplexField<Real = T>> Default for FaerLu<T> {
 impl<T: ComplexField<Real = T>> LinearSolver<T, SparseColMatRef<'_, usize, T>> for FaerLu<T> {
     fn factor(&mut self, a: &SparseColMatRef<'_, usize, T>) -> SolverResult<()> {
         let now = pattern_sig(a);
-        let par = Par::rayon(0);
+        let par = Par::Seq;
 
         let need_symbolic = match self.sig {
             None => true,
@@ -164,7 +164,7 @@ impl<T: ComplexField<Real = T>> LinearSolver<T, SparseColMatRef<'_, usize, T>> f
         };
 
         // LU is naturally in-place.
-        lu_ref.solve_in_place_with_conj(Conj::No, rhs.as_mut(), Par::rayon(0), stack);
+        lu_ref.solve_in_place_with_conj(Conj::No, rhs.as_mut(), Par::Seq, stack);
         Ok(())
     }
 }
