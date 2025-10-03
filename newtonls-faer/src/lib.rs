@@ -10,7 +10,7 @@ use core::fmt::{self, Display, Formatter};
 use core::num::NonZeroUsize;
 use faer::Mat;
 use faer::mat::MatMut;
-use faer::prelude::SparseColMatRef;
+use faer::sparse::SparseColMatRef;
 use faer::sparse::SymbolicSparseColMat;
 use faer_traits::ComplexField;
 use num_traits::Zero;
