@@ -1013,7 +1013,7 @@ dependencies = [
  "getrandom 0.2.16",
  "indexmap",
  "libm",
- "newton_faer",
+ "newtonls_faer",
  "thiserror 2.0.16",
  "winnow",
 ]
@@ -1181,7 +1181,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "newton_faer"
+name = "newtonls_faer"
 version = "0.1.2"
 dependencies = [
  "dyn-stack",
@@ -1351,9 +1351,9 @@ dependencies = [
 
 [[package]]
 name = "private-gemm-x86"
-version = "0.1.14"
+version = "0.1.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f1f5b73509fbd76f1c3b6930c2d8761fb51bf958c49d19e663ce372b1e27fcb"
+checksum = "0b8138b380908e85071bdd6b2841a38b0858ef09848b754a15219d0b9ca90928"
 dependencies = [
  "crossbeam",
  "defer",
@@ -1362,6 +1362,7 @@ dependencies = [
  "raw-cpuid",
  "rayon",
  "spindle",
+ "sysctl",
 ]
 
 [[package]]
@@ -1598,9 +1599,9 @@ checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
 
 [[package]]
 name = "spindle"
-version = "0.2.3"
+version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db4b98218e7f245a72888875d6843432db630d19032f5eeed9e214bd897339e7"
+checksum = "f794dedb367e82477aa6bbf83ea9bbce9bc074b3caacaa82fc4ba398ec9b701d"
 dependencies = [
  "atomic-wait",
  "crossbeam",
