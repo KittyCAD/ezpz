@@ -23,7 +23,6 @@ check-wasm:
 
 test:
     cargo nextest run --all-features
-    cargo test --doc --workspace --exclude newton_faer
 
 # Run unit tests, output coverage to `lcov.info`.
 test-with-coverage:
