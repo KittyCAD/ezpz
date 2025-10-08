@@ -103,12 +103,12 @@ pub fn solve(
             });
         }
     };
-    let outcome = newton_faer::solve(
-        &mut model,
-        &mut values,
-        newton_faer::NewtonCfg::sparse().with_adaptive(true),
-    )
-    .map_err(|errs| Error::Solver(Box::new(errs.into_error())));
+
+    let mut newton_faer_config = newton_faer::NewtonCfg::sparse().with_adaptive(true);
+    newton_faer_config.max_iter = config.max_iterations;
+
+    let outcome = newton_faer::solve(&mut model, &mut values, newton_faer_config)
+        .map_err(|errs| Error::Solver(Box::new(errs.into_error())));
     warnings.extend(model.warnings.lock().unwrap().drain(..));
     let iterations = match outcome {
         Ok(o) => o,

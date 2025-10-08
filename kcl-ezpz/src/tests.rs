@@ -69,6 +69,7 @@ fn tiny_no_regularization() {
         "tiny",
         Config {
             regularization_enabled: false,
+            max_iterations: 25,
         },
     );
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 0.0 });
