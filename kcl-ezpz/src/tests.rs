@@ -234,6 +234,16 @@ fn arc_equidistant() {
 }
 
 #[test]
+fn chamfer_square() {
+    let solved = run("chamfer_square");
+    assert_points_eq(solved.get_point("a").unwrap(), Point { x: 0.0, y: 40.0 });
+    assert_points_eq(solved.get_point("b").unwrap(), Point { x: 30.0, y: 40.0 });
+    assert_points_eq(solved.get_point("c").unwrap(), Point { x: 40.0, y: 30.0 });
+    assert_points_eq(solved.get_point("d").unwrap(), Point { x: 40.0, y: 0.0 });
+    assert_points_eq(solved.get_point("e").unwrap(), Point { x: 0.0, y: 0.0 });
+}
+
+#[test]
 fn warnings() {
     let txt = "# constraints
 point p
@@ -261,7 +271,7 @@ s roughly (5, 6)
     assert!(solved.warnings.contains(&Warning {
         about_constraint: Some(7),
         content: WarningContent::ShouldBeParallel(Angle::from_radians(0.0))
-    }),);
+    }));
 }
 
 #[track_caller]
