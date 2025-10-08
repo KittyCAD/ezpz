@@ -20,12 +20,15 @@ const REGULARIZATION_LAMBDA: f64 = 1e-9;
 pub struct Config {
     /// Use Tikhonov regularization to solve underdetermined systems.
     pub regularization_enabled: bool,
+    /// How many iteration rounds before the solver gives up?
+    pub max_iterations: usize,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
             regularization_enabled: true,
+            max_iterations: 25,
         }
     }
 }
