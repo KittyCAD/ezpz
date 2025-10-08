@@ -137,8 +137,8 @@ impl Constraint {
         &self,
         layout: &Layout,
         current_assignments: &[f64],
-        residual0: &mut Vec<f64>,
-        residual1: &mut Vec<f64>,
+        residual0: &mut f64,
+        residual1: &mut f64,
         degenerate: &mut bool,
     ) {
         match self {
@@ -163,7 +163,7 @@ impl Constraint {
                 let mag_v = v.magnitude();
                 if mag_v < EPSILON {
                     // If line has no length, then the residual is 0, regardless of anything else.
-                    residual0.push(0.0);
+                    *residual0 = 0.0;
                     *degenerate = true;
                     return;
                 }
@@ -175,7 +175,7 @@ impl Constraint {
                 // already handled case where mag_v < EPSILON above and early-returned.
                 let signed_distance_to_line = cross_2d / mag_v;
                 let residual = signed_distance_to_line - radius;
-                residual0.push(residual);
+                *residual0 = residual;
             }
             Constraint::Distance(p0, p1, expected_distance) => {
                 let p0_x = current_assignments[layout.index_of(p0.id_x())];
@@ -185,21 +185,21 @@ impl Constraint {
                 let p1_y = current_assignments[layout.index_of(p1.id_y())];
                 let p1 = V::new(p1_x, p1_y);
                 let actual_distance = p0.euclidean_distance(p1);
-                residual0.push(actual_distance - expected_distance);
+                *residual0 = actual_distance - expected_distance;
             }
             Constraint::Vertical(line) => {
                 let p0_x = current_assignments[layout.index_of(line.p0.id_x())];
                 let p1_x = current_assignments[layout.index_of(line.p1.id_x())];
-                residual0.push(p0_x - p1_x);
+                *residual0 = p0_x - p1_x;
             }
             Constraint::Horizontal(line) => {
                 let p0_y = current_assignments[layout.index_of(line.p0.id_y())];
                 let p1_y = current_assignments[layout.index_of(line.p1.id_y())];
-                residual0.push(p0_y - p1_y);
+                *residual0 = p0_y - p1_y;
             }
             Constraint::Fixed(id, expected) => {
                 let actual = current_assignments[layout.index_of(*id)];
-                residual0.push(actual - expected);
+                *residual0 = actual - expected;
             }
             Constraint::LinesAtAngle(line0, line1, expected_angle) => {
                 // Get direction vectors for both lines.
@@ -219,10 +219,10 @@ impl Constraint {
 
                 match expected_angle {
                     AngleKind::Parallel => {
-                        residual0.push(v0.x * v1.y - v0.y * v1.x);
+                        *residual0 = v0.x * v1.y - v0.y * v1.x;
                     }
                     AngleKind::Perpendicular => {
-                        residual0.push(v0.dot(&v1));
+                        *residual0 = v0.dot(&v1);
                     }
                     AngleKind::Other(expected_angle) => {
                         // Calculate magnitudes.
@@ -232,7 +232,7 @@ impl Constraint {
                         // Check for zero-length lines.
                         let is_invalid = (mag0 < EPSILON) || (mag1 < EPSILON);
                         if is_invalid {
-                            residual0.push(0.0);
+                            *residual0 = 0.0;
                             *degenerate = true;
                             return;
                         }
@@ -247,7 +247,7 @@ impl Constraint {
                         // Compute angle difference and wrap to (-pi, pi].
                         let angle_residual = current_angle_radians - expected_angle.to_radians();
                         let wrapped_residual = wrap_angle_delta(angle_residual);
-                        residual0.push(wrapped_residual);
+                        *residual0 = wrapped_residual;
                     }
                 }
             }
@@ -256,18 +256,18 @@ impl Constraint {
                 let p0_y = current_assignments[layout.index_of(p0.id_y())];
                 let p1_x = current_assignments[layout.index_of(p1.id_x())];
                 let p1_y = current_assignments[layout.index_of(p1.id_y())];
-                residual0.push(p0_x - p1_x);
-                residual1.push(p0_y - p1_y);
+                *residual0 = p0_x - p1_x;
+                *residual1 = p0_y - p1_y;
             }
             Constraint::CircleRadius(circle, expected_radius) => {
                 let actual_radius = current_assignments[layout.index_of(circle.radius.id)];
-                residual0.push(actual_radius - *expected_radius);
+                *residual0 = actual_radius - *expected_radius;
             }
             Constraint::LinesEqualLength(line0, line1) => {
                 let (l0, l1) = get_line_ends(current_assignments, line0, line1, layout);
                 let len0 = l0.0.euclidean_distance(l0.1);
                 let len1 = l1.0.euclidean_distance(l1.1);
-                residual0.push(len0 - len1);
+                *residual0 = len0 - len1;
             }
             Constraint::ArcRadius(arc, radius) => {
                 // This is really just equivalent to 2 constraints,
@@ -304,7 +304,7 @@ impl Constraint {
                 let dist0_sq = (ax - cx).powi(2) + (ay - cy).powi(2);
                 let dist1_sq = (bx - cx).powi(2) + (by - cy).powi(2);
 
-                residual0.push(dist0_sq - dist1_sq);
+                *residual0 = dist0_sq - dist1_sq;
             }
         }
     }

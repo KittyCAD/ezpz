@@ -262,30 +262,20 @@ impl NonlinearSystem for Model<'_> {
         // Each row of `out` corresponds to one row of the matrix, i.e. one equation.
         // Each item of `current_assignments` corresponds to one column of the matrix, i.e. one variable.
         let mut row_num = 0;
-        let mut residuals0 = Vec::new();
-        let mut residuals1 = Vec::new();
+        let mut residuals0;
+        let mut residuals1;
 
         // Compute constraint residuals.
         for (i, constraint) in self.constraints.iter().enumerate() {
             let mut degenerate = false;
-            residuals0.clear();
-            residuals1.clear();
+            residuals0 = 0.0;
+            residuals1 = 0.0;
             constraint.residual(
                 &self.layout,
                 current_assignments,
                 &mut residuals0,
                 &mut residuals1,
                 &mut degenerate,
-            );
-            debug_assert_eq!(
-                if !residuals0.is_empty() { 1 } else { 0 }
-                    + if !residuals1.is_empty() { 1 } else { 0 },
-                constraint.residual_dim(),
-                "Constraint {} should have {} residuals but actually had {}",
-                constraint.constraint_kind(),
-                constraint.residual_dim(),
-                if !residuals0.is_empty() { 1 } else { 0 }
-                    + if !residuals1.is_empty() { 1 } else { 0 },
             );
             if degenerate {
                 let mut warnings = self.warnings.lock().unwrap();
@@ -300,9 +290,7 @@ impl NonlinearSystem for Model<'_> {
             {
                 let this_row = row_num;
                 row_num += 1;
-                for residual in row.iter().copied() {
-                    out[this_row] = residual;
-                }
+                out[this_row] = **row;
             }
         }
 
