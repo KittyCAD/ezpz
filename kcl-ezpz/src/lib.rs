@@ -66,8 +66,13 @@ pub enum NonLinearSystemError {
 
 #[derive(Debug)]
 pub struct SolveOutcome {
+    /// Which constraints couldn't be satisfied
+    pub unsatisfied: Vec<usize>,
+    /// Each variable's final value.
     pub final_values: Vec<f64>,
+    /// How many iterations of Newton's method were required?
     pub iterations: usize,
+    /// Anything that went wrong either in problem definition or during solving it.
     pub warnings: Vec<Warning>,
 }
 
@@ -109,6 +114,7 @@ pub fn solve(
 
     let outcome = newton_faer::solve(&mut model, &mut values, newton_faer_config)
         .map_err(|errs| Error::Solver(Box::new(errs.into_error())));
+    let mut unsatisfied: Vec<usize> = Vec::new();
     warnings.extend(model.warnings.lock().unwrap().drain(..));
     let iterations = match outcome {
         Ok(o) => o,
@@ -123,6 +129,7 @@ pub fn solve(
     };
 
     Ok(SolveOutcome {
+        unsatisfied,
         final_values: values,
         iterations,
         warnings,
