@@ -35,9 +35,38 @@ impl Default for Config {
 
 pub struct Layout {
     /// Equivalent to number of rows in the matrix being solved.
-    total_num_residuals: usize,
+    pub total_num_residuals: usize,
     /// One variable per column of the matrix.
-    num_variables: usize,
+    pub num_variables: usize,
+    num_residuals_constraints: usize,
+}
+
+impl Layout {
+    pub fn new(all_variables: &[Id], constraints: &[Constraint], config: Config) -> Self {
+        // We'll have different numbers of rows in the system depending on whether
+        // or not regularization is enabled.
+        let num_residuals_constraints: usize = constraints.iter().map(|c| c.residual_dim()).sum();
+        let num_residuals_regularization = if config.regularization_enabled {
+            all_variables.len()
+        } else {
+            0
+        };
+
+        // Build the full system.
+        let num_residuals = num_residuals_constraints + num_residuals_regularization;
+        let num_rows = num_residuals;
+        Self {
+            total_num_residuals: num_rows,
+            num_variables: all_variables.len(),
+            num_residuals_constraints,
+        }
+    }
+    pub fn index_of(&self, var: <Layout as RowMap>::Var) -> usize {
+        var as usize
+    }
+    pub fn num_rows(&self) -> usize {
+        self.total_num_residuals
+    }
 }
 
 impl RowMap for Layout {
@@ -57,13 +86,7 @@ impl RowMap for Layout {
     }
 
     fn n_residuals(&self) -> usize {
-        self.total_num_residuals
-    }
-}
-
-impl Layout {
-    pub fn index_of(&self, var: <Layout as RowMap>::Var) -> usize {
-        var as usize
+        self.num_rows()
     }
 }
 
@@ -168,27 +191,12 @@ impl<'c> Model<'c> {
                        which is = total number of "involved primitive IDs"
         */
 
-        // We'll have different numbers of rows in the system depending on whether
-        // or not regularization is enabled.
-        let num_residuals_constraints: usize = constraints.iter().map(|c| c.residual_dim()).sum();
-        let num_residuals_regularization = if config.regularization_enabled {
-            all_variables.len()
-        } else {
-            0
-        };
-
-        // Build the full system.
-        let num_residuals = num_residuals_constraints + num_residuals_regularization;
         let num_cols = all_variables.len();
-        let num_rows = num_residuals;
-        let layout = Layout {
-            total_num_residuals: num_rows,
-            num_variables: all_variables.len(),
-        };
+        let layout = Layout::new(&all_variables, constraints, config);
 
         // Generate the Jacobian matrix structure.
         let mut nonzero_cells: Vec<Pair<usize, usize>> =
-            Vec::with_capacity(NONZEROES_PER_ROW * num_rows);
+            Vec::with_capacity(NONZEROES_PER_ROW * layout.total_num_residuals);
         let mut row_num = 0;
         let mut nonzeroes_scratch0 = Vec::with_capacity(NONZEROES_PER_ROW);
         let mut nonzeroes_scratch1 = Vec::with_capacity(NONZEROES_PER_ROW);
@@ -211,14 +219,17 @@ impl<'c> Model<'c> {
         // Stack our regularization rows below the constraint rows.
         if config.regularization_enabled {
             for col in 0..num_cols {
-                let reg_row = num_residuals_constraints + col;
+                let reg_row = layout.num_residuals_constraints + col;
                 nonzero_cells.push(Pair { row: reg_row, col });
             }
         }
 
         // Create symbolic structure; this will automatically deduplicate and sort.
-        let (sym, _) =
-            SymbolicSparseColMat::try_new_from_indices(num_rows, num_cols, &nonzero_cells)?;
+        let (sym, _) = SymbolicSparseColMat::try_new_from_indices(
+            layout.num_rows(),
+            num_cols,
+            &nonzero_cells,
+        )?;
 
         // All done.
         Ok(Self {

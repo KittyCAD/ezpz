@@ -112,9 +112,9 @@ pub fn solve(
     let mut newton_faer_config = newton_faer::NewtonCfg::sparse().with_adaptive(true);
     newton_faer_config.max_iter = config.max_iterations;
 
+    let mut unsatisfied: Vec<usize> = Vec::new();
     let outcome = newton_faer::solve(&mut model, &mut values, newton_faer_config)
         .map_err(|errs| Error::Solver(Box::new(errs.into_error())));
-    let mut unsatisfied: Vec<usize> = Vec::new();
     warnings.extend(model.warnings.lock().unwrap().drain(..));
     let iterations = match outcome {
         Ok(o) => o,
@@ -127,6 +127,29 @@ pub fn solve(
             });
         }
     };
+    let layout = crate::solver::Layout::new(&Vec::new(), constraints, config);
+    for (i, constraint) in constraints.iter().enumerate() {
+        let mut residual0 = 0.0;
+        let mut residual1 = 0.0;
+        let mut degenerate = false;
+        constraint.residual(
+            &layout,
+            &values,
+            &mut residual0,
+            &mut residual1,
+            &mut degenerate,
+        );
+        let satisfied = match constraint.residual_dim() {
+            1 => residual0.abs() < EPSILON,
+            2 => residual0.abs() < EPSILON && residual1.abs() < EPSILON,
+            other => unreachable!(
+                "Unsupported number of residuals {other}, the `residual` method must be modified."
+            ),
+        };
+        if !satisfied {
+            unsatisfied.push(i);
+        }
+    }
 
     Ok(SolveOutcome {
         unsatisfied,
