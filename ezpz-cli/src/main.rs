@@ -8,7 +8,7 @@ use std::{
 
 use clap::Parser;
 use kcl_ezpz::{
-    FailureOutcome, Warning,
+    Constraint, FailureOutcome, Warning,
     textual::{Outcome, Point, Problem},
 };
 
@@ -65,7 +65,7 @@ fn main() {
     }
 }
 
-fn handle_output(soln: (Outcome, Duration), cli: Cli) -> anyhow::Result<()> {
+fn handle_output(soln: RunOutcome, cli: Cli) -> anyhow::Result<()> {
     print_output(&soln, cli.show_points);
     if let Some(ref p) = cli.image_path {
         let output_path = p.to_string();
@@ -74,7 +74,8 @@ fn handle_output(soln: (Outcome, Duration), cli: Cli) -> anyhow::Result<()> {
     Ok(())
 }
 
-type RunResult = Result<(Outcome, Duration), FailureOutcome>;
+type RunOutcome = (Outcome, Duration, Vec<Constraint>);
+type RunResult = Result<RunOutcome, FailureOutcome>;
 
 fn main_inner(cli: &Cli) -> Result<RunResult, String> {
     let constraint_txt = read_problem(cli)?;
@@ -83,6 +84,7 @@ fn main_inner(cli: &Cli) -> Result<RunResult, String> {
     // Ensure problem can be solved
     let now = std::time::Instant::now();
     let constraint_system = parsed.to_constraint_system().map_err(|e| e.to_string())?;
+    let constraints = constraint_system.constraints.clone();
     let solved = match constraint_system.solve() {
         Ok(o) => o,
         Err(e) => return Ok(Err(e)),
@@ -95,11 +97,11 @@ fn main_inner(cli: &Cli) -> Result<RunResult, String> {
     }
     let elapsed = now.elapsed();
     let duration_per_iter = elapsed / NUM_ITERS_BENCHMARK;
-    Ok(Ok((solved, duration_per_iter)))
+    Ok(Ok((solved, duration_per_iter, constraints)))
 }
 
 /// Prints the output nicely to stdout.
-fn print_output((outcome, duration): &(Outcome, Duration), show_points: bool) {
+fn print_output((outcome, duration, constraints): &RunOutcome, show_points: bool) {
     let Outcome {
         iterations,
         warnings,
@@ -109,8 +111,10 @@ fn print_output((outcome, duration): &(Outcome, Duration), show_points: bool) {
         num_vars,
         num_eqs,
         lines: _, // these are only used for visuals
+        unsatisfied,
     } = outcome;
     print_warnings(warnings);
+    print_unsatisfied(unsatisfied, constraints);
     print_problem_size(*num_vars, *num_eqs);
     println!("Iterations needed: {iterations}");
     print_performance(*duration);
@@ -157,6 +161,18 @@ fn print_warnings(warnings: &[Warning]) {
         println!("Warnings:");
         for lint in warnings {
             println!("\t{}", lint.content.to_string().yellow());
+        }
+    }
+}
+
+fn print_unsatisfied(unsatisfied: &[usize], constraints: &[Constraint]) {
+    use colored::Colorize;
+    if !unsatisfied.is_empty() {
+        let err = "Not all constraints were satisfied:".red();
+        println!("{err}");
+        for constraint_index in unsatisfied {
+            let constraint = constraints[*constraint_index];
+            println!("\t{constraint_index}: {constraint:?}");
         }
     }
 }

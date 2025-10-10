@@ -376,7 +376,7 @@ impl Problem {
 
 #[derive(Clone)]
 pub struct ConstraintSystem<'a> {
-    constraints: Vec<Constraint>,
+    pub constraints: Vec<Constraint>,
     initial_guesses: GeometryVariables<DoneState>,
     inner_points: &'a [Label],
     inner_circles: &'a [Label],
@@ -401,6 +401,7 @@ impl ConstraintSystem<'_> {
             iterations,
             warnings,
             final_values,
+            unsatisfied,
         } = self.solve_no_metadata(config)?;
         let num_points = self.inner_points.len();
         let num_circles = self.inner_circles.len();
@@ -449,6 +450,7 @@ impl ConstraintSystem<'_> {
             );
         }
         Ok(Outcome {
+            unsatisfied,
             iterations,
             warnings,
             points: final_points,
@@ -463,6 +465,7 @@ impl ConstraintSystem<'_> {
 
 #[derive(Debug)]
 pub struct Outcome {
+    pub unsatisfied: Vec<usize>,
     pub iterations: usize,
     pub warnings: Vec<Warning>,
     pub points: IndexMap<String, Point>,
