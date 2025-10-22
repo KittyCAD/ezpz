@@ -237,7 +237,7 @@ mod tests {
     fn test_tiny_inner() {
         for case in ["tiny", "arc_radius", "circle"] {
             let cli = Cli {
-                filepath: format!("../test_cases/{case}/problem.txt").into(),
+                filepath: format!("../test_cases/{case}/problem.md").into(),
                 image_path: Some("test_image.png".to_owned()),
                 show_points: true,
             };
@@ -254,7 +254,7 @@ mod tests {
                 "--quiet",
                 "--",
                 "-f",
-                "../test_cases/tiny/problem.txt",
+                "../test_cases/tiny/problem.md",
             ])
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -275,7 +275,7 @@ mod tests {
                 "--quiet",
                 "--",
                 "-f",
-                "../test_cases/arc_radius/problem.txt",
+                "../test_cases/arc_radius/problem.md",
             ])
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())

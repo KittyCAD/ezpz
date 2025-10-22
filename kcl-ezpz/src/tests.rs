@@ -7,14 +7,14 @@ use crate::{
 };
 
 fn run(test_case: &str) -> Outcome {
-    let txt = std::fs::read_to_string(format!("../test_cases/{test_case}/problem.txt")).unwrap();
+    let txt = std::fs::read_to_string(format!("../test_cases/{test_case}/problem.md")).unwrap();
     let problem = parse_problem(&txt);
     let system = problem.to_constraint_system().unwrap();
     system.solve().unwrap()
 }
 
 fn run_with_config(test_case: &str, config: Config) -> Outcome {
-    let txt = std::fs::read_to_string(format!("../test_cases/{test_case}/problem.txt")).unwrap();
+    let txt = std::fs::read_to_string(format!("../test_cases/{test_case}/problem.md")).unwrap();
     let problem = parse_problem(&txt);
     let system = problem.to_constraint_system().unwrap();
     system.solve_with_config(config).unwrap()

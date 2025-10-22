@@ -33,7 +33,7 @@ cargo install --path ezpz-cli
 Then you can use it like this, by passing it a constraint problem file:
 
 ```
-$ ezpz --filepath myconstraints.txt
+$ ezpz --filepath myconstraints.md
 Problem size: 2000 rows, 2000 vars
 Iterations needed: 2
 Solved in 2943μs (mean over 100 iterations)
