@@ -5,7 +5,7 @@ use crate::{
         instruction::{
             AngleLine, ArcRadius, CircleRadius, DeclareArc, DeclareCircle, Distance,
             FixCenterPointComponent, IsArc, Line, LinesEqualLength, Midpoint, Parallel,
-            Perpendicular, PointLineDistance, PointsCoincident, Tangent,
+            Perpendicular, PointLineDistance, PointsCoincident, Symmetric, Tangent,
         },
     },
 };
@@ -180,6 +180,17 @@ pub fn parse_point_line_distance(i: &mut &str) -> WResult<PointLineDistance> {
         line_p0,
         line_p1,
         distance,
+    })
+}
+
+pub fn parse_symmetric(i: &mut &str) -> WResult<Symmetric> {
+    let _ = "symmetric".parse_next(i)?;
+    ignore_ws(i);
+    let [line_p, line_q, a, b] = inside_brackets(four_points, i)?;
+    Ok(Symmetric {
+        line: (line_p, line_q),
+        p0: a,
+        p1: b,
     })
 }
 
@@ -374,7 +385,15 @@ fn parse_instruction(i: &mut &str) -> WResult<Vec<Instruction>> {
         parse_horizontal.map(Instruction::Horizontal).map(sv),
         parse_coincident.map(Instruction::PointsCoincident).map(sv),
         parse_midpoint.map(Instruction::Midpoint).map(sv),
+        parse_symmetric.map(Instruction::Symmetric).map(sv),
         parse_vertical.map(Instruction::Vertical).map(sv),
+        parse_other_instructions,
+    ))
+    .parse_next(i)
+}
+
+fn parse_other_instructions(i: &mut &str) -> WResult<Vec<Instruction>> {
+    alt((
         parse_distance.map(Instruction::Distance).map(sv),
         parse_parallel.map(Instruction::Parallel).map(sv),
         parse_perpendicular.map(Instruction::Perpendicular).map(sv),

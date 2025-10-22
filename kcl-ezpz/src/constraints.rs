@@ -47,6 +47,8 @@ pub enum Constraint {
     Midpoint(LineSegment, DatumPoint),
     /// The given point should be the given (perpendicular) distance away from the line.
     PointLineDistance(DatumPoint, LineSegment, f64),
+    /// These two points should be symmetric across the given line.
+    Symmetric(LineSegment, DatumPoint, DatumPoint),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -123,6 +125,9 @@ impl Constraint {
             Constraint::PointLineDistance(point, line, _distance) => {
                 row0.extend(point.all_variables());
                 row0.extend(line.all_variables());
+            }
+            Constraint::Symmetric(_line, _p0, _p1) => {
+                todo!()
             }
         }
     }
@@ -362,6 +367,9 @@ impl Constraint {
                 let residual = actual_distance - target_distance;
                 *residual0 = residual;
             }
+            Constraint::Symmetric(_line, _p0, _p1) => {
+                todo!()
+            }
         }
     }
 
@@ -382,6 +390,9 @@ impl Constraint {
             Constraint::Arc(..) => 1,
             Constraint::Midpoint(..) => 2,
             Constraint::PointLineDistance(..) => 1,
+            Constraint::Symmetric(_line, _p0, _p1) => {
+                todo!()
+            }
         }
     }
 
@@ -898,6 +909,9 @@ impl Constraint {
 
                 row0.extend(partial_derivatives);
             }
+            Constraint::Symmetric(_line, _p0, _p1) => {
+                todo!()
+            }
         }
     }
 
@@ -917,6 +931,7 @@ impl Constraint {
             Constraint::Arc(..) => "Arc",
             Constraint::Midpoint(..) => "Midpoint",
             Constraint::PointLineDistance(..) => "PointLineDistance",
+            Constraint::Symmetric(..) => "Symmetric",
         }
     }
 }

@@ -16,6 +16,7 @@ pub enum Instruction {
     AngleLine(AngleLine),
     PointsCoincident(PointsCoincident),
     Midpoint(Midpoint),
+    Symmetric(Symmetric),
     CircleRadius(CircleRadius),
     Tangent(Tangent),
     ArcRadius(ArcRadius),
@@ -106,6 +107,14 @@ pub struct PointLineDistance {
     pub line_p0: Label,
     pub line_p1: Label,
     pub distance: f64,
+}
+
+#[derive(Debug)]
+pub struct Symmetric {
+    /// Be symmetric across this line.
+    pub line: (Label, Label),
+    pub p0: Label,
+    pub p1: Label,
 }
 
 #[derive(Debug)]
