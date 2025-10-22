@@ -36,7 +36,7 @@ pub fn save_png(cli: &Cli, soln: &Outcome, output_path: String) -> anyhow::Resul
         .x_label_area_size(40)
         .y_label_area_size(40)
         .caption(chart_name, ("sans-serif", 50))
-        .build_cartesian_2d(bounds.min_x..bounds.max_x, bounds.min_y..bounds.max_y)?;
+        .build_cartesian_2d(bounds.min..bounds.max, bounds.min..bounds.max)?;
 
     draw_axes(&mut chart)?;
 
@@ -131,10 +131,8 @@ fn lines_from_soln(soln: &Outcome) -> Vec<(Point, Point)> {
 
 /// Span of the chart area
 struct Bounds {
-    min_x: f64,
-    max_x: f64,
-    min_y: f64,
-    max_y: f64,
+    min: f64,
+    max: f64,
 }
 
 impl Bounds {
@@ -166,12 +164,9 @@ impl Bounds {
         let max_x = xs.iter().copied().reduce(f64::max).unwrap_or(0.0) + padding;
         let min_y = ys.iter().copied().reduce(f64::min).unwrap_or(0.0) - padding;
         let max_y = ys.iter().copied().reduce(f64::max).unwrap_or(0.0) + padding;
-        Self {
-            min_x,
-            max_x,
-            min_y,
-            max_y,
-        }
+        let min = min_x.min(min_y);
+        let max = max_x.max(max_y);
+        Self { min, max }
     }
 }
 
