@@ -1,6 +1,7 @@
 # constraints
 point p
 point q
+line(p, q)
 circle a
 radius(a, 1.5)
 p = (0, 3)
