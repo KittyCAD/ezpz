@@ -42,6 +42,7 @@ fn empty() {
 #[test]
 fn coincident() {
     let solved = run("coincident");
+    assert!(solved.unsatisfied.is_empty());
     // P and Q are coincident, so they should be equal.
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 3.0, y: 3.0 });
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 3.0, y: 3.0 });
@@ -50,6 +51,7 @@ fn coincident() {
 #[test]
 fn underconstrained() {
     let solved = run("underconstrained");
+    assert!(solved.unsatisfied.is_empty());
     // p should be whatever the user's initial guess was.
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 1.0, y: 1.0 });
     // q should be what it was constrained to be.
@@ -59,6 +61,7 @@ fn underconstrained() {
 #[test]
 fn tiny() {
     let solved = run("tiny");
+    assert!(solved.unsatisfied.is_empty());
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 0.0 });
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 0.0, y: 0.0 });
 }
@@ -72,6 +75,7 @@ fn tiny_no_regularization() {
             max_iterations: 25,
         },
     );
+    assert!(solved.unsatisfied.is_empty());
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 0.0 });
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 0.0, y: 0.0 });
 }
@@ -83,6 +87,7 @@ fn inconsistent() {
     // Because they can't be simultaneously satisfied, we should find a
     // solution which minimizes the squared error instead.
     let solved = run("inconsistent");
+    assert!(!solved.unsatisfied.is_empty());
     assert_points_eq(solved.get_point("o").unwrap(), Point { x: 0.0, y: 0.0 });
     // (2.5, 2.5) is midway between the two inconsistent requirement points.
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 2.5, y: 2.5 });
@@ -91,6 +96,7 @@ fn inconsistent() {
 #[test]
 fn circle() {
     let solved = run("circle");
+    assert!(solved.unsatisfied.is_empty());
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 5.0, y: 5.0 });
     let circle_a = solved.get_circle("a").unwrap();
     // From the problem:
@@ -106,6 +112,7 @@ fn circle_center() {
     // Very similar to test `circle` above,
     // except it gives each constraint on the center separately.
     let solved = run("circle_center");
+    assert!(solved.unsatisfied.is_empty());
     let circle_a = solved.get_circle("a").unwrap();
     assert_nearly_eq(circle_a.radius, 1.0);
     assert_points_eq(circle_a.center, Point { x: 0.0, y: 0.0 });
@@ -117,6 +124,7 @@ fn circle_tangent() {
     // Because the tangent constraint is directional, using PQ will always put it at
     // y=4.5. We test the other solution in the `circle_tangent_other_dir` test.
     let solved = run("circle_tangent");
+    assert!(solved.unsatisfied.is_empty());
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 3.0 });
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 5.0, y: 3.0 });
     let circle_a = solved.get_circle("a").unwrap();
@@ -128,6 +136,7 @@ fn circle_tangent_other_dir() {
     // Just like `circle_tangent` but using line QP instead of PQ, to test the
     // other case of tangent direction.
     let solved = run("circle_tangent_other_dir");
+    assert!(solved.unsatisfied.is_empty());
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 3.0 });
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 5.0, y: 3.0 });
     let circle_a = solved.get_circle("a").unwrap();
@@ -137,6 +146,7 @@ fn circle_tangent_other_dir() {
 #[test]
 fn two_rectangles() {
     let solved = run("two_rectangles");
+    assert!(solved.unsatisfied.is_empty());
     // This forms two rectangles.
     assert_points_eq(solved.get_point("p0").unwrap(), Point { x: 1.0, y: 1.0 });
     assert_points_eq(solved.get_point("p1").unwrap(), Point { x: 5.0, y: 1.0 });
@@ -153,6 +163,7 @@ fn two_rectangles() {
 fn angle_constraints() {
     for file in ["angle_parallel", "angle_parallel_manual"] {
         let solved = run(file);
+        assert!(solved.unsatisfied.is_empty());
         assert_points_eq(solved.get_point("p0").unwrap(), Point { x: 0.0, y: 0.0 });
         assert_points_eq(solved.get_point("p1").unwrap(), Point { x: 4.0, y: 4.0 });
         assert_points_eq(solved.get_point("p2").unwrap(), Point { x: 0.0, y: 0.0 });
@@ -163,6 +174,7 @@ fn angle_constraints() {
 #[test]
 fn perpendicular() {
     let solved = run("perpendicular");
+    assert!(solved.unsatisfied.is_empty());
     assert_points_eq(solved.get_point("p0").unwrap(), Point { x: 0.0, y: 0.0 });
     assert_points_eq(solved.get_point("p1").unwrap(), Point { x: 0.0, y: 4.0 });
     assert_points_eq(solved.get_point("p2").unwrap(), Point { x: 0.0, y: 0.0 });
@@ -172,6 +184,7 @@ fn perpendicular() {
 #[test]
 fn nonsquare() {
     let solved = run("nonsquare");
+    assert!(solved.unsatisfied.is_empty());
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 0.0 });
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 0.0, y: 0.0 });
 }
@@ -179,6 +192,7 @@ fn nonsquare() {
 #[test]
 fn square() {
     let solved = run("square");
+    assert!(solved.unsatisfied.is_empty());
     assert_nearly_eq(
         solved.get_point("a").unwrap().y - solved.get_point("c").unwrap().y,
         solved.get_point("b").unwrap().y - solved.get_point("d").unwrap().y,
@@ -209,6 +223,7 @@ fn underdetermined_lines() {
     // line is not specified; we're relying on regularisation to push our solution
     // towards its start point.
     let solved = run("underdetermined_lines");
+    assert!(solved.unsatisfied.is_empty());
     assert_points_eq(solved.get_point("p0").unwrap(), Point { x: 0.0, y: 0.0 });
     assert_points_eq(solved.get_point("p1").unwrap(), Point { x: 4.0, y: 0.0 });
     assert_points_eq(solved.get_point("p2").unwrap(), Point { x: 4.0, y: 4.0 });
@@ -217,6 +232,7 @@ fn underdetermined_lines() {
 #[test]
 fn arc_radius() {
     let solved = run("arc_radius");
+    assert!(solved.unsatisfied.is_empty());
     let arc = solved.get_arc("a").unwrap();
     assert_points_eq(arc.center, Point { x: 0.0, y: 0.0 });
     assert_points_eq(arc.a, Point { x: 0.0, y: 5.0 });
@@ -226,6 +242,7 @@ fn arc_radius() {
 #[test]
 fn arc_equidistant() {
     let solved = run("arc_equidistant");
+    assert!(solved.unsatisfied.is_empty());
     let arc = solved.get_arc("a").unwrap();
     assert_points_eq(arc.center, Point { x: 0.0, y: 0.0 });
     assert_nearly_eq(
@@ -237,6 +254,7 @@ fn arc_equidistant() {
 #[test]
 fn chamfer_square() {
     let solved = run("chamfer_square");
+    assert!(solved.unsatisfied.is_empty());
     assert_points_eq(solved.get_point("a").unwrap(), Point { x: 0.0, y: 40.0 });
     assert_points_eq(solved.get_point("b").unwrap(), Point { x: 30.0, y: 40.0 });
     assert_points_eq(solved.get_point("c").unwrap(), Point { x: 40.0, y: 30.0 });
