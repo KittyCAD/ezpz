@@ -43,6 +43,8 @@ pub enum Constraint {
     /// These 3 points should form an arc,
     /// i.e. `a` and `b` should be equidistant from `center`.
     Arc(CircularArc),
+    /// The given point should be the midpoint along the given line.
+    Midpoint(LineSegment, DatumPoint),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -111,6 +113,10 @@ impl Constraint {
             }
             Constraint::Arc(arc) => {
                 row0.extend(arc.all_variables());
+            }
+            Constraint::Midpoint(line, point) => {
+                row0.extend(&[line.p0.id_x(), line.p1.id_x(), point.id_x()]);
+                row1.extend(&[line.p0.id_y(), line.p1.id_y(), point.id_y()]);
             }
         }
     }
@@ -306,6 +312,21 @@ impl Constraint {
 
                 *residual0 = dist0_sq - dist1_sq;
             }
+            Constraint::Midpoint(line, point) => {
+                let p = line.p0;
+                let q = line.p1;
+                let px = current_assignments[layout.index_of(p.id_x())];
+                let py = current_assignments[layout.index_of(p.id_y())];
+                let qx = current_assignments[layout.index_of(q.id_x())];
+                let qy = current_assignments[layout.index_of(q.id_y())];
+                let ax = current_assignments[layout.index_of(point.id_x())];
+                let ay = current_assignments[layout.index_of(point.id_y())];
+                // Equation:
+                //   ax = (px + qx)/2,
+                // ∴ ax - px/2 - qx/2 = 0
+                *residual0 = ax - px / 2.0 - qx / 2.0;
+                *residual1 = ay - py / 2.0 - qy / 2.0;
+            }
         }
     }
 
@@ -324,6 +345,7 @@ impl Constraint {
             Constraint::LinesEqualLength(..) => 1,
             Constraint::ArcRadius(..) => 2,
             Constraint::Arc(..) => 1,
+            Constraint::Midpoint(..) => 2,
         }
     }
 
@@ -763,6 +785,50 @@ impl Constraint {
                     },
                 ])
             }
+            Constraint::Midpoint(line, point) => {
+                let p = line.p0;
+                let q = line.p1;
+                // Equation:
+                // (note that a = the midpoint)
+                //   ax = (px + qx)/2,
+                // ∴ ax - px/2 - qx/2 = 0
+                //
+                // This has partial derivatives:
+                //   ∂R/∂ ax =  1
+                //   ∂R/∂ px = -0.5
+                //   ∂R/∂ qx = -0.5
+                //   ∂R/∂ ay =  1
+                //   ∂R/∂ py = -0.5
+                //   ∂R/∂ qy = -0.5
+                row0.extend([
+                    JacobianVar {
+                        id: point.id_x(),
+                        partial_derivative: 1.0,
+                    },
+                    JacobianVar {
+                        id: p.id_x(),
+                        partial_derivative: -0.5,
+                    },
+                    JacobianVar {
+                        id: q.id_x(),
+                        partial_derivative: -0.5,
+                    },
+                ]);
+                row1.extend([
+                    JacobianVar {
+                        id: point.id_y(),
+                        partial_derivative: 1.0,
+                    },
+                    JacobianVar {
+                        id: p.id_y(),
+                        partial_derivative: -0.5,
+                    },
+                    JacobianVar {
+                        id: q.id_y(),
+                        partial_derivative: -0.5,
+                    },
+                ]);
+            }
         }
     }
 
@@ -780,6 +846,7 @@ impl Constraint {
             Constraint::LinesEqualLength(..) => "LinesEqualLength",
             Constraint::ArcRadius(..) => "ArcRadius",
             Constraint::Arc(..) => "Arc",
+            Constraint::Midpoint(..) => "Midpoint",
         }
     }
 }
