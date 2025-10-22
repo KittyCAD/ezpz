@@ -5,6 +5,7 @@ package-lock.json
 flamegraph.svg
 lcov.info
 .vscode/
+.DS_Store
 
 # Often used in manual testing
 foo.png

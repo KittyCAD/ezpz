@@ -90,11 +90,13 @@ impl DatumPoint {
     }
 
     /// Id for the X component of the point.
+    #[inline(always)]
     pub fn id_x(&self) -> Id {
         self.x_id
     }
 
     /// Id for the Y component of the point.
+    #[inline(always)]
     pub fn id_y(&self) -> Id {
         self.y_id
     }
