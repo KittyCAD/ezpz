@@ -1,4 +1,4 @@
-# 0.1.1
+# 0.1.3
 
 * Report unsatisfied constraints (#124)
 * Configurable max number of iterations of Newton's Method (#122)
