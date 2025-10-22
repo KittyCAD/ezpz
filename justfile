@@ -35,7 +35,7 @@ flamegraph:
 # Run benchmarks
 bench:
     cargo criterion -p kcl-ezpz --bench solver_bench
-    git restore test_cases/massive_parallel_system/problem.txt
+    git restore test_cases/massive_parallel_system/problem.md
 
 # Check formatting and typos.
 fmt-check:
@@ -45,11 +45,11 @@ fmt-check:
 
 # Generate a constraint system with varying number of lines.
 @regen-massive-test num_lines:
-    python3 {{gen}} {{num_lines}} > test_cases/massive_parallel_system/problem.txt
+    python3 {{gen}} {{num_lines}} > test_cases/massive_parallel_system/problem.md
 
 # Generate an overconstraint system with varying number of lines.
 @regen-massive-test-overconstrained num_lines:
-    python3 {{gen}} {{num_lines}} true > test_cases/massive_parallel_system/problem.txt
+    python3 {{gen}} {{num_lines}} true > test_cases/massive_parallel_system/problem.md
 
 # Install the ezpz CLI.
 # The output text will tell you where it got installed.
@@ -64,7 +64,7 @@ install:
 # Create a new test case
 new-test name:
     mkdir test_cases/{{name}}
-    touch test_cases/{{name}}/problem.txt
+    touch test_cases/{{name}}/problem.md
 
 [linux]
 [windows]

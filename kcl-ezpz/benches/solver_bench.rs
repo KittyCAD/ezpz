@@ -13,7 +13,7 @@ use newton_faer::init_global_parallelism;
 /// Opens a given test case from the test_cases/ dir,
 /// benchmarks solving it.
 fn bench_case(c: &mut Criterion, test_case: &'static str) {
-    let txt = std::fs::read_to_string(format!("test_cases/{test_case}/problem.txt")).unwrap();
+    let txt = std::fs::read_to_string(format!("test_cases/{test_case}/problem.md")).unwrap();
     c.bench_function(&format!("solve_{test_case}"), |b| {
         let problem = Problem::from_str(txt.as_str()).unwrap();
         let constraints = problem.to_constraint_system().unwrap();
@@ -166,7 +166,7 @@ fn run_massive(c: &mut Criterion, overconstrained: bool) {
         group.throughput(Throughput::Elements(size));
         group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _size| {
             let txt =
-                std::fs::read_to_string("test_cases/massive_parallel_system/problem.txt").unwrap();
+                std::fs::read_to_string("test_cases/massive_parallel_system/problem.md").unwrap();
             let t = txt.as_str();
             let problem = Problem::from_str(t).unwrap();
             let constraints = problem.to_constraint_system().unwrap();
