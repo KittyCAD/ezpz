@@ -49,6 +49,16 @@ fn coincident() {
 }
 
 #[test]
+fn midpoint() {
+    let solved = run("midpoint");
+    assert!(solved.unsatisfied.is_empty());
+    // P and Q have a midpoint M.
+    assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 0.0 });
+    assert_points_eq(solved.get_point("q").unwrap(), Point { x: 2.0, y: 3.0 });
+    assert_points_eq(solved.get_point("m").unwrap(), Point { x: 1.0, y: 1.5 });
+}
+
+#[test]
 fn underconstrained() {
     let solved = run("underconstrained");
     assert!(solved.unsatisfied.is_empty());

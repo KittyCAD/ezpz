@@ -304,6 +304,12 @@ impl Problem {
                     let p1 = datum_point_for_label(point1)?;
                     constraints.push(Constraint::PointsCoincident(p0, p1));
                 }
+                Instruction::Midpoint(Midpoint { point0, point1, mp }) => {
+                    let p0 = datum_point_for_label(point0)?;
+                    let p1 = datum_point_for_label(point1)?;
+                    let mp = datum_point_for_label(mp)?;
+                    constraints.push(Constraint::Midpoint(LineSegment { p0, p1 }, mp));
+                }
                 Instruction::Horizontal(Horizontal { label }) => {
                     let p0 = datum_point_for_label(&label.0)?;
                     let p1 = datum_point_for_label(&label.1)?;

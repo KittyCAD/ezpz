@@ -15,6 +15,7 @@ pub enum Instruction {
     Perpendicular(Perpendicular),
     AngleLine(AngleLine),
     PointsCoincident(PointsCoincident),
+    Midpoint(Midpoint),
     CircleRadius(CircleRadius),
     Tangent(Tangent),
     ArcRadius(ArcRadius),
@@ -89,6 +90,13 @@ pub struct AngleLine {
 pub struct PointsCoincident {
     pub point0: Label,
     pub point1: Label,
+}
+
+#[derive(Debug)]
+pub struct Midpoint {
+    pub point0: Label,
+    pub point1: Label,
+    pub mp: Label,
 }
 
 #[derive(Debug)]

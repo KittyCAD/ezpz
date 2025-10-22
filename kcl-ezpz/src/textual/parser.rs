@@ -4,8 +4,8 @@ use crate::{
         ScalarGuess,
         instruction::{
             AngleLine, ArcRadius, CircleRadius, DeclareArc, DeclareCircle, Distance,
-            FixCenterPointComponent, IsArc, Line, LinesEqualLength, Parallel, Perpendicular,
-            PointsCoincident, Tangent,
+            FixCenterPointComponent, IsArc, Line, LinesEqualLength, Midpoint, Parallel,
+            Perpendicular, PointsCoincident, Tangent,
         },
     },
 };
@@ -164,6 +164,13 @@ pub fn parse_coincident(i: &mut &str) -> WResult<PointsCoincident> {
     Ok(PointsCoincident { point0, point1 })
 }
 
+pub fn parse_midpoint(i: &mut &str) -> WResult<Midpoint> {
+    let _ = "midpoint".parse_next(i)?;
+    ignore_ws(i);
+    let [point0, point1, mp] = inside_brackets(three_points, i)?;
+    Ok(Midpoint { point0, point1, mp })
+}
+
 pub fn parse_vertical(i: &mut &str) -> WResult<Vertical> {
     let _ = "vertical".parse_next(i)?;
     ignore_ws(i);
@@ -312,6 +319,16 @@ fn two_points(i: &mut &str) -> WResult<[Label; 2]> {
     Ok([p0, p1])
 }
 
+fn three_points(i: &mut &str) -> WResult<[Label; 3]> {
+    let p0 = parse_label(i)?;
+    commasep(i)?;
+    let p1 = parse_label(i)?;
+    commasep(i)?;
+    let p2 = parse_label(i)?;
+    ignore_ws(i);
+    Ok([p0, p1, p2])
+}
+
 /// Single-element vector
 fn sv<T>(t: T) -> Vec<T> {
     vec![t]
@@ -332,6 +349,7 @@ fn parse_instruction(i: &mut &str) -> WResult<Vec<Instruction>> {
         assign_point,
         parse_horizontal.map(Instruction::Horizontal).map(sv),
         parse_coincident.map(Instruction::PointsCoincident).map(sv),
+        parse_midpoint.map(Instruction::Midpoint).map(sv),
         parse_vertical.map(Instruction::Vertical).map(sv),
         parse_distance.map(Instruction::Distance).map(sv),
         parse_parallel.map(Instruction::Parallel).map(sv),
