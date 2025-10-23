@@ -120,8 +120,9 @@ impl Constraint {
                 row0.extend(&[line.p0.id_x(), line.p1.id_x(), point.id_x()]);
                 row1.extend(&[line.p0.id_y(), line.p1.id_y(), point.id_y()]);
             }
-            Constraint::PointLineDistance(..) => {
-                todo!()
+            Constraint::PointLineDistance(point, line, _distance) => {
+                row0.extend(point.all_variables());
+                row0.extend(line.all_variables());
             }
         }
     }
@@ -332,8 +333,34 @@ impl Constraint {
                 *residual0 = ax - px / 2.0 - qx / 2.0;
                 *residual1 = ay - py / 2.0 - qy / 2.0;
             }
-            Constraint::PointLineDistance(..) => {
-                todo!()
+            Constraint::PointLineDistance(point, line, target_distance) => {
+                // Equation:
+                //
+                // Given a line in format Ax + By + C = 0,
+                // and a point (px, py), then the actual distance is
+                //
+                // (A.px + B.py + C)  /  sqrt(A^2 + B^2)
+                //
+                // Note that we use a signed direction, so there's no absolute value
+                // of the numerator, as you'd usually see. This stops the solver
+                // from randomly flipping which side of the line the point is on.
+                let px = current_assignments[layout.index_of(point.id_x())];
+                let py = current_assignments[layout.index_of(point.id_y())];
+                let (a, b, c) = equation_of_line(current_assignments, line, layout);
+
+                // The above equation is a division, so make sure not to divide by zero.
+                let denominator = (a.powi(2) + b.powi(2)).sqrt();
+                let is_invalid = denominator < EPSILON;
+                if is_invalid {
+                    *residual0 = 0.0;
+                    *degenerate = true;
+                    return;
+                }
+                let actual_distance = (a * px + b * py + c) / denominator;
+
+                // Residual is then easy to calculate, it's just the gap between actual and target.
+                let residual = actual_distance - target_distance;
+                *residual0 = residual;
             }
         }
     }
@@ -354,9 +381,7 @@ impl Constraint {
             Constraint::ArcRadius(..) => 2,
             Constraint::Arc(..) => 1,
             Constraint::Midpoint(..) => 2,
-            Constraint::PointLineDistance(..) => {
-                todo!()
-            }
+            Constraint::PointLineDistance(..) => 1,
         }
     }
 
@@ -936,9 +961,48 @@ fn get_line_ends(
     (l0, l1)
 }
 
+/// If we represent the line in the form (Ax + By + C),
+/// this returns (A, B, C).
+fn equation_of_line(
+    current_assignments: &[f64],
+    line: &LineSegment,
+    layout: &Layout,
+) -> (f64, f64, f64) {
+    let px = current_assignments[layout.index_of(line.p0.id_x())];
+    let py = current_assignments[layout.index_of(line.p0.id_y())];
+    let qx = current_assignments[layout.index_of(line.p1.id_x())];
+    let qy = current_assignments[layout.index_of(line.p1.id_y())];
+    inner_equation_of_line(px, py, qx, qy)
+}
+
+/// Given two points on the line P and Q,
+/// if we represent the line in the form (Ax + By + C),
+/// this returns (A, B, C).
+fn inner_equation_of_line(px: f64, py: f64, qx: f64, qy: f64) -> (f64, f64, f64) {
+    // A = y1 - y2
+    // B = x2 - x1
+    // C = x1y2 - x2y1
+    //
+    // i.e.
+    //
+    // A = py - qy
+    // B = qx - px
+    // C = pxqy - qxpy
+    let a = py - qy;
+    let b = qx - px;
+    let c = (px * qy) - (qx * py);
+    (a, b, c)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_equation_of_line() {
+        let actual = inner_equation_of_line(1.0, 2.0, 3.0, 3.0);
+        assert_eq!(actual, (-1.0, 2.0, -3.0))
+    }
 
     #[test]
     fn test_geometry() {
