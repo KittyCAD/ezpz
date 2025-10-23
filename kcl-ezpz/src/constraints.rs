@@ -45,6 +45,8 @@ pub enum Constraint {
     Arc(CircularArc),
     /// The given point should be the midpoint along the given line.
     Midpoint(LineSegment, DatumPoint),
+    /// The given point should be the given (perpendicular) distance away from the line.
+    PointLineDistance(DatumPoint, LineSegment, f64),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -117,6 +119,9 @@ impl Constraint {
             Constraint::Midpoint(line, point) => {
                 row0.extend(&[line.p0.id_x(), line.p1.id_x(), point.id_x()]);
                 row1.extend(&[line.p0.id_y(), line.p1.id_y(), point.id_y()]);
+            }
+            Constraint::PointLineDistance(..) => {
+                todo!()
             }
         }
     }
@@ -327,6 +332,9 @@ impl Constraint {
                 *residual0 = ax - px / 2.0 - qx / 2.0;
                 *residual1 = ay - py / 2.0 - qy / 2.0;
             }
+            Constraint::PointLineDistance(..) => {
+                todo!()
+            }
         }
     }
 
@@ -346,6 +354,9 @@ impl Constraint {
             Constraint::ArcRadius(..) => 2,
             Constraint::Arc(..) => 1,
             Constraint::Midpoint(..) => 2,
+            Constraint::PointLineDistance(..) => {
+                todo!()
+            }
         }
     }
 
@@ -829,6 +840,9 @@ impl Constraint {
                     },
                 ]);
             }
+            Constraint::PointLineDistance(..) => {
+                todo!()
+            }
         }
     }
 
@@ -847,6 +861,7 @@ impl Constraint {
             Constraint::ArcRadius(..) => "ArcRadius",
             Constraint::Arc(..) => "Arc",
             Constraint::Midpoint(..) => "Midpoint",
+            Constraint::PointLineDistance(..) => "PointLineDistance",
         }
     }
 }

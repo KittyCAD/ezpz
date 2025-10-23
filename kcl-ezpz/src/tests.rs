@@ -49,6 +49,15 @@ fn coincident() {
 }
 
 #[test]
+fn perpdist() {
+    let solved = run("perpdist");
+    assert!(solved.unsatisfied.is_empty());
+    // P and Q are fixed:
+    assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 0.0 });
+    assert_points_eq(solved.get_point("q").unwrap(), Point { x: 2.0, y: 3.0 });
+}
+
+#[test]
 fn midpoint() {
     let solved = run("midpoint");
     assert!(solved.unsatisfied.is_empty());

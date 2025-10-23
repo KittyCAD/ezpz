@@ -22,6 +22,7 @@ pub enum Instruction {
     FixCenterPointComponent(FixCenterPointComponent),
     LinesEqualLength(LinesEqualLength),
     IsArc(IsArc),
+    PointLineDistance(PointLineDistance),
     Line(Line),
 }
 
@@ -97,6 +98,14 @@ pub struct Midpoint {
     pub point0: Label,
     pub point1: Label,
     pub mp: Label,
+}
+
+#[derive(Debug)]
+pub struct PointLineDistance {
+    pub point: Label,
+    pub line_p0: Label,
+    pub line_p1: Label,
+    pub distance: f64,
 }
 
 #[derive(Debug)]
