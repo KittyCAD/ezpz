@@ -1,5 +1,3 @@
-use libm::{cos, sin};
-
 use crate::{IdGenerator, id::Id};
 
 pub trait Datum {
@@ -77,8 +75,8 @@ impl Datum for DatumDistance {
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct DatumPoint {
-    pub(crate) x_id: Id,
-    pub(crate) y_id: Id,
+    pub x_id: Id,
+    pub y_id: Id,
 }
 
 impl DatumPoint {
@@ -87,6 +85,10 @@ impl DatumPoint {
             x_id: id_generator.next_id(),
             y_id: id_generator.next_id(),
         }
+    }
+
+    pub fn new_xy(x: Id, y: Id) -> Self {
+        Self { x_id: x, y_id: y }
     }
 
     /// Id for the X component of the point.
@@ -105,25 +107,6 @@ impl DatumPoint {
 impl Datum for DatumPoint {
     fn all_variables(&self) -> impl IntoIterator<Item = Id> {
         [self.id_x(), self.id_y()]
-    }
-}
-
-/// Line of infinite length.
-#[derive(Clone, Copy, Debug)]
-#[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
-pub struct DatumLine {
-    // Unusual representation of a line using two parameters, theta and A
-    theta: Angle,
-    #[allow(dead_code)]
-    a: f64,
-}
-
-impl DatumLine {
-    /// Get gradient of the line dx/dy.
-    pub fn direction(&self) -> f64 {
-        let dx = cos(self.theta.to_radians());
-        let dy = sin(self.theta.to_radians());
-        dx / dy
     }
 }
 
