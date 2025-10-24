@@ -5,7 +5,7 @@ use crate::{
         instruction::{
             AngleLine, ArcRadius, CircleRadius, DeclareArc, DeclareCircle, Distance,
             FixCenterPointComponent, IsArc, Line, LinesEqualLength, Midpoint, Parallel,
-            Perpendicular, PointsCoincident, Tangent,
+            Perpendicular, PointLineDistance, PointsCoincident, Tangent,
         },
     },
 };
@@ -171,6 +171,18 @@ pub fn parse_midpoint(i: &mut &str) -> WResult<Midpoint> {
     Ok(Midpoint { point0, point1, mp })
 }
 
+pub fn parse_point_line_distance(i: &mut &str) -> WResult<PointLineDistance> {
+    let _ = "point_line_distance".parse_next(i)?;
+    ignore_ws(i);
+    let (point, line_p0, line_p1, distance) = inside_brackets(three_labels_num, i)?;
+    Ok(PointLineDistance {
+        point,
+        line_p0,
+        line_p1,
+        distance,
+    })
+}
+
 pub fn parse_vertical(i: &mut &str) -> WResult<Vertical> {
     let _ = "vertical".parse_next(i)?;
     ignore_ws(i);
@@ -329,6 +341,18 @@ fn three_points(i: &mut &str) -> WResult<[Label; 3]> {
     Ok([p0, p1, p2])
 }
 
+fn three_labels_num(i: &mut &str) -> WResult<(Label, Label, Label, f64)> {
+    let p = parse_label(i)?;
+    commasep(i)?;
+    let lp0 = parse_label(i)?;
+    commasep(i)?;
+    let lp1 = parse_label(i)?;
+    commasep(i)?;
+    let d = parse_number(i)?;
+    ignore_ws(i);
+    Ok((p, lp0, lp1, d))
+}
+
 /// Single-element vector
 fn sv<T>(t: T) -> Vec<T> {
     vec![t]
@@ -359,6 +383,9 @@ fn parse_instruction(i: &mut &str) -> WResult<Vec<Instruction>> {
         parse_tangent.map(Instruction::Tangent).map(sv),
         parse_arc_radius.map(Instruction::ArcRadius).map(sv),
         parse_is_arc.map(Instruction::IsArc).map(sv),
+        parse_point_line_distance
+            .map(Instruction::PointLineDistance)
+            .map(sv),
         parse_line.map(Instruction::Line).map(sv),
         parse_lines_equal_length
             .map(Instruction::LinesEqualLength)

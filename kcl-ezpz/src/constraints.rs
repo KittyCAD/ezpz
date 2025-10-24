@@ -45,6 +45,8 @@ pub enum Constraint {
     Arc(CircularArc),
     /// The given point should be the midpoint along the given line.
     Midpoint(LineSegment, DatumPoint),
+    /// The given point should be the given (perpendicular) distance away from the line.
+    PointLineDistance(DatumPoint, LineSegment, f64),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -117,6 +119,10 @@ impl Constraint {
             Constraint::Midpoint(line, point) => {
                 row0.extend(&[line.p0.id_x(), line.p1.id_x(), point.id_x()]);
                 row1.extend(&[line.p0.id_y(), line.p1.id_y(), point.id_y()]);
+            }
+            Constraint::PointLineDistance(point, line, _distance) => {
+                row0.extend(point.all_variables());
+                row0.extend(line.all_variables());
             }
         }
     }
@@ -327,6 +333,35 @@ impl Constraint {
                 *residual0 = ax - px / 2.0 - qx / 2.0;
                 *residual1 = ay - py / 2.0 - qy / 2.0;
             }
+            Constraint::PointLineDistance(point, line, target_distance) => {
+                // Equation:
+                //
+                // Given a line in format Ax + By + C = 0,
+                // and a point (px, py), then the actual distance is
+                //
+                // (A.px + B.py + C)  /  sqrt(A^2 + B^2)
+                //
+                // Note that we use a signed direction, so there's no absolute value
+                // of the numerator, as you'd usually see. This stops the solver
+                // from randomly flipping which side of the line the point is on.
+                let px = current_assignments[layout.index_of(point.id_x())];
+                let py = current_assignments[layout.index_of(point.id_y())];
+                let (a, b, c) = equation_of_line(current_assignments, line, layout);
+
+                // The above equation is a division, so make sure not to divide by zero.
+                let denominator = (a.powi(2) + b.powi(2)).sqrt();
+                let is_invalid = denominator < EPSILON;
+                if is_invalid {
+                    *residual0 = 0.0;
+                    *degenerate = true;
+                    return;
+                }
+                let actual_distance = (a * px + b * py + c) / denominator;
+
+                // Residual is then easy to calculate, it's just the gap between actual and target.
+                let residual = actual_distance - target_distance;
+                *residual0 = residual;
+            }
         }
     }
 
@@ -346,6 +381,7 @@ impl Constraint {
             Constraint::ArcRadius(..) => 2,
             Constraint::Arc(..) => 1,
             Constraint::Midpoint(..) => 2,
+            Constraint::PointLineDistance(..) => 1,
         }
     }
 
@@ -829,6 +865,97 @@ impl Constraint {
                     },
                 ]);
             }
+            Constraint::PointLineDistance(point, line, _distance) => {
+                // Equation:
+                //
+                // Given a line in format Ax + By + C = 0,
+                // and a point (px, py), then the actual distance is
+                //
+                // (A.px + B.py + C)  /  sqrt(A^2 + B^2)
+                //
+                // Note that we use a signed direction, so there's no absolute value
+                // of the numerator, as you'd usually see. This stops the solver
+                // from randomly flipping which side of the line the point is on.
+                let px = current_assignments[layout.index_of(point.id_x())];
+                let py = current_assignments[layout.index_of(point.id_y())];
+                let p0x = current_assignments[layout.index_of(line.p0.id_x())];
+                let p0y = current_assignments[layout.index_of(line.p0.id_y())];
+                let p1x = current_assignments[layout.index_of(line.p1.id_x())];
+                let p1y = current_assignments[layout.index_of(line.p1.id_y())];
+
+                // I used SymPy to get the derivatives. See this playground:
+                // https://colab.research.google.com/drive/1zYHmggw6Juj8UFnxh-VKd8U9BG2Ul1gx?usp=sharing
+                // This gets pretty hairy, I've tried to translate the math accurately. Please view the
+                // playground above to get an intuition for what I'm doing.
+                // The first two, d_px and d_py are relatively simple. They use the same denominator,
+                // which represents the Euclidean distance between p0 and p1.
+                let euclid_dist = ((-p0x + p1x).powi(2) + (p0y - p1y).powi(2)).sqrt();
+                let d_px = (p0y - p1y) / euclid_dist;
+                let d_py = (-p0x + p1x) / euclid_dist;
+
+                // The partial derivatives of the line's components (p0 and p1)
+                // are trickier. There are some shared terms, e.g. the denominator of the LHS
+                // fraction.
+                let denom = ((-p0x + p1x).powi(2) + (p0y - p1y).powi(2)).powf(1.5);
+                let d_p0x = {
+                    let lhs = ((-p0x + p1x)
+                        * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x)))
+                        / denom;
+                    let rhs = (p1y - py) / euclid_dist;
+                    lhs + rhs
+                };
+
+                let d_p0y = {
+                    let lhs = ((-p0y + p1y)
+                        * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x)))
+                        / denom;
+                    let rhs = (-p1x + px) / euclid_dist;
+                    lhs + rhs
+                };
+
+                let d_p1x = {
+                    let lhs = ((p0x - p1x)
+                        * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x)))
+                        / denom;
+                    let rhs = (-p0y + py) / euclid_dist;
+                    lhs + rhs
+                };
+
+                let d_p1y = {
+                    let lhs = ((p0y - p1y)
+                        * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x)))
+                        / denom;
+                    let rhs = (p0x - px) / euclid_dist;
+                    lhs + rhs
+                };
+
+                row0.extend([
+                    JacobianVar {
+                        id: point.id_x(),
+                        partial_derivative: d_px,
+                    },
+                    JacobianVar {
+                        id: point.id_y(),
+                        partial_derivative: d_py,
+                    },
+                    JacobianVar {
+                        id: line.p0.id_x(),
+                        partial_derivative: d_p0x,
+                    },
+                    JacobianVar {
+                        id: line.p0.id_y(),
+                        partial_derivative: d_p0y,
+                    },
+                    JacobianVar {
+                        id: line.p1.id_x(),
+                        partial_derivative: d_p1x,
+                    },
+                    JacobianVar {
+                        id: line.p1.id_y(),
+                        partial_derivative: d_p1y,
+                    },
+                ]);
+            }
         }
     }
 
@@ -847,6 +974,7 @@ impl Constraint {
             Constraint::ArcRadius(..) => "ArcRadius",
             Constraint::Arc(..) => "Arc",
             Constraint::Midpoint(..) => "Midpoint",
+            Constraint::PointLineDistance(..) => "PointLineDistance",
         }
     }
 }
@@ -921,9 +1049,48 @@ fn get_line_ends(
     (l0, l1)
 }
 
+/// If we represent the line in the form (Ax + By + C),
+/// this returns (A, B, C).
+fn equation_of_line(
+    current_assignments: &[f64],
+    line: &LineSegment,
+    layout: &Layout,
+) -> (f64, f64, f64) {
+    let px = current_assignments[layout.index_of(line.p0.id_x())];
+    let py = current_assignments[layout.index_of(line.p0.id_y())];
+    let qx = current_assignments[layout.index_of(line.p1.id_x())];
+    let qy = current_assignments[layout.index_of(line.p1.id_y())];
+    inner_equation_of_line(px, py, qx, qy)
+}
+
+/// Given two points on the line P and Q,
+/// if we represent the line in the form (Ax + By + C),
+/// this returns (A, B, C).
+fn inner_equation_of_line(px: f64, py: f64, qx: f64, qy: f64) -> (f64, f64, f64) {
+    // A = y1 - y2
+    // B = x2 - x1
+    // C = x1y2 - x2y1
+    //
+    // i.e.
+    //
+    // A = py - qy
+    // B = qx - px
+    // C = pxqy - qxpy
+    let a = py - qy;
+    let b = qx - px;
+    let c = (px * qy) - (qx * py);
+    (a, b, c)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_equation_of_line() {
+        let actual = inner_equation_of_line(1.0, 2.0, 3.0, 3.0);
+        assert_eq!(actual, (-1.0, 2.0, -3.0))
+    }
 
     #[test]
     fn test_geometry() {

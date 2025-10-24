@@ -212,6 +212,19 @@ impl Problem {
                     };
                     constraints.push(Constraint::Arc(circular_arc));
                 }
+                Instruction::PointLineDistance(PointLineDistance {
+                    point,
+                    line_p0,
+                    line_p1,
+                    distance,
+                }) => {
+                    let line = LineSegment {
+                        p0: datum_point_for_label(line_p0)?,
+                        p1: datum_point_for_label(line_p1)?,
+                    };
+                    let p = datum_point_for_label(point)?;
+                    constraints.push(Constraint::PointLineDistance(p, line, *distance))
+                }
                 Instruction::Tangent(Tangent {
                     circle,
                     line_p0,
