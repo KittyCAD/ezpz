@@ -865,8 +865,96 @@ impl Constraint {
                     },
                 ]);
             }
-            Constraint::PointLineDistance(..) => {
-                todo!()
+            Constraint::PointLineDistance(point, line, _distance) => {
+                // Equation:
+                //
+                // Given a line in format Ax + By + C = 0,
+                // and a point (px, py), then the actual distance is
+                //
+                // (A.px + B.py + C)  /  sqrt(A^2 + B^2)
+                //
+                // Note that we use a signed direction, so there's no absolute value
+                // of the numerator, as you'd usually see. This stops the solver
+                // from randomly flipping which side of the line the point is on.
+                let px = current_assignments[layout.index_of(point.id_x())];
+                let py = current_assignments[layout.index_of(point.id_y())];
+                let p0x = current_assignments[layout.index_of(line.p0.id_x())];
+                let p0y = current_assignments[layout.index_of(line.p0.id_y())];
+                let p1x = current_assignments[layout.index_of(line.p1.id_x())];
+                let p1y = current_assignments[layout.index_of(line.p1.id_y())];
+
+                // I used SymPy to get the derivatives. See this playground:
+                // https://colab.research.google.com/drive/1zYHmggw6Juj8UFnxh-VKd8U9BG2Ul1gx?usp=sharing
+                // This gets pretty hairy, I've tried to translate the math accurately. Please view the
+                // playground above to get an intuition for what I'm doing.
+                // The first two, d_px and d_py are relatively simple. They use the same denominator,
+                // which represents the Euclidean distance between p0 and p1.
+                let euclid_dist = ((-p0x + p1x).powi(2) + (p0y - p1y).powi(2)).sqrt();
+                let d_px = (p0y - p1y) / euclid_dist;
+                let d_py = (-p0x + p1x) / euclid_dist;
+
+                // The partial derivatives of the line's components (p0 and p1)
+                // are trickier. There are some shared terms, e.g. the denominator of the LHS
+                // fraction.
+                let denom = ((-p0x + p1x).powi(2) + (p0y - p1y).powi(2)).powf(1.5);
+                let d_p0x = {
+                    let lhs = ((-p0x + p1x)
+                        * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x)))
+                        / denom;
+                    let rhs = (p1y - py) / euclid_dist;
+                    lhs + rhs
+                };
+
+                let d_p0y = {
+                    let lhs = ((-p0y + p1y)
+                        * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x)))
+                        / denom;
+                    let rhs = (-p1x + px) / euclid_dist;
+                    lhs + rhs
+                };
+
+                let d_p1x = {
+                    let lhs = ((p0x - p1x)
+                        * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x)))
+                        / denom;
+                    let rhs = (-p0y + py) / euclid_dist;
+                    lhs + rhs
+                };
+
+                let d_p1y = {
+                    let lhs = ((p0y - p1y)
+                        * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x)))
+                        / denom;
+                    let rhs = (p0x - px) / euclid_dist;
+                    lhs + rhs
+                };
+
+                row0.extend([
+                    JacobianVar {
+                        id: point.id_x(),
+                        partial_derivative: d_px,
+                    },
+                    JacobianVar {
+                        id: point.id_y(),
+                        partial_derivative: d_py,
+                    },
+                    JacobianVar {
+                        id: line.p0.id_x(),
+                        partial_derivative: d_p0x,
+                    },
+                    JacobianVar {
+                        id: line.p0.id_y(),
+                        partial_derivative: d_p0y,
+                    },
+                    JacobianVar {
+                        id: line.p1.id_x(),
+                        partial_derivative: d_p1x,
+                    },
+                    JacobianVar {
+                        id: line.p1.id_y(),
+                        partial_derivative: d_p1y,
+                    },
+                ]);
             }
         }
     }
