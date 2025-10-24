@@ -55,6 +55,30 @@ fn perpdist() {
     // P and Q are fixed:
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 0.0 });
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 2.0, y: 3.0 });
+    assert_points_eq(
+        solved.get_point("a").unwrap(),
+        Point {
+            x: -0.062819,
+            y: 1.7085463,
+        },
+    );
+}
+
+#[test]
+fn perpdist_negative() {
+    // Just like the `perpdist` test case, except the perpendicular distance is negative
+    // instead of positive. So the point should be flipped to the other side of the line.
+    let solved = run("perpdist_negative");
+    assert!(solved.unsatisfied.is_empty());
+    assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 0.0 });
+    assert_points_eq(solved.get_point("q").unwrap(), Point { x: 2.0, y: 3.0 });
+    assert_points_eq(
+        solved.get_point("a").unwrap(),
+        Point {
+            x: 1.60128,
+            y: 0.59914,
+        },
+    );
 }
 
 #[test]

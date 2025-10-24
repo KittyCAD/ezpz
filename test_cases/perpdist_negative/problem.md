@@ -5,7 +5,7 @@ line(p, q)
 p = (0, 0)
 q = (2, 3)
 point a
-point_line_distance(a, p, q, 1)
+point_line_distance(a, p, q, -1)
 
 # guesses
 a roughly (1, 1)
