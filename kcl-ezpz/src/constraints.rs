@@ -883,78 +883,20 @@ impl Constraint {
                 let p1x = current_assignments[layout.index_of(line.p1.id_x())];
                 let p1y = current_assignments[layout.index_of(line.p1.id_y())];
 
-                // I used SymPy to get the derivatives. See this playground:
-                // https://colab.research.google.com/drive/1zYHmggw6Juj8UFnxh-VKd8U9BG2Ul1gx?usp=sharing
-                // This gets pretty hairy, I've tried to translate the math accurately. Please view the
-                // playground above to get an intuition for what I'm doing.
-                // The first two, d_px and d_py are relatively simple. They use the same denominator,
-                // which represents the Euclidean distance between p0 and p1.
-                let euclid_dist = ((-p0x + p1x).powi(2) + (p0y - p1y).powi(2)).sqrt();
-                let d_px = (p0y - p1y) / euclid_dist;
-                let d_py = (-p0x + p1x) / euclid_dist;
+                let partial_derivatives = pds_for_point_line(
+                    point,
+                    line,
+                    PointLineVars {
+                        px,
+                        py,
+                        p0x,
+                        p0y,
+                        p1x,
+                        p1y,
+                    },
+                );
 
-                // The partial derivatives of the line's components (p0 and p1)
-                // are trickier. There are some shared terms, e.g. the denominator of the LHS
-                // fraction.
-                let denom = ((-p0x + p1x).powi(2) + (p0y - p1y).powi(2)).powf(1.5);
-                let d_p0x = {
-                    let lhs = ((-p0x + p1x)
-                        * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x)))
-                        / denom;
-                    let rhs = (p1y - py) / euclid_dist;
-                    lhs + rhs
-                };
-
-                let d_p0y = {
-                    let lhs = ((-p0y + p1y)
-                        * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x)))
-                        / denom;
-                    let rhs = (-p1x + px) / euclid_dist;
-                    lhs + rhs
-                };
-
-                let d_p1x = {
-                    let lhs = ((p0x - p1x)
-                        * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x)))
-                        / denom;
-                    let rhs = (-p0y + py) / euclid_dist;
-                    lhs + rhs
-                };
-
-                let d_p1y = {
-                    let lhs = ((p0y - p1y)
-                        * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x)))
-                        / denom;
-                    let rhs = (p0x - px) / euclid_dist;
-                    lhs + rhs
-                };
-
-                row0.extend([
-                    JacobianVar {
-                        id: point.id_x(),
-                        partial_derivative: d_px,
-                    },
-                    JacobianVar {
-                        id: point.id_y(),
-                        partial_derivative: d_py,
-                    },
-                    JacobianVar {
-                        id: line.p0.id_x(),
-                        partial_derivative: d_p0x,
-                    },
-                    JacobianVar {
-                        id: line.p0.id_y(),
-                        partial_derivative: d_p0y,
-                    },
-                    JacobianVar {
-                        id: line.p1.id_x(),
-                        partial_derivative: d_p1x,
-                    },
-                    JacobianVar {
-                        id: line.p1.id_y(),
-                        partial_derivative: d_p1y,
-                    },
-                ]);
+                row0.extend(partial_derivatives);
             }
         }
     }
@@ -977,6 +919,98 @@ impl Constraint {
             Constraint::PointLineDistance(..) => "PointLineDistance",
         }
     }
+}
+
+struct PointLineVars {
+    px: f64,
+    py: f64,
+    p0x: f64,
+    p0y: f64,
+    p1x: f64,
+    p1y: f64,
+}
+
+fn pds_for_point_line(
+    point: &DatumPoint,
+    line: &LineSegment,
+    point_line_vars: PointLineVars,
+) -> [JacobianVar; 6] {
+    let PointLineVars {
+        px,
+        py,
+        p0x,
+        p0y,
+        p1x,
+        p1y,
+    } = point_line_vars;
+
+    // I used SymPy to get the derivatives. See this playground:
+    // https://colab.research.google.com/drive/1zYHmggw6Juj8UFnxh-VKd8U9BG2Ul1gx?usp=sharing
+    // This gets pretty hairy, I've tried to translate the math accurately. Please view the
+    // playground above to get an intuition for what I'm doing.
+    // The first two, d_px and d_py are relatively simple. They use the same denominator,
+    // which represents the Euclidean distance between p0 and p1.
+    let euclid_dist = ((-p0x + p1x).powi(2) + (p0y - p1y).powi(2)).sqrt();
+    let d_px = (p0y - p1y) / euclid_dist;
+    let d_py = (-p0x + p1x) / euclid_dist;
+
+    // The partial derivatives of the line's components (p0 and p1)
+    // are trickier. There are some shared terms, e.g. the denominator of the LHS
+    // fraction.
+    let denom = ((-p0x + p1x).powi(2) + (p0y - p1y).powi(2)).powf(1.5);
+    let d_p0x = {
+        let lhs =
+            ((-p0x + p1x) * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x))) / denom;
+        let rhs = (p1y - py) / euclid_dist;
+        lhs + rhs
+    };
+
+    let d_p0y = {
+        let lhs =
+            ((-p0y + p1y) * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x))) / denom;
+        let rhs = (-p1x + px) / euclid_dist;
+        lhs + rhs
+    };
+
+    let d_p1x = {
+        let lhs =
+            ((p0x - p1x) * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x))) / denom;
+        let rhs = (-p0y + py) / euclid_dist;
+        lhs + rhs
+    };
+
+    let d_p1y = {
+        let lhs =
+            ((p0y - p1y) * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x))) / denom;
+        let rhs = (p0x - px) / euclid_dist;
+        lhs + rhs
+    };
+    [
+        JacobianVar {
+            id: point.id_x(),
+            partial_derivative: d_px,
+        },
+        JacobianVar {
+            id: point.id_y(),
+            partial_derivative: d_py,
+        },
+        JacobianVar {
+            id: line.p0.id_x(),
+            partial_derivative: d_p0x,
+        },
+        JacobianVar {
+            id: line.p0.id_y(),
+            partial_derivative: d_p0y,
+        },
+        JacobianVar {
+            id: line.p1.id_x(),
+            partial_derivative: d_p1x,
+        },
+        JacobianVar {
+            id: line.p1.id_y(),
+            partial_derivative: d_p1y,
+        },
+    ]
 }
 
 #[derive(Debug)]
@@ -1084,12 +1118,51 @@ fn inner_equation_of_line(px: f64, py: f64, qx: f64, qy: f64) -> (f64, f64, f64)
 
 #[cfg(test)]
 mod tests {
+    use std::f64::consts::SQRT_2;
+
     use super::*;
 
     #[test]
     fn test_equation_of_line() {
-        let actual = inner_equation_of_line(1.0, 2.0, 3.0, 3.0);
-        assert_eq!(actual, (-1.0, 2.0, -3.0))
+        struct Test {
+            name: &'static str,
+            input: (f64, f64, f64, f64),
+            expected: (f64, f64, f64),
+        }
+
+        let cases = [
+            Test {
+                name: "general",
+                input: (1.0, 2.0, 3.0, 3.0),
+                expected: (-1.0, 2.0, -3.0),
+            },
+            Test {
+                name: "horizontal",
+                input: (0.0, 0.0, 5.0, 0.0),
+                expected: (0.0, 5.0, 0.0),
+            },
+            Test {
+                name: "vertical",
+                input: (2.0, 1.0, 2.0, 4.0),
+                expected: (-3.0, 0.0, 6.0),
+            },
+            Test {
+                name: "negative_slope",
+                input: (-2.0, 3.0, 1.0, -1.0),
+                expected: (4.0, 3.0, -1.0),
+            },
+        ];
+
+        for case in cases {
+            let (px, py, qx, qy) = case.input;
+            let actual = inner_equation_of_line(px, py, qx, qy);
+            let expected = case.expected;
+            assert_eq!(
+                actual, expected,
+                "{}: got {actual:?} but wanted {expected:?}",
+                case.name
+            );
+        }
     }
 
     #[test]
@@ -1121,5 +1194,98 @@ mod tests {
 
         // Test a value just across the -pi boundary.
         assert!((wrap_angle_delta(-PI - 1e-15) - PI).abs() < EPS_WRAP);
+    }
+
+    #[test]
+    fn test_pds_for_point_line() {
+        const EPS: f64 = 1e-9;
+
+        struct Test {
+            name: &'static str,
+            point: DatumPoint,
+            line: LineSegment,
+            vars: PointLineVars,
+            expected: [(Id, f64); 6],
+        }
+
+        let tests = vec![
+            Test {
+                name: "horizontal_line",
+                point: DatumPoint::new_xy(0, 1),
+                line: LineSegment::new(DatumPoint::new_xy(2, 3), DatumPoint::new_xy(4, 5)),
+                vars: PointLineVars {
+                    px: 0.0,
+                    py: 1.0,
+                    p0x: 0.0,
+                    p0y: 0.0,
+                    p1x: 1.0,
+                    p1y: 0.0,
+                },
+                expected: [(0, 0.0), (1, 1.0), (2, 0.0), (3, -1.0), (4, 0.0), (5, 0.0)],
+            },
+            Test {
+                name: "diagonal_line",
+                point: DatumPoint::new_xy(100, 101),
+                line: LineSegment::new(DatumPoint::new_xy(102, 103), DatumPoint::new_xy(104, 105)),
+                vars: PointLineVars {
+                    px: 2.0,
+                    py: 0.0,
+                    p0x: 0.0,
+                    p0y: 0.0,
+                    p1x: 2.0,
+                    p1y: 2.0,
+                },
+                expected: [
+                    (100, -SQRT_2 / 2.0),
+                    (101, SQRT_2 / 2.0),
+                    (102, SQRT_2 / 4.0),
+                    (103, -SQRT_2 / 4.0),
+                    (104, SQRT_2 / 4.0),
+                    (105, -SQRT_2 / 4.0),
+                ],
+            },
+            Test {
+                name: "vertical_line",
+                point: DatumPoint::new_xy(200, 201),
+                line: LineSegment::new(DatumPoint::new_xy(202, 203), DatumPoint::new_xy(204, 205)),
+                vars: PointLineVars {
+                    px: 5.0,
+                    py: 1.0,
+                    p0x: 2.0,
+                    p0y: -1.0,
+                    p1x: 2.0,
+                    p1y: 3.0,
+                },
+                expected: [
+                    (200, -1.0),
+                    (201, 0.0),
+                    (202, 0.5),
+                    (203, 0.0),
+                    (204, 0.5),
+                    (205, 0.0),
+                ],
+            },
+        ];
+
+        for test in tests {
+            let actual = pds_for_point_line(&test.point, &test.line, test.vars);
+
+            for (idx, (expected_id, expected_pd)) in test.expected.iter().enumerate() {
+                let jacobian_var = &actual[idx];
+                assert_eq!(
+                    jacobian_var.id, *expected_id,
+                    "failed test {}: wrong ID in index {}",
+                    test.name, idx
+                );
+                assert!(
+                    (jacobian_var.partial_derivative - expected_pd).abs() < EPS,
+                    "failed test {}: wrong derivative in index {} (expected {:.4}, got {:.4})",
+                    test.name,
+                    idx,
+                    expected_pd,
+                    jacobian_var.partial_derivative
+                );
+            }
+        }
     }
 }
