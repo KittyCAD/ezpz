@@ -883,78 +883,10 @@ impl Constraint {
                 let p1x = current_assignments[layout.index_of(line.p1.id_x())];
                 let p1y = current_assignments[layout.index_of(line.p1.id_y())];
 
-                // I used SymPy to get the derivatives. See this playground:
-                // https://colab.research.google.com/drive/1zYHmggw6Juj8UFnxh-VKd8U9BG2Ul1gx?usp=sharing
-                // This gets pretty hairy, I've tried to translate the math accurately. Please view the
-                // playground above to get an intuition for what I'm doing.
-                // The first two, d_px and d_py are relatively simple. They use the same denominator,
-                // which represents the Euclidean distance between p0 and p1.
-                let euclid_dist = ((-p0x + p1x).powi(2) + (p0y - p1y).powi(2)).sqrt();
-                let d_px = (p0y - p1y) / euclid_dist;
-                let d_py = (-p0x + p1x) / euclid_dist;
+                let partial_derivatives =
+                    pds_for_point_line(point, line, px, py, p0x, p0y, p1x, p1y);
 
-                // The partial derivatives of the line's components (p0 and p1)
-                // are trickier. There are some shared terms, e.g. the denominator of the LHS
-                // fraction.
-                let denom = ((-p0x + p1x).powi(2) + (p0y - p1y).powi(2)).powf(1.5);
-                let d_p0x = {
-                    let lhs = ((-p0x + p1x)
-                        * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x)))
-                        / denom;
-                    let rhs = (p1y - py) / euclid_dist;
-                    lhs + rhs
-                };
-
-                let d_p0y = {
-                    let lhs = ((-p0y + p1y)
-                        * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x)))
-                        / denom;
-                    let rhs = (-p1x + px) / euclid_dist;
-                    lhs + rhs
-                };
-
-                let d_p1x = {
-                    let lhs = ((p0x - p1x)
-                        * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x)))
-                        / denom;
-                    let rhs = (-p0y + py) / euclid_dist;
-                    lhs + rhs
-                };
-
-                let d_p1y = {
-                    let lhs = ((p0y - p1y)
-                        * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x)))
-                        / denom;
-                    let rhs = (p0x - px) / euclid_dist;
-                    lhs + rhs
-                };
-
-                row0.extend([
-                    JacobianVar {
-                        id: point.id_x(),
-                        partial_derivative: d_px,
-                    },
-                    JacobianVar {
-                        id: point.id_y(),
-                        partial_derivative: d_py,
-                    },
-                    JacobianVar {
-                        id: line.p0.id_x(),
-                        partial_derivative: d_p0x,
-                    },
-                    JacobianVar {
-                        id: line.p0.id_y(),
-                        partial_derivative: d_p0y,
-                    },
-                    JacobianVar {
-                        id: line.p1.id_x(),
-                        partial_derivative: d_p1x,
-                    },
-                    JacobianVar {
-                        id: line.p1.id_y(),
-                        partial_derivative: d_p1y,
-                    },
-                ]);
+                row0.extend(partial_derivatives);
             }
         }
     }
@@ -977,6 +909,85 @@ impl Constraint {
             Constraint::PointLineDistance(..) => "PointLineDistance",
         }
     }
+}
+
+fn pds_for_point_line(
+    point: &DatumPoint,
+    line: &LineSegment,
+    px: f64,
+    py: f64,
+    p0x: f64,
+    p0y: f64,
+    p1x: f64,
+    p1y: f64,
+) -> [JacobianVar; 6] {
+    // I used SymPy to get the derivatives. See this playground:
+    // https://colab.research.google.com/drive/1zYHmggw6Juj8UFnxh-VKd8U9BG2Ul1gx?usp=sharing
+    // This gets pretty hairy, I've tried to translate the math accurately. Please view the
+    // playground above to get an intuition for what I'm doing.
+    // The first two, d_px and d_py are relatively simple. They use the same denominator,
+    // which represents the Euclidean distance between p0 and p1.
+    let euclid_dist = ((-p0x + p1x).powi(2) + (p0y - p1y).powi(2)).sqrt();
+    let d_px = (p0y - p1y) / euclid_dist;
+    let d_py = (-p0x + p1x) / euclid_dist;
+
+    // The partial derivatives of the line's components (p0 and p1)
+    // are trickier. There are some shared terms, e.g. the denominator of the LHS
+    // fraction.
+    let denom = ((-p0x + p1x).powi(2) + (p0y - p1y).powi(2)).powf(1.5);
+    let d_p0x = {
+        let lhs =
+            ((-p0x + p1x) * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x))) / denom;
+        let rhs = (p1y - py) / euclid_dist;
+        lhs + rhs
+    };
+
+    let d_p0y = {
+        let lhs =
+            ((-p0y + p1y) * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x))) / denom;
+        let rhs = (-p1x + px) / euclid_dist;
+        lhs + rhs
+    };
+
+    let d_p1x = {
+        let lhs =
+            ((p0x - p1x) * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x))) / denom;
+        let rhs = (-p0y + py) / euclid_dist;
+        lhs + rhs
+    };
+
+    let d_p1y = {
+        let lhs =
+            ((p0y - p1y) * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x))) / denom;
+        let rhs = (p0x - px) / euclid_dist;
+        lhs + rhs
+    };
+    [
+        JacobianVar {
+            id: point.id_x(),
+            partial_derivative: d_px,
+        },
+        JacobianVar {
+            id: point.id_y(),
+            partial_derivative: d_py,
+        },
+        JacobianVar {
+            id: line.p0.id_x(),
+            partial_derivative: d_p0x,
+        },
+        JacobianVar {
+            id: line.p0.id_y(),
+            partial_derivative: d_p0y,
+        },
+        JacobianVar {
+            id: line.p1.id_x(),
+            partial_derivative: d_p1x,
+        },
+        JacobianVar {
+            id: line.p1.id_y(),
+            partial_derivative: d_p1y,
+        },
+    ]
 }
 
 #[derive(Debug)]
