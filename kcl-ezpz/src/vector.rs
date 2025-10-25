@@ -36,6 +36,16 @@ impl V {
     pub fn cross_2d(&self, rhs: &Self) -> f64 {
         self.x * rhs.y - self.y * rhs.x
     }
+
+    /// Project one vector onto another.
+    pub fn project(&self, b: Self) -> Self {
+        b * (self.dot(&b) / b.dot(&b))
+    }
+
+    /// Rejection is the perpendicular component of one vector w.r.t. another
+    pub fn reject(self, b: Self) -> Self {
+        self - self.project(b)
+    }
 }
 
 impl std::ops::Sub<Self> for V {
@@ -45,6 +55,28 @@ impl std::ops::Sub<Self> for V {
         Self {
             x: self.x - rhs.x,
             y: self.y - rhs.y,
+        }
+    }
+}
+
+impl std::ops::Mul<f64> for V {
+    type Output = Self;
+
+    fn mul(self, scale: f64) -> Self::Output {
+        Self {
+            x: self.x * scale,
+            y: self.y * scale,
+        }
+    }
+}
+
+impl std::ops::Add for V {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
         }
     }
 }
