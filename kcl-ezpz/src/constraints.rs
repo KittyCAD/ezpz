@@ -1124,8 +1124,45 @@ mod tests {
 
     #[test]
     fn test_equation_of_line() {
-        let actual = inner_equation_of_line(1.0, 2.0, 3.0, 3.0);
-        assert_eq!(actual, (-1.0, 2.0, -3.0))
+        struct Test {
+            name: &'static str,
+            input: (f64, f64, f64, f64),
+            expected: (f64, f64, f64),
+        }
+
+        let cases = [
+            Test {
+                name: "general",
+                input: (1.0, 2.0, 3.0, 3.0),
+                expected: (-1.0, 2.0, -3.0),
+            },
+            Test {
+                name: "horizontal",
+                input: (0.0, 0.0, 5.0, 0.0),
+                expected: (0.0, 5.0, 0.0),
+            },
+            Test {
+                name: "vertical",
+                input: (2.0, 1.0, 2.0, 4.0),
+                expected: (-3.0, 0.0, 6.0),
+            },
+            Test {
+                name: "negative_slope",
+                input: (-2.0, 3.0, 1.0, -1.0),
+                expected: (4.0, 3.0, -1.0),
+            },
+        ];
+
+        for case in cases {
+            let (px, py, qx, qy) = case.input;
+            let actual = inner_equation_of_line(px, py, qx, qy);
+            let expected = case.expected;
+            assert_eq!(
+                actual, expected,
+                "{}: got {actual:?} but wanted {expected:?}",
+                case.name
+            );
+        }
     }
 
     #[test]
