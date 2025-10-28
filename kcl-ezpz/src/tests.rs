@@ -52,6 +52,14 @@ fn coincident() {
 fn symmetric() {
     let solved = run("symmetric");
     assert!(solved.unsatisfied.is_empty());
+    // P and Q are fixed
+    assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 0.0 });
+    assert_points_eq(solved.get_point("q").unwrap(), Point { x: 2.0, y: 2.0 });
+
+    // Because the line L is x = y,
+    // these points lie symmetric across it.
+    assert_points_eq(solved.get_point("a").unwrap(), Point { x: 0.5, y: 0.4 });
+    assert_points_eq(solved.get_point("b").unwrap(), Point { x: 0.4, y: 0.5 });
 }
 
 #[test]
