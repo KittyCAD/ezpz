@@ -1109,35 +1109,31 @@ fn pds_from_symmetric(
     let a_x = ax;
     let a_y = ay;
 
+    let sx = a_x - p_x;
+    let sy = a_y - p_y;
+    let dot = sx * dx + sy * dy;
+
     let dpx = [
-        (-4.0 * dx2 * ((a_x - p_x) * dx + (a_y - p_y) * dy)
+        (-4.0 * dx2 * dot
             + 2.0 * r2
-            + 2.0 * r * ((a_x - p_x) * dx + (a_y - p_y) * dy + dx * (a_x - 2.0 * p_x + q_x)))
+            + 2.0 * r * (sx * dx + sy * dy + dx * (a_x - 2.0 * p_x + q_x)))
             / r2,
-        dy * (-4.0 * dx * ((a_x - p_x) * dx + (a_y - p_y) * dy)
-            + 2.0 * r * (a_x - 2.0 * p_x + q_x))
-            / r2,
+        dy * (-4.0 * dx * dot + 2.0 * r * (a_x - 2.0 * p_x + q_x)) / r2,
     ];
     let dpy = [
-        dx * (-4.0 * dy * ((a_x - p_x) * dx + (a_y - p_y) * dy)
-            + 2.0 * r * (a_y - 2.0 * p_y + q_y))
-            / r2,
-        (-4.0 * dy2 * ((a_x - p_x) * dx + (a_y - p_y) * dy)
+        dx * (-4.0 * dy * dot + 2.0 * r * (a_y - 2.0 * p_y + q_y)) / r2,
+        (-4.0 * dy2 * dot
             + 2.0 * r2
-            + 2.0 * r * ((a_x - p_x) * dx + (a_y - p_y) * dy + dy * (a_y - 2.0 * p_y + q_y)))
+            + 2.0 * r * (sx * dx + sy * dy + dy * (a_y - 2.0 * p_y + q_y)))
             / r2,
     ];
     let dqx = [
-        (4.0 * dx2 * ((a_x - p_x) * dx + (a_y - p_y) * dy)
-            - (4.0 * (a_x - p_x) * dx + 2.0 * (a_y - p_y) * dy) * r)
-            / r2,
-        dy * (-2.0 * (a_x - p_x) * r + 4.0 * dx * ((a_x - p_x) * dx + (a_y - p_y) * dy)) / r2,
+        (4.0 * dx2 * dot - (4.0 * sx * dx + 2.0 * sy * dy) * r) / r2,
+        dy * (-2.0 * sx * r + 4.0 * dx * dot) / r2,
     ];
     let dqy = [
-        dx * (-2.0 * (a_y - p_y) * r + 4.0 * dy * ((a_x - p_x) * dx + (a_y - p_y) * dy)) / r2,
-        (4.0 * dy2 * ((a_x - p_x) * dx + (a_y - p_y) * dy)
-            - (2.0 * (a_x - p_x) * dx + 4.0 * (a_y - p_y) * dy) * r)
-            / r2,
+        dx * (-2.0 * sy * r + 4.0 * dy * dot) / r2,
+        (4.0 * dy2 * dot - (2.0 * sx * dx + 4.0 * sy * dy) * r) / r2,
     ];
     let dax = [1.0 * (dx2 - dy2) / r, 2.0 * dx * dy / r];
     let day = [2.0 * dx * dy / r, 1.0 * (-dx2 + dy2) / r];
