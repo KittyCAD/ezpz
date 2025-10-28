@@ -1103,78 +1103,76 @@ fn pds_from_symmetric(
     let dy2 = dy.powi(2);
     let r = dx2 + dy2;
     let r2 = r.powi(2);
-    let s = (ax - px) * dx + (ay - py) * dy + (bx - px) * dx + (by - py) * dy;
-
     // Avoid div-by-zero
     if r2 < EPSILON {
         return None;
     }
 
-    let dpx = {
-        let num1 = 2.0 * dx2 * s
+    let p_x = px;
+    let p_y = py;
+    let q_x = qx;
+    let q_y = qy;
+    let a_x = ax;
+    let a_y = ay;
+    let b_x = bx;
+    let b_y = by;
+    let s = (a_x - p_x) * dx + (a_y - p_y) * dy + (b_x - p_x) * dx + (b_y - p_y) * dy;
+    let dpx = [
+        (2.0 * dx.powi(2) * s
             - 2.0 * r2
-            - r * (s + dx * (ax - 2.0 * px + qx) + dx * (bx - 2.0 * px + qx));
-        let num2 = dy * (2.0 * dx * s + r * (-ax - bx + 4.0 * px - 2.0 * qx));
-
-        (num1 / r2, num2 / r2)
-    };
-
-    let dpy = {
-        let num1 = dx * (2.0 * dy * s + r * (-ay - by + 4.0 * py - 2.0 * qy));
-        let num2 = 2.0 * dy2 * s
+            - r * ((a_x - p_x) * dx
+                + (a_y - p_y) * dy
+                + (b_x - p_x) * dx
+                + (b_y - p_y) * dy
+                + dx * (a_x - 2.0 * p_x + q_x)
+                + dx * (b_x - 2.0 * p_x + q_x)))
+            / r2,
+        dy * (2.0 * dx * s + r * (-a_x - b_x + 4.0 * p_x - 2.0 * q_x)) / r2,
+    ];
+    let dpy = [
+        dx * (2.0 * dy * s + r * (-a_y - b_y + 4.0 * p_y - 2.0 * q_y)) / r2,
+        (2.0 * dy.powi(2) * s
             - 2.0 * r2
-            - r * (s + dy * (ay - 2.0 * py + qy) + dy * (by - 2.0 * py + qy));
-
-        (num1 / r2, num2 / r2)
-    };
-
-    let dqx = {
-        let t1 = 2.0 * (ax - px) * dx + (ay - py) * dy + 2.0 * (bx - px) * dx + (by - py) * dy;
-        let num1 = -2.0 * dx2 * s + r * t1;
-        let num2 = dy * (-2.0 * dx * s + r * (ax + bx - 2.0 * px));
-        (num1 / r2, num2 / r2)
-    };
-
-    let dqy = {
-        let num1 = dx * (-2.0 * dy * s + r * (ay + by - 2.0 * py));
-        let num2 = -2.0 * dy * dy * s
-            + r * ((ax - px) * dx + 2.0 * (ay - py) * dy + (bx - px) * dx + 2.0 * (by - py) * dy);
-        (num1 / r2, num2 / r2)
-    };
-
-    let dax = {
-        let num1 = dy2;
-        let num2 = -(dx * dy);
-        (num1 / r, num2 / r)
-    };
-
-    let day = {
-        let num1 = -(dx * dy);
-        let num2 = dx2;
-        (num1 / r, num2 / r)
-    };
-
-    let dbx = {
-        let num1 = dy2;
-        let num2 = -(dx * dy);
-        (num1 / r, num2 / r)
-    };
-
-    let dby = {
-        let num1 = -(dx * dy);
-        let num2 = dx2;
-        (num1 / r, num2 / r)
-    };
+            - r * ((a_x - p_x) * dx
+                + (a_y - p_y) * dy
+                + (b_x - p_x) * dx
+                + (b_y - p_y) * dy
+                + dy * (a_y - 2.0 * p_y + q_y)
+                + dy * (b_y - 2.0 * p_y + q_y)))
+            / r2,
+    ];
+    let dqx = [
+        (-2.0 * dx.powi(2) * s
+            + r * (2.0 * (a_x - p_x) * dx
+                + (a_y - p_y) * dy
+                + 2.0 * (b_x - p_x) * dx
+                + (b_y - p_y) * dy))
+            / r2,
+        dy * (-2.0 * dx * s + r * (a_x + b_x - 2.0 * p_x)) / r2,
+    ];
+    let dqy = [
+        dx * (-2.0 * dy * s + r * (a_y + b_y - 2.0 * p_y)) / r2,
+        (-2.0 * dy.powi(2) * s
+            + r * ((a_x - p_x) * dx
+                + 2.0 * (a_y - p_y) * dy
+                + (b_x - p_x) * dx
+                + 2.0 * (b_y - p_y) * dy))
+            / r2,
+    ];
+    let dax = [dy.powi(2) / r, -dx * dy / r];
+    let day = [-dx * dy / r, dx.powi(2) / r];
+    let dbx = [dy.powi(2) / r, -dx * dy / r];
+    let dby = [-dx * dy / r, dx.powi(2) / r];
 
     Some(SymmetricPds {
-        dpx,
-        dpy,
-        dqx,
-        dqy,
-        dax,
-        day,
-        dbx,
-        dby,
+        dpx: (dpx[0], dpx[1]),
+        dpy: (dpy[0], dpy[1]),
+        dqx: (dqx[0], dqx[1]),
+        dqy: (dqy[0], dqy[1]),
+        dax: (dax[0], dax[1]),
+        day: (day[0], day[1]),
+        dbx: (dbx[0], dbx[1]),
+        dby: (dby[0], dby[1]),
     })
 }
 
