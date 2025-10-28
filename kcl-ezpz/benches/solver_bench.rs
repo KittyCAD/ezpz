@@ -27,6 +27,10 @@ fn solve_tiny(c: &mut Criterion) {
     bench_case(c, "tiny")
 }
 
+fn solve_symmetric(c: &mut Criterion) {
+    bench_case(c, "symmetric")
+}
+
 fn solve_inconsistent(c: &mut Criterion) {
     bench_case(c, "inconsistent")
 }
@@ -190,5 +194,6 @@ criterion_group!(
     solve_perpendicular,
     solve_massive,
     solve_massive_overconstrained,
+    solve_symmetric,
 );
 criterion_main!(benches);

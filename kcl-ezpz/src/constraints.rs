@@ -960,70 +960,69 @@ impl Constraint {
                 row0.extend([
                     JacobianVar {
                         id: id_px,
-                        partial_derivative: pds.dpx.0,
+                        partial_derivative: pds.dpx[0],
                     },
                     JacobianVar {
                         id: id_py,
-                        partial_derivative: pds.dpy.0,
+                        partial_derivative: pds.dpy[0],
                     },
                     JacobianVar {
                         id: id_qx,
-                        partial_derivative: pds.dqx.0,
+                        partial_derivative: pds.dqx[0],
                     },
                     JacobianVar {
                         id: id_qy,
-                        partial_derivative: pds.dqy.0,
+                        partial_derivative: pds.dqy[0],
                     },
                     JacobianVar {
                         id: id_ax,
-                        partial_derivative: pds.dax.0,
+                        partial_derivative: pds.dax[0],
                     },
                     JacobianVar {
                         id: id_ay,
-                        partial_derivative: pds.day.0,
+                        partial_derivative: pds.day[0],
                     },
                     JacobianVar {
                         id: id_bx,
-                        partial_derivative: pds.dbx.0,
+                        partial_derivative: pds.dbx[0],
                     },
                     JacobianVar {
                         id: id_by,
-                        partial_derivative: pds.dby.0,
+                        partial_derivative: pds.dby[0],
                     },
                 ]);
-
                 row1.extend([
                     JacobianVar {
                         id: id_px,
-                        partial_derivative: pds.dpx.1,
+                        partial_derivative: pds.dpx[1],
                     },
                     JacobianVar {
                         id: id_py,
-                        partial_derivative: pds.dpy.1,
+                        partial_derivative: pds.dpy[1],
                     },
                     JacobianVar {
                         id: id_qx,
-                        partial_derivative: pds.dqx.1,
+                        partial_derivative: pds.dqx[1],
                     },
                     JacobianVar {
                         id: id_qy,
-                        partial_derivative: pds.dqy.1,
+                        partial_derivative: pds.dqy[1],
                     },
                     JacobianVar {
                         id: id_ax,
-                        partial_derivative: pds.dax.1,
+                        partial_derivative: pds.dax[1],
                     },
                     JacobianVar {
                         id: id_ay,
-                        partial_derivative: pds.day.1,
+                        partial_derivative: pds.day[1],
                     },
                     JacobianVar {
                         id: id_bx,
-                        partial_derivative: pds.dbx.1,
+                        partial_derivative: pds.dbx[1],
                     },
                     JacobianVar {
                         id: id_by,
-                        partial_derivative: pds.dby.1,
+                        partial_derivative: pds.dby[1],
                     },
                 ]);
             }
@@ -1061,14 +1060,14 @@ struct PointLineVars {
 }
 
 struct SymmetricPds {
-    dpx: (f64, f64),
-    dpy: (f64, f64),
-    dqx: (f64, f64),
-    dqy: (f64, f64),
-    dax: (f64, f64),
-    day: (f64, f64),
-    dbx: (f64, f64),
-    dby: (f64, f64),
+    dpx: [f64; 2],
+    dpy: [f64; 2],
+    dqx: [f64; 2],
+    dqy: [f64; 2],
+    dax: [f64; 2],
+    day: [f64; 2],
+    dbx: [f64; 2],
+    dby: [f64; 2],
 }
 
 struct SymmetricVars {
@@ -1099,72 +1098,70 @@ fn pds_from_symmetric(
     // Common terms that appear in the derivatives a lot.
     let dx = px - qx;
     let dy = py - qy;
-    let dx2 = dx.powi(2);
-    let dy2 = dy.powi(2);
+    let dx2 = dx * dx;
+    let dy2 = dy * dy;
     let r = dx2 + dy2;
     let r2 = r.powi(2);
-    let s = (ax - px) * dx + (ay - py) * dy + (bx - px) * dx + (by - py) * dy;
-
     // Avoid div-by-zero
     if r2 < EPSILON {
         return None;
     }
 
-    let dpx = {
-        let num1 = 2.0 * dx2 * s
+    let p_x = px;
+    let p_y = py;
+    let q_x = qx;
+    let q_y = qy;
+    let a_x = ax;
+    let a_y = ay;
+    let b_x = bx;
+    let b_y = by;
+    let s = (a_x - p_x) * dx + (a_y - p_y) * dy + (b_x - p_x) * dx + (b_y - p_y) * dy;
+    let dpx = [
+        (2.0 * dx2 * s
             - 2.0 * r2
-            - r * (s + dx * (ax - 2.0 * px + qx) + dx * (bx - 2.0 * px + qx));
-        let num2 = dy * (2.0 * dx * s + r * (-ax - bx + 4.0 * px - 2.0 * qx));
-
-        (num1 / r2, num2 / r2)
-    };
-
-    let dpy = {
-        let num1 = dx * (2.0 * dy * s + r * (-ay - by + 4.0 * py - 2.0 * qy));
-        let num2 = 2.0 * dy2 * s
+            - r * ((a_x - p_x) * dx
+                + (a_y - p_y) * dy
+                + (b_x - p_x) * dx
+                + (b_y - p_y) * dy
+                + dx * (a_x - 2.0 * p_x + q_x)
+                + dx * (b_x - 2.0 * p_x + q_x)))
+            / r2,
+        dy * (2.0 * dx * s + r * (-a_x - b_x + 4.0 * p_x - 2.0 * q_x)) / r2,
+    ];
+    let dpy = [
+        dx * (2.0 * dy * s + r * (-a_y - b_y + 4.0 * p_y - 2.0 * q_y)) / r2,
+        (2.0 * dy2 * s
             - 2.0 * r2
-            - r * (s + dy * (ay - 2.0 * py + qy) + dy * (by - 2.0 * py + qy));
-
-        (num1 / r2, num2 / r2)
-    };
-
-    let dqx = {
-        let t1 = 2.0 * (ax - px) * dx + (ay - py) * dy + 2.0 * (bx - px) * dx + (by - py) * dy;
-        let num1 = -2.0 * dx2 * s + r * t1;
-        let num2 = dy * (-2.0 * dx * s + r * (ax + bx - 2.0 * px));
-        (num1 / r2, num2 / r2)
-    };
-
-    let dqy = {
-        let num1 = dx * (-2.0 * dy * s + r * (ay + by - 2.0 * py));
-        let num2 = -2.0 * dy * dy * s
-            + r * ((ax - px) * dx + 2.0 * (ay - py) * dy + (bx - px) * dx + 2.0 * (by - py) * dy);
-        (num1 / r2, num2 / r2)
-    };
-
-    let dax = {
-        let num1 = dy2;
-        let num2 = -(dx * dy);
-        (num1 / r, num2 / r)
-    };
-
-    let day = {
-        let num1 = -(dx * dy);
-        let num2 = dx2;
-        (num1 / r, num2 / r)
-    };
-
-    let dbx = {
-        let num1 = dy2;
-        let num2 = -(dx * dy);
-        (num1 / r, num2 / r)
-    };
-
-    let dby = {
-        let num1 = -(dx * dy);
-        let num2 = dx2;
-        (num1 / r, num2 / r)
-    };
+            - r * ((a_x - p_x) * dx
+                + (a_y - p_y) * dy
+                + (b_x - p_x) * dx
+                + (b_y - p_y) * dy
+                + dy * (a_y - 2.0 * p_y + q_y)
+                + dy * (b_y - 2.0 * p_y + q_y)))
+            / r2,
+    ];
+    let dqx = [
+        (-2.0 * dx2 * s
+            + r * (2.0 * (a_x - p_x) * dx
+                + (a_y - p_y) * dy
+                + 2.0 * (b_x - p_x) * dx
+                + (b_y - p_y) * dy))
+            / r2,
+        dy * (-2.0 * dx * s + r * (a_x + b_x - 2.0 * p_x)) / r2,
+    ];
+    let dqy = [
+        dx * (-2.0 * dy * s + r * (a_y + b_y - 2.0 * p_y)) / r2,
+        (-2.0 * dy2 * s
+            + r * ((a_x - p_x) * dx
+                + 2.0 * (a_y - p_y) * dy
+                + (b_x - p_x) * dx
+                + 2.0 * (b_y - p_y) * dy))
+            / r2,
+    ];
+    let dax = [dy2 / r, -dx * dy / r];
+    let day = [-dx * dy / r, dx2 / r];
+    let dbx = [dy2 / r, -dx * dy / r];
+    let dby = [-dx * dy / r, dx2 / r];
 
     Some(SymmetricPds {
         dpx,
@@ -1386,33 +1383,33 @@ mod tests {
 
         // I put these into the Python notebook where I defined the math, and got these answers.
         let expected = SymmetricPds {
-            dpx: (-4.41782322863404, -0.885317750182615),
-            dpy: (0.736303871439007, 0.147552958363769),
-            dqx: (2.47187728268809, 1.20964207450694),
-            dqy: (-0.411979547114682, -0.201607012417824),
-            dax: (0.972972972972973, -0.162162162162162),
-            day: (-0.162162162162162, 0.0270270270270270),
-            dbx: (0.972972972972973, -0.162162162162162),
-            dby: (-0.162162162162162, 0.0270270270270270),
+            dpx: [-4.41782322863404, -0.885317750182615],
+            dpy: [0.736303871439007, 0.147552958363769],
+            dqx: [2.47187728268809, 1.20964207450694],
+            dqy: [-0.411979547114682, -0.201607012417824],
+            dax: [0.972972972972973, -0.162162162162162],
+            day: [-0.162162162162162, 0.0270270270270270],
+            dbx: [0.972972972972973, -0.162162162162162],
+            dby: [-0.162162162162162, 0.0270270270270270],
         };
         let actual = pds_from_symmetric(input).unwrap();
 
-        assert_close(actual.dpx.0, expected.dpx.0);
-        assert_close(actual.dpx.1, expected.dpx.1);
-        assert_close(actual.dpy.0, expected.dpy.0);
-        assert_close(actual.dpy.1, expected.dpy.1);
-        assert_close(actual.dqx.0, expected.dqx.0);
-        assert_close(actual.dqx.1, expected.dqx.1);
-        assert_close(actual.dqy.0, expected.dqy.0);
-        assert_close(actual.dqy.1, expected.dqy.1);
-        assert_close(actual.dax.0, expected.dax.0);
-        assert_close(actual.dax.1, expected.dax.1);
-        assert_close(actual.day.0, expected.day.0);
-        assert_close(actual.day.1, expected.day.1);
-        assert_close(actual.dbx.0, expected.dbx.0);
-        assert_close(actual.dbx.1, expected.dbx.1);
-        assert_close(actual.dby.0, expected.dby.0);
-        assert_close(actual.dby.1, expected.dby.1);
+        assert_close(actual.dpx[0], expected.dpx[0]);
+        assert_close(actual.dpx[1], expected.dpx[1]);
+        assert_close(actual.dpy[0], expected.dpy[0]);
+        assert_close(actual.dpy[1], expected.dpy[1]);
+        assert_close(actual.dqx[0], expected.dqx[0]);
+        assert_close(actual.dqx[1], expected.dqx[1]);
+        assert_close(actual.dqy[0], expected.dqy[0]);
+        assert_close(actual.dqy[1], expected.dqy[1]);
+        assert_close(actual.dax[0], expected.dax[0]);
+        assert_close(actual.dax[1], expected.dax[1]);
+        assert_close(actual.day[0], expected.day[0]);
+        assert_close(actual.day[1], expected.day[1]);
+        assert_close(actual.dbx[0], expected.dbx[0]);
+        assert_close(actual.dbx[1], expected.dbx[1]);
+        assert_close(actual.dby[0], expected.dby[0]);
+        assert_close(actual.dby[1], expected.dby[1]);
     }
 
     #[test]
