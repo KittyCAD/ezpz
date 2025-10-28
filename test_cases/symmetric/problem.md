@@ -6,7 +6,7 @@ point a
 point b
 p = (0, 0)
 q = (2, 2)
-a = (0.5, 1.5)
+a = (0.5, 0.4)
 symmetric(p, q, a, b)
 
 # guesses
