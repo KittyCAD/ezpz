@@ -1110,63 +1110,37 @@ fn pds_from_symmetric(
     let a_y = ay;
 
     let dpx = [
-        (-4.0 * (p_x - q_x).powi(2) * ((a_x - p_x) * (p_x - q_x) + (a_y - p_y) * (p_y - q_y))
-            + 2.0 * ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)).powi(2)
-            + 2.0
-                * ((p_x - q_x).powi(2) + (p_y - q_y).powi(2))
-                * ((a_x - p_x) * (p_x - q_x)
-                    + (a_y - p_y) * (p_y - q_y)
-                    + (p_x - q_x) * (a_x - 2.0 * p_x + q_x)))
-            / ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)).powi(2),
-        (p_y - q_y)
-            * (-4.0 * (p_x - q_x) * ((a_x - p_x) * (p_x - q_x) + (a_y - p_y) * (p_y - q_y))
-                + 2.0 * ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)) * (a_x - 2.0 * p_x + q_x))
-            / ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)).powi(2),
+        (-4.0 * dx2 * ((a_x - p_x) * dx + (a_y - p_y) * dy)
+            + 2.0 * r2
+            + 2.0 * r * ((a_x - p_x) * dx + (a_y - p_y) * dy + dx * (a_x - 2.0 * p_x + q_x)))
+            / r2,
+        dy * (-4.0 * dx * ((a_x - p_x) * dx + (a_y - p_y) * dy)
+            + 2.0 * r * (a_x - 2.0 * p_x + q_x))
+            / r2,
     ];
     let dpy = [
-        (p_x - q_x)
-            * (-4.0 * (p_y - q_y) * ((a_x - p_x) * (p_x - q_x) + (a_y - p_y) * (p_y - q_y))
-                + 2.0 * ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)) * (a_y - 2.0 * p_y + q_y))
-            / ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)).powi(2),
-        (-4.0 * (p_y - q_y).powi(2) * ((a_x - p_x) * (p_x - q_x) + (a_y - p_y) * (p_y - q_y))
-            + 2.0 * ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)).powi(2)
-            + 2.0
-                * ((p_x - q_x).powi(2) + (p_y - q_y).powi(2))
-                * ((a_x - p_x) * (p_x - q_x)
-                    + (a_y - p_y) * (p_y - q_y)
-                    + (p_y - q_y) * (a_y - 2.0 * p_y + q_y)))
-            / ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)).powi(2),
+        dx * (-4.0 * dy * ((a_x - p_x) * dx + (a_y - p_y) * dy)
+            + 2.0 * r * (a_y - 2.0 * p_y + q_y))
+            / r2,
+        (-4.0 * dy2 * ((a_x - p_x) * dx + (a_y - p_y) * dy)
+            + 2.0 * r2
+            + 2.0 * r * ((a_x - p_x) * dx + (a_y - p_y) * dy + dy * (a_y - 2.0 * p_y + q_y)))
+            / r2,
     ];
     let dqx = [
-        (4.0 * (p_x - q_x).powi(2) * ((a_x - p_x) * (p_x - q_x) + (a_y - p_y) * (p_y - q_y))
-            - (4.0 * (a_x - p_x) * (p_x - q_x) + 2.0 * (a_y - p_y) * (p_y - q_y))
-                * ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)))
-            / ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)).powi(2),
-        (p_y - q_y)
-            * (-2.0 * (a_x - p_x) * ((p_x - q_x).powi(2) + (p_y - q_y).powi(2))
-                + 4.0 * (p_x - q_x) * ((a_x - p_x) * (p_x - q_x) + (a_y - p_y) * (p_y - q_y)))
-            / ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)).powi(2),
+        (4.0 * dx2 * ((a_x - p_x) * dx + (a_y - p_y) * dy)
+            - (4.0 * (a_x - p_x) * dx + 2.0 * (a_y - p_y) * dy) * r)
+            / r2,
+        dy * (-2.0 * (a_x - p_x) * r + 4.0 * dx * ((a_x - p_x) * dx + (a_y - p_y) * dy)) / r2,
     ];
     let dqy = [
-        (p_x - q_x)
-            * (-2.0 * (a_y - p_y) * ((p_x - q_x).powi(2) + (p_y - q_y).powi(2))
-                + 4.0 * (p_y - q_y) * ((a_x - p_x) * (p_x - q_x) + (a_y - p_y) * (p_y - q_y)))
-            / ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)).powi(2),
-        (4.0 * (p_y - q_y).powi(2) * ((a_x - p_x) * (p_x - q_x) + (a_y - p_y) * (p_y - q_y))
-            - (2.0 * (a_x - p_x) * (p_x - q_x) + 4.0 * (a_y - p_y) * (p_y - q_y))
-                * ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)))
-            / ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)).powi(2),
+        dx * (-2.0 * (a_y - p_y) * r + 4.0 * dy * ((a_x - p_x) * dx + (a_y - p_y) * dy)) / r2,
+        (4.0 * dy2 * ((a_x - p_x) * dx + (a_y - p_y) * dy)
+            - (2.0 * (a_x - p_x) * dx + 4.0 * (a_y - p_y) * dy) * r)
+            / r2,
     ];
-    let dax = [
-        1.0 * ((p_x - q_x).powi(2) - (p_y - q_y).powi(2))
-            / ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)),
-        2.0 * (p_x - q_x) * (p_y - q_y) / ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)),
-    ];
-    let day = [
-        2.0 * (p_x - q_x) * (p_y - q_y) / ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)),
-        1.0 * (-(p_x - q_x).powi(2) + (p_y - q_y).powi(2))
-            / ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)),
-    ];
+    let dax = [1.0 * (dx2 - dy2) / r, 2.0 * dx * dy / r];
+    let day = [2.0 * dx * dy / r, 1.0 * (-dx2 + dy2) / r];
     let dbx = [-1.0, 0.0];
     let dby = [0.0, -1.0];
 
