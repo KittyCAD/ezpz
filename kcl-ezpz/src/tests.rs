@@ -49,6 +49,12 @@ fn coincident() {
 }
 
 #[test]
+fn symmetric() {
+    let solved = run("symmetric");
+    assert!(solved.unsatisfied.is_empty());
+}
+
+#[test]
 fn perpdist() {
     let solved = run("perpdist");
     assert!(solved.unsatisfied.is_empty());
