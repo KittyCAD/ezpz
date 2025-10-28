@@ -1110,25 +1110,17 @@ fn pds_from_symmetric(
         return None;
     }
 
-    // First component numerator:
     let dpx = {
         let num1 = 2.0 * dx2 * s
             - 2.0 * r2
             - r * (s + dx * (ax - 2.0 * px + qx) + dx * (bx - 2.0 * px + qx));
-
-        // Second component numerator:
         let num2 = dy * (2.0 * dx * s + r * (-ax - bx + 4.0 * px - 2.0 * qx));
 
         (num1 / r2, num2 / r2)
     };
 
     let dpy = {
-        // num1 corresponds to:
-        // (px - qx) * ( 2*(py - qy)*S + R*(-ay - by + 4*py - 2*qy) )
         let num1 = dx * (2.0 * dy * s + r * (-ay - by + 4.0 * py - 2.0 * qy));
-
-        // Second component numerator:
-        // 2*(py - qy)^2 * S - 2*R^2 - R*( S + (py - qy)*(ay - 2*py + qy) + (py - qy)*(by - 2*py + qy) )
         let num2 = 2.0 * dy2 * s
             - 2.0 * r2
             - r * (s + dy * (ay - 2.0 * py + qy) + dy * (by - 2.0 * py + qy));
@@ -1137,15 +1129,9 @@ fn pds_from_symmetric(
     };
 
     let dqx = {
-        // From:
-        // [-2*(px-qx)^2*S + ((px-qx)^2 + (py-qy)^2)*(2(ax-px)(px-qx) + (ay-py)(py-qy) + 2(bx-px)(px-qx) + (by-py)(py-qy))] / R^2
         let t1 = 2.0 * (ax - px) * dx + (ay - py) * dy + 2.0 * (bx - px) * dx + (by - py) * dy;
         let num1 = -2.0 * dx2 * s + r * t1;
-
-        // From:
-        // (py-qy)*[-2*(px-qx)*S + R*(ax + bx - 2px)] / R^2
         let num2 = dy * (-2.0 * dx * s + r * (ax + bx - 2.0 * px));
-
         (num1 / r2, num2 / r2)
     };
 
@@ -1153,7 +1139,6 @@ fn pds_from_symmetric(
         let num1 = dx * (-2.0 * dy * s + r * (ay + by - 2.0 * py));
         let num2 = -2.0 * dy * dy * s
             + r * ((ax - px) * dx + 2.0 * (ay - py) * dy + (bx - px) * dx + 2.0 * (by - py) * dy);
-
         (num1 / r2, num2 / r2)
     };
 
