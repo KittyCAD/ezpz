@@ -46,6 +46,10 @@ impl V {
     pub fn reject(self, b: Self) -> Self {
         self - self.project(b)
     }
+
+    pub fn reflect(self, b: Self) -> Self {
+        self - (self.reject(b) * 2.0)
+    }
 }
 
 impl std::ops::Sub<Self> for V {

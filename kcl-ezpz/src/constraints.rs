@@ -374,8 +374,9 @@ impl Constraint {
                 *residual0 = residual;
             }
             Constraint::Symmetric(line, a, b) => {
-                // Equation: rej(A - P, Q - P) = -rej(B - P, Q - P)
-                //      i.e. rej(A - P, Q - P) + rej(B - P, Q - P) = 0
+                // Equation: reflect(a - p, q - p) - b + p
+                // See notebook:
+                // <https://colab.research.google.com/drive/17L_Lq-yTJOaLhDd2R0OtEe4Rwkr5RHsj#scrollTo=HpAraZ0OhKBW>
 
                 let ax = current_assignments[layout.index_of(a.id_x())];
                 let ay = current_assignments[layout.index_of(a.id_y())];
@@ -391,7 +392,7 @@ impl Constraint {
                 let p = V::new(px, py);
                 let q = V::new(qx, qy);
 
-                let residual = (a - p).reject(q - p) + (b - p).reject(q - p);
+                let residual = (a - p).reflect(q - p) - b + p;
                 *residual0 = residual.x;
                 *residual1 = residual.y;
             }
@@ -949,8 +950,6 @@ impl Constraint {
                     qy: current_assignments[layout.index_of(id_qy)],
                     ax: current_assignments[layout.index_of(a.id_x())],
                     ay: current_assignments[layout.index_of(a.id_y())],
-                    bx: current_assignments[layout.index_of(b.id_x())],
-                    by: current_assignments[layout.index_of(b.id_y())],
                 };
                 let Some(pds) = pds_from_symmetric(values) else {
                     *degenerate = true;
@@ -1077,8 +1076,6 @@ struct SymmetricVars {
     qy: f64,
     ax: f64,
     ay: f64,
-    bx: f64,
-    by: f64,
 }
 
 fn pds_from_symmetric(
@@ -1089,12 +1086,10 @@ fn pds_from_symmetric(
         qy,
         ax,
         ay,
-        bx,
-        by,
     }: SymmetricVars,
 ) -> Option<SymmetricPds> {
     // See sympy notebook:
-    // <https://colab.research.google.com/drive/12FUwqfpKzmWU2ZzNpdcT-0E1W3surJSt?usp=sharing#scrollTo=qCp9q2SznBJQ>
+    // <https://colab.research.google.com/drive/17L_Lq-yTJOaLhDd2R0OtEe4Rwkr5RHsj#scrollTo=HpAraZ0OhKBW>
     // Common terms that appear in the derivatives a lot.
     let dx = px - qx;
     let dy = py - qy;
@@ -1113,55 +1108,67 @@ fn pds_from_symmetric(
     let q_y = qy;
     let a_x = ax;
     let a_y = ay;
-    let b_x = bx;
-    let b_y = by;
-    let s = (a_x - p_x) * dx + (a_y - p_y) * dy + (b_x - p_x) * dx + (b_y - p_y) * dy;
+
     let dpx = [
-        (2.0 * dx2 * s
-            - 2.0 * r2
-            - r * ((a_x - p_x) * dx
-                + (a_y - p_y) * dy
-                + (b_x - p_x) * dx
-                + (b_y - p_y) * dy
-                + dx * (a_x - 2.0 * p_x + q_x)
-                + dx * (b_x - 2.0 * p_x + q_x)))
-            / r2,
-        dy * (2.0 * dx * s + r * (-a_x - b_x + 4.0 * p_x - 2.0 * q_x)) / r2,
+        (-4.0 * (p_x - q_x).powi(2) * ((a_x - p_x) * (p_x - q_x) + (a_y - p_y) * (p_y - q_y))
+            + 2.0 * ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)).powi(2)
+            + 2.0
+                * ((p_x - q_x).powi(2) + (p_y - q_y).powi(2))
+                * ((a_x - p_x) * (p_x - q_x)
+                    + (a_y - p_y) * (p_y - q_y)
+                    + (p_x - q_x) * (a_x - 2.0 * p_x + q_x)))
+            / ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)).powi(2),
+        (p_y - q_y)
+            * (-4.0 * (p_x - q_x) * ((a_x - p_x) * (p_x - q_x) + (a_y - p_y) * (p_y - q_y))
+                + 2.0 * ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)) * (a_x - 2.0 * p_x + q_x))
+            / ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)).powi(2),
     ];
     let dpy = [
-        dx * (2.0 * dy * s + r * (-a_y - b_y + 4.0 * p_y - 2.0 * q_y)) / r2,
-        (2.0 * dy2 * s
-            - 2.0 * r2
-            - r * ((a_x - p_x) * dx
-                + (a_y - p_y) * dy
-                + (b_x - p_x) * dx
-                + (b_y - p_y) * dy
-                + dy * (a_y - 2.0 * p_y + q_y)
-                + dy * (b_y - 2.0 * p_y + q_y)))
-            / r2,
+        (p_x - q_x)
+            * (-4.0 * (p_y - q_y) * ((a_x - p_x) * (p_x - q_x) + (a_y - p_y) * (p_y - q_y))
+                + 2.0 * ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)) * (a_y - 2.0 * p_y + q_y))
+            / ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)).powi(2),
+        (-4.0 * (p_y - q_y).powi(2) * ((a_x - p_x) * (p_x - q_x) + (a_y - p_y) * (p_y - q_y))
+            + 2.0 * ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)).powi(2)
+            + 2.0
+                * ((p_x - q_x).powi(2) + (p_y - q_y).powi(2))
+                * ((a_x - p_x) * (p_x - q_x)
+                    + (a_y - p_y) * (p_y - q_y)
+                    + (p_y - q_y) * (a_y - 2.0 * p_y + q_y)))
+            / ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)).powi(2),
     ];
     let dqx = [
-        (-2.0 * dx2 * s
-            + r * (2.0 * (a_x - p_x) * dx
-                + (a_y - p_y) * dy
-                + 2.0 * (b_x - p_x) * dx
-                + (b_y - p_y) * dy))
-            / r2,
-        dy * (-2.0 * dx * s + r * (a_x + b_x - 2.0 * p_x)) / r2,
+        (4.0 * (p_x - q_x).powi(2) * ((a_x - p_x) * (p_x - q_x) + (a_y - p_y) * (p_y - q_y))
+            - (4.0 * (a_x - p_x) * (p_x - q_x) + 2.0 * (a_y - p_y) * (p_y - q_y))
+                * ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)))
+            / ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)).powi(2),
+        (p_y - q_y)
+            * (-2.0 * (a_x - p_x) * ((p_x - q_x).powi(2) + (p_y - q_y).powi(2))
+                + 4.0 * (p_x - q_x) * ((a_x - p_x) * (p_x - q_x) + (a_y - p_y) * (p_y - q_y)))
+            / ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)).powi(2),
     ];
     let dqy = [
-        dx * (-2.0 * dy * s + r * (a_y + b_y - 2.0 * p_y)) / r2,
-        (-2.0 * dy2 * s
-            + r * ((a_x - p_x) * dx
-                + 2.0 * (a_y - p_y) * dy
-                + (b_x - p_x) * dx
-                + 2.0 * (b_y - p_y) * dy))
-            / r2,
+        (p_x - q_x)
+            * (-2.0 * (a_y - p_y) * ((p_x - q_x).powi(2) + (p_y - q_y).powi(2))
+                + 4.0 * (p_y - q_y) * ((a_x - p_x) * (p_x - q_x) + (a_y - p_y) * (p_y - q_y)))
+            / ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)).powi(2),
+        (4.0 * (p_y - q_y).powi(2) * ((a_x - p_x) * (p_x - q_x) + (a_y - p_y) * (p_y - q_y))
+            - (2.0 * (a_x - p_x) * (p_x - q_x) + 4.0 * (a_y - p_y) * (p_y - q_y))
+                * ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)))
+            / ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)).powi(2),
     ];
-    let dax = [dy2 / r, -dx * dy / r];
-    let day = [-dx * dy / r, dx2 / r];
-    let dbx = [dy2 / r, -dx * dy / r];
-    let dby = [-dx * dy / r, dx2 / r];
+    let dax = [
+        1.0 * ((p_x - q_x).powi(2) - (p_y - q_y).powi(2))
+            / ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)),
+        2.0 * (p_x - q_x) * (p_y - q_y) / ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)),
+    ];
+    let day = [
+        2.0 * (p_x - q_x) * (p_y - q_y) / ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)),
+        1.0 * (-(p_x - q_x).powi(2) + (p_y - q_y).powi(2))
+            / ((p_x - q_x).powi(2) + (p_y - q_y).powi(2)),
+    ];
+    let dbx = [-1.0, 0.0];
+    let dby = [0.0, -1.0];
 
     Some(SymmetricPds {
         dpx,
@@ -1377,20 +1384,19 @@ mod tests {
             qy: -1.0,
             ax: 3.0,
             ay: 4.0,
-            bx: 5.0,
-            by: 6.0,
         };
 
         // I put these into the Python notebook where I defined the math, and got these answers.
+        // https://colab.research.google.com/drive/17L_Lq-yTJOaLhDd2R0OtEe4Rwkr5RHsj#scrollTo=HpAraZ0OhKBW
         let expected = SymmetricPds {
-            dpx: [-4.41782322863404, -0.885317750182615],
-            dpy: [0.736303871439007, 0.147552958363769],
-            dqx: [2.47187728268809, 1.20964207450694],
-            dqy: [-0.411979547114682, -0.201607012417824],
-            dax: [0.972972972972973, -0.162162162162162],
-            day: [-0.162162162162162, 0.0270270270270270],
-            dbx: [0.972972972972973, -0.162162162162162],
-            dby: [-0.162162162162162, 0.0270270270270270],
+            dpx: [3.59386413440468, 0.482103725346969],
+            dpy: [-0.598977355734112, -0.0803506208911613],
+            dqx: [-1.64791818845873, -0.806428049671293],
+            dqy: [0.274653031409788, 0.134404674945215],
+            dax: [-0.945945945945946, 0.324324324324324],
+            day: [0.324324324324324, 0.945945945945946],
+            dbx: [-1.0, 0.0],
+            dby: [0.0, -1.0],
         };
         let actual = pds_from_symmetric(input).unwrap();
 
