@@ -1150,14 +1150,9 @@ fn pds_from_symmetric(
     };
 
     let dqy = {
-        // First component numerator:
-        // -2*(px-qx)^2 * S + R * [ 2(ax-px)(px-qx) + (ay-py)(py-qy) + 2(bx-px)(px-qx) + (by-py)(py-qy) ]
-        let t1 = 2.0 * (ax - px) * dx + (ay - py) * dy + 2.0 * (bx - px) * dx + (by - py) * dy;
-        let num1 = -2.0 * dx2 * s + r * t1;
-
-        // Second component numerator:
-        // (py-qy) * [ -2*(px-qx)*S + R*(ax + bx - 2px) ]
-        let num2 = dy * (-2.0 * dx * s + r * (ax + bx - 2.0 * px));
+        let num1 = dx * (-2.0 * dy * s + r * (ay + by - 2.0 * py));
+        let num2 = -2.0 * dy * dy * s
+            + r * ((ax - px) * dx + 2.0 * (ay - py) * dy + (bx - px) * dx + 2.0 * (by - py) * dy);
 
         (num1 / r2, num2 / r2)
     };
@@ -1391,6 +1386,51 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_pds_of_symmetric() {
+        // Arbitrarily chosen values.
+        let input = SymmetricVars {
+            px: 1.0,
+            py: 2.0,
+            qx: 0.5,
+            qy: -1.0,
+            ax: 3.0,
+            ay: 4.0,
+            bx: 5.0,
+            by: 6.0,
+        };
+
+        // I put these into the Python notebook where I defined the math, and got these answers.
+        let expected = SymmetricPds {
+            dpx: (-4.41782322863404, -0.885317750182615),
+            dpy: (0.736303871439007, 0.147552958363769),
+            dqx: (2.47187728268809, 1.20964207450694),
+            dqy: (-0.411979547114682, -0.201607012417824),
+            dax: (0.972972972972973, -0.162162162162162),
+            day: (-0.162162162162162, 0.0270270270270270),
+            dbx: (0.972972972972973, -0.162162162162162),
+            dby: (-0.162162162162162, 0.0270270270270270),
+        };
+        let actual = pds_from_symmetric(input).unwrap();
+
+        assert_close(actual.dpx.0, expected.dpx.0);
+        assert_close(actual.dpx.1, expected.dpx.1);
+        assert_close(actual.dpy.0, expected.dpy.0);
+        assert_close(actual.dpy.1, expected.dpy.1);
+        assert_close(actual.dqx.0, expected.dqx.0);
+        assert_close(actual.dqx.1, expected.dqx.1);
+        assert_close(actual.dqy.0, expected.dqy.0);
+        assert_close(actual.dqy.1, expected.dqy.1);
+        assert_close(actual.dax.0, expected.dax.0);
+        assert_close(actual.dax.1, expected.dax.1);
+        assert_close(actual.day.0, expected.day.0);
+        assert_close(actual.day.1, expected.day.1);
+        assert_close(actual.dbx.0, expected.dbx.0);
+        assert_close(actual.dbx.1, expected.dbx.1);
+        assert_close(actual.dby.0, expected.dby.0);
+        assert_close(actual.dby.1, expected.dby.1);
+    }
+
+    #[test]
     fn test_equation_of_line() {
         struct Test {
             name: &'static str,
@@ -1554,6 +1594,14 @@ mod tests {
                     jacobian_var.partial_derivative
                 );
             }
+        }
+    }
+
+    #[track_caller]
+    fn assert_close(actual: f64, expected: f64) {
+        let delta = actual - expected;
+        if (delta).abs() > 0.00001 {
+            panic!("Delta is {}", delta);
         }
     }
 }
