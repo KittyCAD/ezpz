@@ -47,6 +47,8 @@ pub enum Constraint {
     Midpoint(LineSegment, DatumPoint),
     /// The given point should be the given (perpendicular) distance away from the line.
     PointLineDistance(DatumPoint, LineSegment, f64),
+    /// These two points should be symmetric across the given line.
+    Symmetric(LineSegment, DatumPoint, DatumPoint),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -123,6 +125,15 @@ impl Constraint {
             Constraint::PointLineDistance(point, line, _distance) => {
                 row0.extend(point.all_variables());
                 row0.extend(line.all_variables());
+            }
+            Constraint::Symmetric(line, a, b) => {
+                // Equation: rej(A - P, Q - P) + rej(B - P, Q - P) = 0
+                row0.extend(line.all_variables());
+                row0.extend(a.all_variables());
+                row0.extend(b.all_variables());
+                row1.extend(line.all_variables());
+                row1.extend(a.all_variables());
+                row1.extend(b.all_variables());
             }
         }
     }
@@ -362,6 +373,28 @@ impl Constraint {
                 let residual = actual_distance - target_distance;
                 *residual0 = residual;
             }
+            Constraint::Symmetric(line, a, b) => {
+                // Equation: rej(A - P, Q - P) = -rej(B - P, Q - P)
+                //      i.e. rej(A - P, Q - P) + rej(B - P, Q - P) = 0
+
+                let ax = current_assignments[layout.index_of(a.id_x())];
+                let ay = current_assignments[layout.index_of(a.id_y())];
+                let bx = current_assignments[layout.index_of(b.id_x())];
+                let by = current_assignments[layout.index_of(b.id_y())];
+                let px = current_assignments[layout.index_of(line.p0.id_x())];
+                let py = current_assignments[layout.index_of(line.p0.id_y())];
+                let qx = current_assignments[layout.index_of(line.p1.id_x())];
+                let qy = current_assignments[layout.index_of(line.p1.id_y())];
+
+                let a = V::new(ax, ay);
+                let b = V::new(bx, by);
+                let p = V::new(px, py);
+                let q = V::new(qx, qy);
+
+                let residual = (a - p).reject(q - p) + (b - p).reject(q - p);
+                *residual0 = residual.x;
+                *residual1 = residual.y;
+            }
         }
     }
 
@@ -382,6 +415,7 @@ impl Constraint {
             Constraint::Arc(..) => 1,
             Constraint::Midpoint(..) => 2,
             Constraint::PointLineDistance(..) => 1,
+            Constraint::Symmetric(..) => 2,
         }
     }
 
@@ -898,6 +932,101 @@ impl Constraint {
 
                 row0.extend(partial_derivatives);
             }
+            Constraint::Symmetric(line, a, b) => {
+                let id_px = line.p0.id_x();
+                let id_py = line.p0.id_y();
+                let id_qx = line.p1.id_x();
+                let id_qy = line.p1.id_y();
+                let id_ax = a.id_x();
+                let id_ay = a.id_y();
+                let id_bx = b.id_x();
+                let id_by = b.id_y();
+
+                let values = SymmetricVars {
+                    px: current_assignments[layout.index_of(id_px)],
+                    py: current_assignments[layout.index_of(id_py)],
+                    qx: current_assignments[layout.index_of(id_qx)],
+                    qy: current_assignments[layout.index_of(id_qy)],
+                    ax: current_assignments[layout.index_of(a.id_x())],
+                    ay: current_assignments[layout.index_of(a.id_y())],
+                    bx: current_assignments[layout.index_of(b.id_x())],
+                    by: current_assignments[layout.index_of(b.id_y())],
+                };
+                let Some(pds) = pds_from_symmetric(values) else {
+                    *degenerate = true;
+                    return;
+                };
+
+                row0.extend([
+                    JacobianVar {
+                        id: id_px,
+                        partial_derivative: pds.dpx.0,
+                    },
+                    JacobianVar {
+                        id: id_py,
+                        partial_derivative: pds.dpy.0,
+                    },
+                    JacobianVar {
+                        id: id_qx,
+                        partial_derivative: pds.dqx.0,
+                    },
+                    JacobianVar {
+                        id: id_qy,
+                        partial_derivative: pds.dqy.0,
+                    },
+                    JacobianVar {
+                        id: id_ax,
+                        partial_derivative: pds.dax.0,
+                    },
+                    JacobianVar {
+                        id: id_ay,
+                        partial_derivative: pds.day.0,
+                    },
+                    JacobianVar {
+                        id: id_bx,
+                        partial_derivative: pds.dbx.0,
+                    },
+                    JacobianVar {
+                        id: id_by,
+                        partial_derivative: pds.dby.0,
+                    },
+                ]);
+
+                row1.extend([
+                    JacobianVar {
+                        id: id_px,
+                        partial_derivative: pds.dpx.1,
+                    },
+                    JacobianVar {
+                        id: id_py,
+                        partial_derivative: pds.dpy.1,
+                    },
+                    JacobianVar {
+                        id: id_qx,
+                        partial_derivative: pds.dqx.1,
+                    },
+                    JacobianVar {
+                        id: id_qy,
+                        partial_derivative: pds.dqy.1,
+                    },
+                    JacobianVar {
+                        id: id_ax,
+                        partial_derivative: pds.dax.1,
+                    },
+                    JacobianVar {
+                        id: id_ay,
+                        partial_derivative: pds.day.1,
+                    },
+                    JacobianVar {
+                        id: id_bx,
+                        partial_derivative: pds.dbx.1,
+                    },
+                    JacobianVar {
+                        id: id_by,
+                        partial_derivative: pds.dby.1,
+                    },
+                ]);
+            }
         }
     }
 
@@ -917,6 +1046,7 @@ impl Constraint {
             Constraint::Arc(..) => "Arc",
             Constraint::Midpoint(..) => "Midpoint",
             Constraint::PointLineDistance(..) => "PointLineDistance",
+            Constraint::Symmetric(..) => "Symmetric",
         }
     }
 }
@@ -928,6 +1058,124 @@ struct PointLineVars {
     p0y: f64,
     p1x: f64,
     p1y: f64,
+}
+
+struct SymmetricPds {
+    dpx: (f64, f64),
+    dpy: (f64, f64),
+    dqx: (f64, f64),
+    dqy: (f64, f64),
+    dax: (f64, f64),
+    day: (f64, f64),
+    dbx: (f64, f64),
+    dby: (f64, f64),
+}
+
+struct SymmetricVars {
+    px: f64,
+    py: f64,
+    qx: f64,
+    qy: f64,
+    ax: f64,
+    ay: f64,
+    bx: f64,
+    by: f64,
+}
+
+fn pds_from_symmetric(
+    SymmetricVars {
+        px,
+        py,
+        qx,
+        qy,
+        ax,
+        ay,
+        bx,
+        by,
+    }: SymmetricVars,
+) -> Option<SymmetricPds> {
+    // See sympy notebook:
+    // <https://colab.research.google.com/drive/12FUwqfpKzmWU2ZzNpdcT-0E1W3surJSt?usp=sharing#scrollTo=qCp9q2SznBJQ>
+    // Common terms that appear in the derivatives a lot.
+    let dx = px - qx;
+    let dy = py - qy;
+    let dx2 = dx.powi(2);
+    let dy2 = dy.powi(2);
+    let r = dx2 + dy2;
+    let r2 = r.powi(2);
+    let s = (ax - px) * dx + (ay - py) * dy + (bx - px) * dx + (by - py) * dy;
+
+    // Avoid div-by-zero
+    if r2 < EPSILON {
+        return None;
+    }
+
+    let dpx = {
+        let num1 = 2.0 * dx2 * s
+            - 2.0 * r2
+            - r * (s + dx * (ax - 2.0 * px + qx) + dx * (bx - 2.0 * px + qx));
+        let num2 = dy * (2.0 * dx * s + r * (-ax - bx + 4.0 * px - 2.0 * qx));
+
+        (num1 / r2, num2 / r2)
+    };
+
+    let dpy = {
+        let num1 = dx * (2.0 * dy * s + r * (-ay - by + 4.0 * py - 2.0 * qy));
+        let num2 = 2.0 * dy2 * s
+            - 2.0 * r2
+            - r * (s + dy * (ay - 2.0 * py + qy) + dy * (by - 2.0 * py + qy));
+
+        (num1 / r2, num2 / r2)
+    };
+
+    let dqx = {
+        let t1 = 2.0 * (ax - px) * dx + (ay - py) * dy + 2.0 * (bx - px) * dx + (by - py) * dy;
+        let num1 = -2.0 * dx2 * s + r * t1;
+        let num2 = dy * (-2.0 * dx * s + r * (ax + bx - 2.0 * px));
+        (num1 / r2, num2 / r2)
+    };
+
+    let dqy = {
+        let num1 = dx * (-2.0 * dy * s + r * (ay + by - 2.0 * py));
+        let num2 = -2.0 * dy * dy * s
+            + r * ((ax - px) * dx + 2.0 * (ay - py) * dy + (bx - px) * dx + 2.0 * (by - py) * dy);
+        (num1 / r2, num2 / r2)
+    };
+
+    let dax = {
+        let num1 = dy2;
+        let num2 = -(dx * dy);
+        (num1 / r, num2 / r)
+    };
+
+    let day = {
+        let num1 = -(dx * dy);
+        let num2 = dx2;
+        (num1 / r, num2 / r)
+    };
+
+    let dbx = {
+        let num1 = dy2;
+        let num2 = -(dx * dy);
+        (num1 / r, num2 / r)
+    };
+
+    let dby = {
+        let num1 = -(dx * dy);
+        let num2 = dx2;
+        (num1 / r, num2 / r)
+    };
+
+    Some(SymmetricPds {
+        dpx,
+        dpy,
+        dqx,
+        dqy,
+        dax,
+        day,
+        dbx,
+        dby,
+    })
 }
 
 fn pds_for_point_line(
@@ -1123,6 +1371,51 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_pds_of_symmetric() {
+        // Arbitrarily chosen values.
+        let input = SymmetricVars {
+            px: 1.0,
+            py: 2.0,
+            qx: 0.5,
+            qy: -1.0,
+            ax: 3.0,
+            ay: 4.0,
+            bx: 5.0,
+            by: 6.0,
+        };
+
+        // I put these into the Python notebook where I defined the math, and got these answers.
+        let expected = SymmetricPds {
+            dpx: (-4.41782322863404, -0.885317750182615),
+            dpy: (0.736303871439007, 0.147552958363769),
+            dqx: (2.47187728268809, 1.20964207450694),
+            dqy: (-0.411979547114682, -0.201607012417824),
+            dax: (0.972972972972973, -0.162162162162162),
+            day: (-0.162162162162162, 0.0270270270270270),
+            dbx: (0.972972972972973, -0.162162162162162),
+            dby: (-0.162162162162162, 0.0270270270270270),
+        };
+        let actual = pds_from_symmetric(input).unwrap();
+
+        assert_close(actual.dpx.0, expected.dpx.0);
+        assert_close(actual.dpx.1, expected.dpx.1);
+        assert_close(actual.dpy.0, expected.dpy.0);
+        assert_close(actual.dpy.1, expected.dpy.1);
+        assert_close(actual.dqx.0, expected.dqx.0);
+        assert_close(actual.dqx.1, expected.dqx.1);
+        assert_close(actual.dqy.0, expected.dqy.0);
+        assert_close(actual.dqy.1, expected.dqy.1);
+        assert_close(actual.dax.0, expected.dax.0);
+        assert_close(actual.dax.1, expected.dax.1);
+        assert_close(actual.day.0, expected.day.0);
+        assert_close(actual.day.1, expected.day.1);
+        assert_close(actual.dbx.0, expected.dbx.0);
+        assert_close(actual.dbx.1, expected.dbx.1);
+        assert_close(actual.dby.0, expected.dby.0);
+        assert_close(actual.dby.1, expected.dby.1);
+    }
+
+    #[test]
     fn test_equation_of_line() {
         struct Test {
             name: &'static str,
@@ -1286,6 +1579,14 @@ mod tests {
                     jacobian_var.partial_derivative
                 );
             }
+        }
+    }
+
+    #[track_caller]
+    fn assert_close(actual: f64, expected: f64) {
+        let delta = actual - expected;
+        if (delta).abs() > 0.00001 {
+            panic!("Delta is {}", delta);
         }
     }
 }

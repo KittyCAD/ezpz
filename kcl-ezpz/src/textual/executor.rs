@@ -323,6 +323,19 @@ impl Problem {
                     let mp = datum_point_for_label(mp)?;
                     constraints.push(Constraint::Midpoint(LineSegment { p0, p1 }, mp));
                 }
+                Instruction::Symmetric(Symmetric { p0, p1, line }) => {
+                    let p0 = datum_point_for_label(p0)?;
+                    let p1 = datum_point_for_label(p1)?;
+                    let line = (
+                        datum_point_for_label(&line.0)?,
+                        datum_point_for_label(&line.1)?,
+                    );
+                    let line = LineSegment {
+                        p0: line.0,
+                        p1: line.1,
+                    };
+                    constraints.push(Constraint::Symmetric(line, p0, p1));
+                }
                 Instruction::Horizontal(Horizontal { label }) => {
                     let p0 = datum_point_for_label(&label.0)?;
                     let p1 = datum_point_for_label(&label.1)?;
