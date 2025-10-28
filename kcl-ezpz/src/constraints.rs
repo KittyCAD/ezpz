@@ -1099,8 +1099,8 @@ fn pds_from_symmetric(
     // Common terms that appear in the derivatives a lot.
     let dx = px - qx;
     let dy = py - qy;
-    let dx2 = dx.powi(2);
-    let dy2 = dy.powi(2);
+    let dx2 = dx * dx;
+    let dy2 = dy * dy;
     let r = dx2 + dy2;
     let r2 = r.powi(2);
     // Avoid div-by-zero
@@ -1118,7 +1118,7 @@ fn pds_from_symmetric(
     let b_y = by;
     let s = (a_x - p_x) * dx + (a_y - p_y) * dy + (b_x - p_x) * dx + (b_y - p_y) * dy;
     let dpx = [
-        (2.0 * dx.powi(2) * s
+        (2.0 * dx2 * s
             - 2.0 * r2
             - r * ((a_x - p_x) * dx
                 + (a_y - p_y) * dy
@@ -1131,7 +1131,7 @@ fn pds_from_symmetric(
     ];
     let dpy = [
         dx * (2.0 * dy * s + r * (-a_y - b_y + 4.0 * p_y - 2.0 * q_y)) / r2,
-        (2.0 * dy.powi(2) * s
+        (2.0 * dy2 * s
             - 2.0 * r2
             - r * ((a_x - p_x) * dx
                 + (a_y - p_y) * dy
@@ -1142,7 +1142,7 @@ fn pds_from_symmetric(
             / r2,
     ];
     let dqx = [
-        (-2.0 * dx.powi(2) * s
+        (-2.0 * dx2 * s
             + r * (2.0 * (a_x - p_x) * dx
                 + (a_y - p_y) * dy
                 + 2.0 * (b_x - p_x) * dx
@@ -1152,17 +1152,17 @@ fn pds_from_symmetric(
     ];
     let dqy = [
         dx * (-2.0 * dy * s + r * (a_y + b_y - 2.0 * p_y)) / r2,
-        (-2.0 * dy.powi(2) * s
+        (-2.0 * dy2 * s
             + r * ((a_x - p_x) * dx
                 + 2.0 * (a_y - p_y) * dy
                 + (b_x - p_x) * dx
                 + 2.0 * (b_y - p_y) * dy))
             / r2,
     ];
-    let dax = [dy.powi(2) / r, -dx * dy / r];
-    let day = [-dx * dy / r, dx.powi(2) / r];
-    let dbx = [dy.powi(2) / r, -dx * dy / r];
-    let dby = [-dx * dy / r, dx.powi(2) / r];
+    let dax = [dy2 / r, -dx * dy / r];
+    let day = [-dx * dy / r, dx2 / r];
+    let dbx = [dy2 / r, -dx * dy / r];
+    let dby = [-dx * dy / r, dx2 / r];
 
     Some(SymmetricPds {
         dpx: (dpx[0], dpx[1]),
