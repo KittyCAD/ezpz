@@ -14,18 +14,12 @@ const FTOL_DEFAULT: f64 = 1e-8;
 const XTOL_DEFAULT: f64 = 1e-8;
 const GTOL_DEFAULT: f64 = 1e-8;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub enum MatrixFormat {
     Sparse,
     Dense,
+    #[default]
     Auto,
-}
-
-impl Default for MatrixFormat {
-    fn default() -> Self {
-        // We'll drive sparse/dense decision based on AUTO_DENSE_THRESHOLD.
-        Self::Auto
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
