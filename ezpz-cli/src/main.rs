@@ -214,7 +214,7 @@ fn print_failure_output(outcome: FailureOutcome) {
 /// They pass a filename, or '-' for stdin, as the first CLI arg.
 fn read_problem(cli: &Cli) -> Result<String, String> {
     // Read from file
-    if cli.filepath != PathBuf::from("-") {
+    if &cli.filepath != "-" {
         return std::fs::read_to_string(&cli.filepath).map_err(|e| e.to_string());
     }
 
