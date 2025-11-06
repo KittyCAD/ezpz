@@ -1,4 +1,7 @@
-use crate::{Constraint, constraints, datatypes::Angle};
+use crate::{
+    Constraint,
+    datatypes::{Angle, AngleKind},
+};
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
@@ -20,7 +23,7 @@ pub fn lint(constraints: &[Constraint]) -> Vec<Warning> {
     let mut warnings = Vec::default();
     for (i, constraint) in constraints.iter().enumerate() {
         match constraint {
-            Constraint::LinesAtAngle(_, _, constraints::AngleKind::Other(theta))
+            Constraint::LinesAtAngle(_, _, AngleKind::Other(theta))
                 if nearly_eq(theta.to_degrees(), 0.0)
                     || nearly_eq(theta.to_degrees(), 360.0)
                     || nearly_eq(theta.to_degrees(), 180.0) =>
@@ -30,7 +33,7 @@ pub fn lint(constraints: &[Constraint]) -> Vec<Warning> {
                     content: WarningContent::ShouldBeParallel(*theta),
                 });
             }
-            Constraint::LinesAtAngle(_, _, constraints::AngleKind::Other(theta))
+            Constraint::LinesAtAngle(_, _, AngleKind::Other(theta))
                 if nearly_eq(theta.to_degrees(), 90.0) || nearly_eq(theta.to_degrees(), -90.0) =>
             {
                 warnings.push(Warning {

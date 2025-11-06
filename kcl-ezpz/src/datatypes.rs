@@ -4,6 +4,16 @@ pub trait Datum {
     fn all_variables(&self) -> impl IntoIterator<Item = Id>;
 }
 
+/// Possible angles, with specific descriptors for special angles
+/// like parallel or perpendicular.
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
+pub enum AngleKind {
+    Parallel,
+    Perpendicular,
+    Other(Angle),
+}
+
 #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct Angle {

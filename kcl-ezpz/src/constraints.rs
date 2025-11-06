@@ -51,14 +51,6 @@ pub enum Constraint {
     Symmetric(LineSegment, DatumPoint, DatumPoint),
 }
 
-#[derive(Clone, Copy, Debug)]
-#[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
-pub enum AngleKind {
-    Parallel,
-    Perpendicular,
-    Other(Angle),
-}
-
 /// Describes one value in one row of the Jacobian matrix.
 #[derive(Clone, Copy)]
 pub struct JacobianVar {
