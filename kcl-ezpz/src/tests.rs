@@ -42,6 +42,25 @@ fn empty() {
 }
 
 #[test]
+fn priority_solver_reports_original_indices() {
+    // Place a lower-priority constraint before higher-priority ones so their indices shift.
+    // When the high-priority subset is unsatisfied, the reported indices should still match
+    // the original request list.
+    let mut ids = IdGenerator::default();
+    let x = ids.next_id();
+
+    let constraints = vec![
+        ConstraintRequest::new(Constraint::Fixed(x, 0.0), 1),
+        ConstraintRequest::new(Constraint::Fixed(x, 1.0), 0),
+        ConstraintRequest::new(Constraint::Fixed(x, 2.0), 0),
+    ];
+    let initial_guess = vec![(x, 0.5)];
+
+    let solved = crate::solve(&constraints, initial_guess, Config::default()).unwrap();
+    assert_eq!(solved.unsatisfied, vec![1, 2]);
+}
+
+#[test]
 fn coincident() {
     let solved = run("coincident");
     assert!(solved.unsatisfied.is_empty());
