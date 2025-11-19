@@ -47,14 +47,16 @@ fn priority_solver_reports_original_indices() {
     // When the high-priority subset is unsatisfied, the reported indices should still match
     // the original request list.
     let mut ids = IdGenerator::default();
-    let x = ids.next_id();
+    let point = ids.next_id();
 
+    let high_priority = 0;
+    let low_priority = 1;
     let constraints = vec![
-        ConstraintRequest::new(Constraint::Fixed(x, 0.0), 1),
-        ConstraintRequest::new(Constraint::Fixed(x, 1.0), 0),
-        ConstraintRequest::new(Constraint::Fixed(x, 2.0), 0),
+        ConstraintRequest::new(Constraint::Fixed(point, 0.0), low_priority),
+        ConstraintRequest::new(Constraint::Fixed(point, 1.0), high_priority),
+        ConstraintRequest::new(Constraint::Fixed(point, 2.0), high_priority),
     ];
-    let initial_guess = vec![(x, 0.5)];
+    let initial_guess = vec![(point, 0.5)];
 
     let solved = crate::solve(&constraints, initial_guess, Config::default()).unwrap();
     assert_eq!(solved.unsatisfied, vec![1, 2]);
