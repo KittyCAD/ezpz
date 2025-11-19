@@ -2,7 +2,7 @@ use std::{hint::black_box, str::FromStr};
 
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use kcl_ezpz::{
-    Config, Constraint, IdGenerator,
+    Config, Constraint, ConstraintRequest, IdGenerator,
     datatypes::{DatumPoint, LineSegment},
     solve,
     textual::Problem,
@@ -117,8 +117,15 @@ fn solve_two_rectangles_dependent(c: &mut Criterion) {
         Constraint::Distance(p2, p7, 4.0),
     ];
 
-    let mut constraints = constraints0;
-    constraints.extend(constraints1);
+    let mut constraints: Vec<_> = constraints0
+        .into_iter()
+        .map(ConstraintRequest::highest_priority)
+        .collect();
+    constraints.extend(
+        constraints1
+            .into_iter()
+            .map(ConstraintRequest::highest_priority),
+    );
     c.bench_function("solve two rectangles dependent", |b| {
         b.iter(|| {
             let _actual = black_box(
