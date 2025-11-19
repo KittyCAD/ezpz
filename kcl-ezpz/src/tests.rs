@@ -33,7 +33,9 @@ fn parse_problem(txt: &str) -> Problem {
 #[test]
 fn empty() {
     // This constraint references variable 0.
-    let constraints = vec![Constraint::Fixed(0, 0.0)];
+    let constraints = vec![ConstraintRequest::highest_priority(Constraint::Fixed(
+        0, 0.0,
+    ))];
     // We don't pass any variables, so this should return an error,
     // because the constraint requires variable 0, and it's not given.
     let _e = crate::solve(constraints.as_slice(), Vec::new(), Default::default()).unwrap_err();

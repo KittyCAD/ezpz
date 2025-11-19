@@ -4,7 +4,8 @@ use faer::sparse::{Pair, SymbolicSparseColMat};
 use newton_faer::{JacobianCache, NonlinearSystem, RowMap};
 
 use crate::{
-    Constraint, NonLinearSystemError, Warning, WarningContent, constraints::JacobianVar, id::Id,
+    Constraint, ConstraintRequest, NonLinearSystemError, Warning, WarningContent,
+    constraints::JacobianVar, id::Id,
 };
 
 // Roughly. Most constraints will only involve roughly 4 variables.

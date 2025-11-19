@@ -1,7 +1,7 @@
 #![no_main]
 
 use arbitrary::Arbitrary;
-use kcl_ezpz::{Constraint, Id};
+use kcl_ezpz::{ConstraintRequest, Id};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|setup: Setup| {
@@ -18,6 +18,6 @@ fuzz_target!(|setup: Setup| {
 
 #[derive(Debug, Arbitrary)]
 struct Setup {
-    constraints: Vec<Constraint>,
+    constraints: Vec<ConstraintRequest>,
     guesses: Vec<f64>,
 }
