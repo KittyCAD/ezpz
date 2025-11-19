@@ -409,6 +409,11 @@ impl Constraint {
             Constraint::Midpoint(..) => 2,
             Constraint::PointLineDistance(..) => 1,
             Constraint::Symmetric(..) => 2,
+            // STOP: If you're adding a new dim besides 1 or 2, you will
+            // have to modify a lot of other solver code!
+            // There are many places where the solver assumes dimension 1
+            // or 2. E.g. the solver methods take mutable input vars called `row0` and `row1`.
+            // Modify those to accept `row2` etc.
         }
     }
 
