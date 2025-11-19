@@ -13,7 +13,7 @@ fuzz_target!(|setup: Setup| {
         .map(|(i, v)| (Id::try_from(i).unwrap(), v))
         .collect();
     let constraints = &setup.constraints;
-    let _ = kcl_ezpz::solve(constraints, guesses, Default::default());
+    let _ = kcl_ezpz::solve_with_priority(constraints, guesses, Default::default());
 });
 
 #[derive(Debug, Arbitrary)]

@@ -427,7 +427,7 @@ pub struct ConstraintSystem<'a> {
 
 impl ConstraintSystem<'_> {
     pub fn solve_no_metadata(&self, config: Config) -> Result<SolveOutcome, FailureOutcome> {
-        crate::solve(&self.constraints, self.initial_guesses.variables(), config)
+        crate::solve_with_priority(&self.constraints, self.initial_guesses.variables(), config)
     }
 
     pub fn solve(&self) -> Result<Outcome, FailureOutcome> {
