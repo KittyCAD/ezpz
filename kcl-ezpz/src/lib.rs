@@ -108,25 +108,36 @@ pub fn solve(
         iterations: 0,
         warnings: Vec::new(),
     });
+    let total_constraints = reqs.len();
 
     // Try solving, starting with only the highest priority constraints,
     // adding more and more until we eventually either finish all constraints,
     // or cannot find a solution that satisfies all of them.
+    let mut constraint_subset: Vec<Constraint> = Vec::with_capacity(total_constraints);
+    let mut subset_indices: Vec<usize> = Vec::with_capacity(total_constraints);
     for curr_max_priority in priorities {
-        let constraint_subset: Vec<Constraint> = reqs
-            .iter()
-            .filter(|cr| cr.priority <= curr_max_priority)
-            .map(|cr| cr.constraint)
-            .collect();
+        constraint_subset.clear();
+        subset_indices.clear();
+        for (idx, req) in reqs.iter().enumerate() {
+            if req.priority <= curr_max_priority {
+                constraint_subset.push(req.constraint);
+                subset_indices.push(idx);
+            }
+        }
         let solve_res = solve_without_priority(&constraint_subset, initial_guesses.clone(), config);
 
         // If it couldn't be solved, return the error.
-        let Ok(outcome) = solve_res else {
+        let Ok(mut outcome) = solve_res else {
             return solve_res;
         };
         // If there were unsatisfied constraints, then there's no point trying to add more lower-priority constraints,
         // just return now.
         if !outcome.unsatisfied.is_empty() {
+            outcome.unsatisfied = outcome
+                .unsatisfied
+                .into_iter()
+                .map(|i| subset_indices[i])
+                .collect();
             return Ok(outcome);
         }
         // Otherwise, continue the loop again, adding higher-priority constraints.
@@ -135,7 +146,8 @@ pub fn solve(
     res
 }
 
-fn solve_without_priority(
+/// Solve, assuming all constraints are the same priority.
+pub fn solve_without_priority(
     constraints: &[Constraint],
     initial_guesses: Vec<(Id, f64)>,
     config: Config,
