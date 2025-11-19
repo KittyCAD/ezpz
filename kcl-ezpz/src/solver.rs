@@ -4,7 +4,7 @@ use faer::sparse::{Pair, SymbolicSparseColMat};
 use newton_faer::{JacobianCache, NonlinearSystem, RowMap};
 
 use crate::{
-    Constraint, ConstraintEntry, ConstraintRequest, NonLinearSystemError, Warning, WarningContent,
+    Constraint, ConstraintEntry, NonLinearSystemError, Warning, WarningContent,
     constraints::JacobianVar, id::Id,
 };
 

@@ -1,6 +1,8 @@
 //! Efficient Zoo Problem Zolver.
 //! Solves 2D constraint systems.
 
+use std::collections::HashSet;
+
 pub use crate::constraint_request::ConstraintRequest;
 pub use crate::constraints::Constraint;
 use crate::constraints::ConstraintEntry;
@@ -90,11 +92,47 @@ pub struct FailureOutcome {
 /// Given some initial guesses, constrain them.
 /// Returns the same variables in the same order, but constrained.
 pub fn solve(
-    constraints: &[ConstraintRequest],
+    reqs: &[ConstraintRequest],
     initial_guesses: Vec<(Id, f64)>,
     config: Config,
 ) -> Result<SolveOutcome, FailureOutcome> {
-    todo!()
+    // Find all the priority levels, and put them into order from highest to lowest priority.
+    let priorities: HashSet<_> = reqs.iter().map(|c| c.priority).collect();
+    let mut priorities: Vec<_> = priorities.into_iter().collect();
+    priorities.sort();
+
+    // Handle the case with 0 constraints.
+    let mut res = Ok(SolveOutcome {
+        unsatisfied: Vec::new(),
+        final_values: Vec::new(),
+        iterations: 0,
+        warnings: Vec::new(),
+    });
+
+    // Try solving, starting with only the highest priority constraints,
+    // adding more and more until we eventually either finish all constraints,
+    // or cannot find a solution that satisfies all of them.
+    for curr_max_priority in priorities {
+        let constraint_subset: Vec<Constraint> = reqs
+            .iter()
+            .filter(|cr| cr.priority <= curr_max_priority)
+            .map(|cr| cr.constraint)
+            .collect();
+        let solve_res = solve_without_priority(&constraint_subset, initial_guesses.clone(), config);
+
+        // If it couldn't be solved, return the error.
+        let Ok(outcome) = solve_res else {
+            return solve_res;
+        };
+        // If there were unsatisfied constraints, then there's no point trying to add more lower-priority constraints,
+        // just return now.
+        if !outcome.unsatisfied.is_empty() {
+            return Ok(outcome);
+        }
+        // Otherwise, continue the loop again, adding higher-priority constraints.
+        res = Ok(outcome);
+    }
+    res
 }
 
 fn solve_without_priority(
