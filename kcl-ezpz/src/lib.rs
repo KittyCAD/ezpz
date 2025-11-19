@@ -81,6 +81,18 @@ pub struct SolveOutcome {
     pub warnings: Vec<Warning>,
 }
 
+impl SolveOutcome {
+    /// Were all constraints satisfied?
+    pub fn is_satisfied(&self) -> bool {
+        self.unsatisfied.is_empty()
+    }
+
+    /// Were any constraints unsatisfied?
+    pub fn is_unsatisfied(&self) -> bool {
+        !self.is_satisfied()
+    }
+}
+
 #[derive(Debug)]
 pub struct FailureOutcome {
     pub error: Error,
@@ -102,6 +114,7 @@ pub fn solve_with_priority(
     priorities.sort();
 
     // Handle the case with 0 constraints.
+    // (this gets used below, if the per-constraint loop never returns).
     let mut res = Ok(SolveOutcome {
         unsatisfied: Vec::new(),
         final_values: Vec::new(),
@@ -114,14 +127,17 @@ pub fn solve_with_priority(
     // adding more and more until we eventually either finish all constraints,
     // or cannot find a solution that satisfies all of them.
     let mut constraint_subset: Vec<Constraint> = Vec::with_capacity(total_constraints);
+    // Maps the constraint indices in this subset, back to the constraint indices in the
+    // complete list the user gave us.
     let mut subset_indices: Vec<usize> = Vec::with_capacity(total_constraints);
+
     for curr_max_priority in priorities {
         constraint_subset.clear();
         subset_indices.clear();
-        for (idx, req) in reqs.iter().enumerate() {
+        for (i, req) in reqs.iter().enumerate() {
             if req.priority <= curr_max_priority {
                 constraint_subset.push(req.constraint);
-                subset_indices.push(idx);
+                subset_indices.push(i);
             }
         }
         let solve_res = solve(&constraint_subset, initial_guesses.clone(), config);
@@ -132,7 +148,7 @@ pub fn solve_with_priority(
         };
         // If there were unsatisfied constraints, then there's no point trying to add more lower-priority constraints,
         // just return now.
-        if !outcome.unsatisfied.is_empty() {
+        if outcome.is_unsatisfied() {
             outcome.unsatisfied = outcome
                 .unsatisfied
                 .into_iter()
