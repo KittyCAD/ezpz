@@ -38,7 +38,8 @@ fn empty() {
     ))];
     // We don't pass any variables, so this should return an error,
     // because the constraint requires variable 0, and it's not given.
-    let _e = crate::solve(constraints.as_slice(), Vec::new(), Default::default()).unwrap_err();
+    let _e = crate::solve_with_priority(constraints.as_slice(), Vec::new(), Default::default())
+        .unwrap_err();
 }
 
 #[test]
@@ -58,7 +59,8 @@ fn priority_solver_reports_original_indices() {
     ];
     let initial_guess = vec![(point, 0.5)];
 
-    let solved = crate::solve(&constraints, initial_guess, Config::default()).unwrap();
+    let solved =
+        crate::solve_with_priority(&constraints, initial_guess, Config::default()).unwrap();
     assert_eq!(solved.unsatisfied, vec![1, 2]);
 }
 

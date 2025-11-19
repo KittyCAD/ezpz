@@ -91,7 +91,7 @@ pub struct FailureOutcome {
 
 /// Given some initial guesses, constrain them.
 /// Returns the same variables in the same order, but constrained.
-pub fn solve(
+pub fn solve_with_priority(
     reqs: &[ConstraintRequest],
     initial_guesses: Vec<(Id, f64)>,
     config: Config,
@@ -124,7 +124,7 @@ pub fn solve(
                 subset_indices.push(idx);
             }
         }
-        let solve_res = solve_without_priority(&constraint_subset, initial_guesses.clone(), config);
+        let solve_res = solve(&constraint_subset, initial_guesses.clone(), config);
 
         // If it couldn't be solved, return the error.
         let Ok(mut outcome) = solve_res else {
@@ -147,7 +147,7 @@ pub fn solve(
 }
 
 /// Solve, assuming all constraints are the same priority.
-pub fn solve_without_priority(
+pub fn solve(
     constraints: &[Constraint],
     initial_guesses: Vec<(Id, f64)>,
     config: Config,
