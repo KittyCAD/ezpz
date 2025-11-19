@@ -33,7 +33,9 @@ fn parse_problem(txt: &str) -> Problem {
 #[test]
 fn empty() {
     // This constraint references variable 0.
-    let constraints = vec![Constraint::Fixed(0, 0.0)];
+    let constraints = vec![ConstraintRequest::highest_priority(Constraint::Fixed(
+        0, 0.0,
+    ))];
     // We don't pass any variables, so this should return an error,
     // because the constraint requires variable 0, and it's not given.
     let _e = crate::solve(constraints.as_slice(), Vec::new(), Default::default()).unwrap_err();
@@ -329,14 +331,29 @@ fn strange_nonconvergence() {
     let t = DatumPoint { x_id: 8, y_id: 9 };
 
     let requests = [
-        Constraint::Fixed(0, 0.0),
-        Constraint::Fixed(1, 0.0),
-        Constraint::PointsCoincident(r, s),
-        Constraint::PointsCoincident(q, p),
-        Constraint::LinesEqualLength(
-            crate::datatypes::LineSegment { p0: q, p1: r },
-            crate::datatypes::LineSegment { p0: s, p1: t },
-        ),
+        ConstraintRequest {
+            constraint: Constraint::Fixed(0, 0.0),
+            priority: 0,
+        },
+        ConstraintRequest {
+            constraint: Constraint::Fixed(1, 0.0),
+            priority: 0,
+        },
+        ConstraintRequest {
+            constraint: Constraint::PointsCoincident(r, s),
+            priority: 0,
+        },
+        ConstraintRequest {
+            constraint: Constraint::PointsCoincident(q, p),
+            priority: 0,
+        },
+        ConstraintRequest {
+            constraint: Constraint::LinesEqualLength(
+                crate::datatypes::LineSegment { p0: q, p1: r },
+                crate::datatypes::LineSegment { p0: s, p1: t },
+            ),
+            priority: 0,
+        },
     ];
     let initial_guesses = vec![
         (0, 0.0),

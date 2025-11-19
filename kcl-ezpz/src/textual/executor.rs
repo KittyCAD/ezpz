@@ -4,6 +4,7 @@ use indexmap::IndexMap;
 
 use crate::Config;
 use crate::Constraint;
+use crate::ConstraintRequest;
 use crate::Error;
 use crate::FailureOutcome;
 use crate::IdGenerator;
@@ -395,6 +396,14 @@ impl Problem {
         }
         let initial_guesses = initial_guesses.done();
 
+        // At some point, the textual format should support setting priority.
+        // For now, set it to max priority.
+        let priority = 0;
+        let constraints = constraints
+            .into_iter()
+            .map(|c| ConstraintRequest::new(c, priority))
+            .collect();
+
         Ok(ConstraintSystem {
             constraints,
             initial_guesses,
@@ -408,7 +417,7 @@ impl Problem {
 
 #[derive(Clone)]
 pub struct ConstraintSystem<'a> {
-    pub constraints: Vec<Constraint>,
+    pub constraints: Vec<ConstraintRequest>,
     initial_guesses: GeometryVariables<DoneState>,
     inner_points: &'a [Label],
     inner_circles: &'a [Label],
@@ -427,7 +436,11 @@ impl ConstraintSystem<'_> {
 
     pub fn solve_with_config(&self, config: Config) -> Result<Outcome, FailureOutcome> {
         let num_vars = self.initial_guesses.len();
-        let num_eqs = self.constraints.iter().map(|c| c.residual_dim()).sum();
+        let num_eqs = self
+            .constraints
+            .iter()
+            .map(|c| c.constraint.residual_dim())
+            .sum();
         // Pass into the solver.
         let SolveOutcome {
             iterations,

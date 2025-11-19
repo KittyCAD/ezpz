@@ -1,6 +1,7 @@
 //! Efficient Zoo Problem Zolver.
 //! Solves 2D constraint systems.
 
+pub use crate::constraint_request::ConstraintRequest;
 pub use crate::constraints::Constraint;
 use crate::constraints::ConstraintEntry;
 pub use crate::solver::Config;
@@ -12,6 +13,7 @@ use crate::solver::Model;
 use faer::sparse::CreationError;
 pub use warnings::{Warning, WarningContent};
 
+mod constraint_request;
 /// Each kind of constraint we support.
 mod constraints;
 /// Geometric data (lines, points, etc).
@@ -88,6 +90,14 @@ pub struct FailureOutcome {
 /// Given some initial guesses, constrain them.
 /// Returns the same variables in the same order, but constrained.
 pub fn solve(
+    constraints: &[ConstraintRequest],
+    initial_guesses: Vec<(Id, f64)>,
+    config: Config,
+) -> Result<SolveOutcome, FailureOutcome> {
+    todo!()
+}
+
+fn solve_without_priority(
     constraints: &[Constraint],
     initial_guesses: Vec<(Id, f64)>,
     config: Config,
