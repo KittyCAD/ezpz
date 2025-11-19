@@ -354,29 +354,14 @@ fn strange_nonconvergence() {
     let t = DatumPoint { x_id: 8, y_id: 9 };
 
     let requests = [
-        ConstraintRequest {
-            constraint: Constraint::Fixed(0, 0.0),
-            priority: 0,
-        },
-        ConstraintRequest {
-            constraint: Constraint::Fixed(1, 0.0),
-            priority: 0,
-        },
-        ConstraintRequest {
-            constraint: Constraint::PointsCoincident(r, s),
-            priority: 0,
-        },
-        ConstraintRequest {
-            constraint: Constraint::PointsCoincident(q, p),
-            priority: 0,
-        },
-        ConstraintRequest {
-            constraint: Constraint::LinesEqualLength(
-                crate::datatypes::LineSegment { p0: q, p1: r },
-                crate::datatypes::LineSegment { p0: s, p1: t },
-            ),
-            priority: 0,
-        },
+        Constraint::Fixed(0, 0.0),
+        Constraint::Fixed(1, 0.0),
+        Constraint::PointsCoincident(r, s),
+        Constraint::PointsCoincident(q, p),
+        Constraint::LinesEqualLength(
+            crate::datatypes::LineSegment { p0: q, p1: r },
+            crate::datatypes::LineSegment { p0: s, p1: t },
+        ),
     ];
     let initial_guesses = vec![
         (0, 0.0),
