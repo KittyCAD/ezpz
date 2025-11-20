@@ -350,8 +350,16 @@ fn strange_nonconvergence() {
         (8, -1.15),
         (9, 2.75),
     ];
-    let outcome = crate::solve(&requests, initial_guesses, Config::default());
-    outcome.unwrap();
+    let outcome = crate::solve(
+        &requests,
+        initial_guesses,
+        Config {
+            max_iterations: 31,
+            ..Default::default()
+        },
+    );
+    let iterations = outcome.unwrap().iterations;
+    assert_eq!(iterations, 30);
 }
 
 #[test]
