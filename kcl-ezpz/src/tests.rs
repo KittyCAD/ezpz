@@ -322,26 +322,20 @@ fn chamfer_square() {
 #[test]
 fn strange_nonconvergence() {
     use crate::datatypes::DatumPoint;
+    let p = DatumPoint { x_id: 0, y_id: 1 };
+    let q = DatumPoint { x_id: 2, y_id: 3 };
+    let r = DatumPoint { x_id: 4, y_id: 5 };
+    let s = DatumPoint { x_id: 6, y_id: 7 };
+    let t = DatumPoint { x_id: 8, y_id: 9 };
+
     let requests = [
         Constraint::Fixed(0, 0.0),
         Constraint::Fixed(1, 0.0),
-        Constraint::PointsCoincident(
-            DatumPoint { x_id: 4, y_id: 5 },
-            DatumPoint { x_id: 6, y_id: 7 },
-        ),
-        Constraint::PointsCoincident(
-            DatumPoint { x_id: 2, y_id: 3 },
-            DatumPoint { x_id: 0, y_id: 1 },
-        ),
+        Constraint::PointsCoincident(r, s),
+        Constraint::PointsCoincident(q, p),
         Constraint::LinesEqualLength(
-            crate::datatypes::LineSegment {
-                p0: DatumPoint { x_id: 2, y_id: 3 },
-                p1: DatumPoint { x_id: 4, y_id: 5 },
-            },
-            crate::datatypes::LineSegment {
-                p0: DatumPoint { x_id: 6, y_id: 7 },
-                p1: DatumPoint { x_id: 8, y_id: 9 },
-            },
+            crate::datatypes::LineSegment { p0: q, p1: r },
+            crate::datatypes::LineSegment { p0: s, p1: t },
         ),
     ];
     let initial_guesses = vec![
