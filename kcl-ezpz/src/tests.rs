@@ -43,21 +43,42 @@ fn empty() {
 }
 
 #[test]
+fn it_returns_best_satisfied_solution() {
+    // If a lower-priority constraint causes the higher-priority constraints to be unsatisfied,
+    // use the previous solution (i.e. the satisfied one, with only higher-priority constraints).
+
+    let mut ids = IdGenerator::default();
+    let var = ids.next_id();
+
+    let high_priority = 0;
+    let low_priority = 1;
+    let constraints = vec![
+        ConstraintRequest::new(Constraint::Fixed(var, 0.0), high_priority),
+        ConstraintRequest::new(Constraint::Fixed(var, 1.0), low_priority),
+        ConstraintRequest::new(Constraint::Fixed(var, 2.0), low_priority),
+    ];
+    let initial_guesses = vec![(var, 0.5)];
+    let solved =
+        crate::solve_with_priority(&constraints, initial_guesses, Config::default()).unwrap();
+    assert!(solved.is_satisfied());
+}
+
+#[test]
 fn priority_solver_reports_original_indices() {
     // Place a lower-priority constraint before higher-priority ones so their indices shift.
     // When the high-priority subset is unsatisfied, the reported indices should still match
     // the original request list.
     let mut ids = IdGenerator::default();
-    let point = ids.next_id();
+    let var = ids.next_id();
 
     let high_priority = 0;
     let low_priority = 1;
     let constraints = vec![
-        ConstraintRequest::new(Constraint::Fixed(point, 0.0), low_priority),
-        ConstraintRequest::new(Constraint::Fixed(point, 1.0), high_priority),
-        ConstraintRequest::new(Constraint::Fixed(point, 2.0), high_priority),
+        ConstraintRequest::new(Constraint::Fixed(var, 0.0), low_priority),
+        ConstraintRequest::new(Constraint::Fixed(var, 1.0), high_priority),
+        ConstraintRequest::new(Constraint::Fixed(var, 2.0), high_priority),
     ];
-    let initial_guess = vec![(point, 0.5)];
+    let initial_guess = vec![(var, 0.5)];
 
     let solved =
         crate::solve_with_priority(&constraints, initial_guess, Config::default()).unwrap();

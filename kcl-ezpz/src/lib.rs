@@ -108,6 +108,19 @@ pub fn solve_with_priority(
     initial_guesses: Vec<(Id, f64)>,
     config: Config,
 ) -> Result<SolveOutcome, FailureOutcome> {
+    // When there's no constraints, return early.
+    // Use the initial guesses as the final values.
+    if reqs.is_empty() {
+        return Ok(SolveOutcome {
+            unsatisfied: Vec::new(),
+            final_values: initial_guesses
+                .into_iter()
+                .map(|(_id, guess)| guess)
+                .collect(),
+            iterations: 0,
+            warnings: Vec::new(),
+        });
+    }
     // Find all the priority levels, and put them into order from highest to lowest priority.
     let priorities: HashSet<_> = reqs.iter().map(|c| c.priority).collect();
     let mut priorities: Vec<_> = priorities.into_iter().collect();
@@ -115,16 +128,7 @@ pub fn solve_with_priority(
 
     // Handle the case with 0 constraints.
     // (this gets used below, if the per-constraint loop never returns).
-    let mut res = Ok(SolveOutcome {
-        unsatisfied: Vec::new(),
-        final_values: initial_guesses
-            .iter()
-            .copied()
-            .map(|(_id, guess)| guess)
-            .collect(),
-        iterations: 0,
-        warnings: Vec::new(),
-    });
+    let mut res = None;
     let total_constraints = reqs.len();
 
     // Try solving, starting with only the highest priority constraints,
@@ -146,24 +150,41 @@ pub fn solve_with_priority(
         }
         let solve_res = solve(&constraint_subset, initial_guesses.clone(), config);
 
-        // If it couldn't be solved, return the error.
-        let Ok(mut outcome) = solve_res else {
-            return solve_res;
-        };
-        // If there were unsatisfied constraints, then there's no point trying to add more lower-priority constraints,
-        // just return now.
-        if outcome.is_unsatisfied() {
-            outcome.unsatisfied = outcome
-                .unsatisfied
-                .into_iter()
-                .map(|i| subset_indices[i])
-                .collect();
-            return Ok(outcome);
+        match solve_res {
+            Ok(mut outcome) => {
+                // Put the indices back.
+                outcome.unsatisfied = outcome
+                    .unsatisfied
+                    .into_iter()
+                    .map(|i| subset_indices[i])
+                    .collect();
+
+                // If there were unsatisfied constraints, then there's no point trying to add more lower-priority constraints,
+                // just return now.
+                if outcome.is_unsatisfied() {
+                    return Ok(res.unwrap_or(outcome));
+                }
+                // Otherwise, continue the loop again, adding higher-priority constraints.
+                res = Some(outcome);
+            }
+            // If this constraint couldn't be solved,
+            Err(e) => {
+                // then return a previous solved system with fewer (higher-priority) constraints,
+                // or if there was no such previous system, then this was the first run,
+                // and we should just return the error.
+                return res.ok_or(e);
+            }
         }
-        // Otherwise, continue the loop again, adding higher-priority constraints.
-        res = Ok(outcome);
     }
-    res
+    Ok(res.unwrap_or(SolveOutcome {
+        unsatisfied: Vec::new(),
+        final_values: initial_guesses
+            .into_iter()
+            .map(|(_id, guess)| guess)
+            .collect(),
+        iterations: 0,
+        warnings: Vec::new(),
+    }))
 }
 
 /// Solve, assuming all constraints are the same priority.

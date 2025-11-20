@@ -4,14 +4,14 @@ use crate::{
     datatypes::{Angle, AngleKind},
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct Warning {
     pub about_constraint: Option<usize>,
     pub content: WarningContent,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
 #[non_exhaustive]
 pub enum WarningContent {
