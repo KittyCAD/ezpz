@@ -117,7 +117,11 @@ pub fn solve_with_priority(
     // (this gets used below, if the per-constraint loop never returns).
     let mut res = Ok(SolveOutcome {
         unsatisfied: Vec::new(),
-        final_values: Vec::new(),
+        final_values: initial_guesses
+            .iter()
+            .copied()
+            .map(|(_id, guess)| guess)
+            .collect(),
         iterations: 0,
         warnings: Vec::new(),
     });
