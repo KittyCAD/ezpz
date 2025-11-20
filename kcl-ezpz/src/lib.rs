@@ -68,7 +68,7 @@ pub enum NonLinearSystemError {
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SolveOutcome {
     /// Which constraints couldn't be satisfied
     pub unsatisfied: Vec<usize>,
@@ -130,6 +130,8 @@ pub fn solve_with_priority(
     // complete list the user gave us.
     let mut subset_indices: Vec<usize> = Vec::with_capacity(total_constraints);
 
+    let mut previous_priority_solution = None;
+
     for curr_max_priority in priorities {
         constraint_subset.clear();
         subset_indices.clear();
@@ -141,9 +143,13 @@ pub fn solve_with_priority(
         }
         let solve_res = solve(&constraint_subset, initial_guesses.clone(), config);
 
-        // If it couldn't be solved, return the error.
-        let Ok(mut outcome) = solve_res else {
-            return solve_res;
+        // If it couldn't be solved, return.
+        let mut outcome = match solve_res {
+            Ok(o) => o,
+            Err(failure) => {
+                // Prefer the previous priority solution, if there was one.
+                return previous_priority_solution.ok_or(failure);
+            }
         };
         // If there were unsatisfied constraints, then there's no point trying to add more lower-priority constraints,
         // just return now.
@@ -156,6 +162,7 @@ pub fn solve_with_priority(
             return Ok(outcome);
         }
         // Otherwise, continue the loop again, adding higher-priority constraints.
+        previous_priority_solution = Some(outcome.clone());
         res = Ok(outcome);
     }
     res
