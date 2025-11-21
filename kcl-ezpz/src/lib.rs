@@ -219,10 +219,10 @@ fn solve_inner(
         .map(|c| c.constraint.residual_dim())
         .sum();
     let (all_variables, mut values): (Vec<Id>, Vec<f64>) = initial_guesses.into_iter().unzip();
-    let mut warnings = warnings::lint(&constraints);
+    let mut warnings = warnings::lint(constraints);
     let initial_values = values.clone();
 
-    let mut model = match Model::new(&constraints, all_variables, initial_values, config) {
+    let mut model = match Model::new(constraints, all_variables, initial_values, config) {
         Ok(o) => o,
         Err(e) => {
             return Err(FailureOutcome {
