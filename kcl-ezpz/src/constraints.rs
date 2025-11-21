@@ -12,6 +12,20 @@ fn wrap_angle_delta(delta: f64) -> f64 {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct ConstraintEntry<'c> {
+    /// The constraint itself.
+    pub constraint: &'c Constraint,
+    /// The constraint's ID.
+    pub id: usize,
+}
+
+impl<'c> AsRef<Constraint> for ConstraintEntry<'c> {
+    fn as_ref(&self) -> &Constraint {
+        self.constraint
+    }
+}
+
 /// Each geometric constraint we support.
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]

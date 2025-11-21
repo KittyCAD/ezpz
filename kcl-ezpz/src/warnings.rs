@@ -1,5 +1,6 @@
 use crate::{
     Constraint,
+    constraints::ConstraintEntry,
     datatypes::{Angle, AngleKind},
 };
 
@@ -19,17 +20,17 @@ pub enum WarningContent {
     ShouldBePerpendicular(Angle),
 }
 
-pub fn lint(constraints: &[Constraint]) -> Vec<Warning> {
+pub fn lint(constraints: &[ConstraintEntry]) -> Vec<Warning> {
     let mut warnings = Vec::default();
-    for (i, constraint) in constraints.iter().enumerate() {
-        match constraint {
+    for constraint in constraints.iter() {
+        match constraint.constraint {
             Constraint::LinesAtAngle(_, _, AngleKind::Other(theta))
                 if nearly_eq(theta.to_degrees(), 0.0)
                     || nearly_eq(theta.to_degrees(), 360.0)
                     || nearly_eq(theta.to_degrees(), 180.0) =>
             {
                 warnings.push(Warning {
-                    about_constraint: Some(i),
+                    about_constraint: Some(constraint.id),
                     content: WarningContent::ShouldBeParallel(*theta),
                 });
             }
@@ -37,7 +38,7 @@ pub fn lint(constraints: &[Constraint]) -> Vec<Warning> {
                 if nearly_eq(theta.to_degrees(), 90.0) || nearly_eq(theta.to_degrees(), -90.0) =>
             {
                 warnings.push(Warning {
-                    about_constraint: Some(i),
+                    about_constraint: Some(constraint.id),
                     content: WarningContent::ShouldBePerpendicular(*theta),
                 });
             }

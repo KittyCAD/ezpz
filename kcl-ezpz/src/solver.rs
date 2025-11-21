@@ -4,7 +4,9 @@ use faer::sparse::{Pair, SymbolicSparseColMat};
 use newton_faer::{JacobianCache, NonlinearSystem, RowMap};
 
 use crate::{
-    Constraint, NonLinearSystemError, Warning, WarningContent, constraints::JacobianVar, id::Id,
+    Constraint, NonLinearSystemError, Warning, WarningContent,
+    constraints::{ConstraintEntry, JacobianVar},
+    id::Id,
 };
 
 // Roughly. Most constraints will only involve roughly 4 variables.
@@ -42,7 +44,7 @@ pub struct Layout {
 }
 
 impl Layout {
-    pub fn new(all_variables: &[Id], constraints: &[Constraint], config: Config) -> Self {
+    pub fn new(all_variables: &[Id], constraints: &[&Constraint], config: Config) -> Self {
         // We'll have different numbers of rows in the system depending on whether
         // or not regularization is enabled.
         let num_residuals_constraints: usize = constraints.iter().map(|c| c.residual_dim()).sum();
@@ -126,7 +128,7 @@ impl JacobianCache<f64> for Jc {
 pub(crate) struct Model<'c> {
     layout: Layout,
     jc: Jc,
-    constraints: &'c [Constraint],
+    constraints: &'c [ConstraintEntry<'c>],
     row0_scratch: Vec<JacobianVar>,
     row1_scratch: Vec<JacobianVar>,
     initial_values: Vec<f64>,
@@ -135,7 +137,7 @@ pub(crate) struct Model<'c> {
 }
 
 fn validate_variables(
-    constraints: &[Constraint],
+    constraints: &[ConstraintEntry<'_>],
     all_variables: &[Id],
     initial_values: &[f64],
 ) -> Result<(), NonLinearSystemError> {
@@ -150,7 +152,7 @@ fn validate_variables(
     for (c, constraint) in constraints.iter().enumerate() {
         row0.clear();
         row1.clear();
-        constraint.nonzeroes(&mut row0, &mut row1);
+        constraint.constraint.nonzeroes(&mut row0, &mut row1);
         for v in &row0 {
             if !all_variables.contains(v) {
                 return Err(NonLinearSystemError::MissingGuess { c, v: *v });
@@ -167,7 +169,7 @@ fn validate_variables(
 
 impl<'c> Model<'c> {
     pub fn new(
-        constraints: &'c [Constraint],
+        constraints: &'c [ConstraintEntry<'c>],
         all_variables: Vec<Id>,
         initial_values: Vec<f64>,
         config: Config,
@@ -192,7 +194,8 @@ impl<'c> Model<'c> {
         */
 
         let num_cols = all_variables.len();
-        let layout = Layout::new(&all_variables, constraints, config);
+        let cs: Vec<_> = constraints.iter().map(|c| c.constraint).collect();
+        let layout = Layout::new(&all_variables, cs.as_slice(), config);
 
         // Generate the Jacobian matrix structure.
         let mut nonzero_cells: Vec<Pair<usize, usize>> =
@@ -203,10 +206,12 @@ impl<'c> Model<'c> {
         for constraint in constraints {
             nonzeroes_scratch0.clear();
             nonzeroes_scratch1.clear();
-            constraint.nonzeroes(&mut nonzeroes_scratch0, &mut nonzeroes_scratch1);
+            constraint
+                .constraint
+                .nonzeroes(&mut nonzeroes_scratch0, &mut nonzeroes_scratch1);
 
             let rows = [&nonzeroes_scratch0, &nonzeroes_scratch1];
-            for row in rows.iter().take(constraint.residual_dim()) {
+            for row in rows.iter().take(constraint.constraint.residual_dim()) {
                 let this_row = row_num;
                 row_num += 1;
                 for var in row.iter() {
@@ -281,7 +286,7 @@ impl NonlinearSystem for Model<'_> {
             let mut degenerate = false;
             residuals0 = 0.0;
             residuals1 = 0.0;
-            constraint.residual(
+            constraint.constraint.residual(
                 &self.layout,
                 current_assignments,
                 &mut residuals0,
@@ -297,7 +302,7 @@ impl NonlinearSystem for Model<'_> {
             }
             for row in [&residuals0, &residuals1]
                 .iter()
-                .take(constraint.residual_dim())
+                .take(constraint.constraint.residual_dim())
             {
                 let this_row = row_num;
                 row_num += 1;
@@ -330,7 +335,7 @@ impl NonlinearSystem for Model<'_> {
             let mut degenerate = false;
             self.row0_scratch.clear();
             self.row1_scratch.clear();
-            constraint.jacobian_rows(
+            constraint.constraint.jacobian_rows(
                 &self.layout,
                 current_assignments,
                 &mut self.row0_scratch,
@@ -348,7 +353,7 @@ impl NonlinearSystem for Model<'_> {
             // For each variable in this constraint's set of partial derivatives (Jacobian slice).
             for row in [&self.row0_scratch, &self.row1_scratch]
                 .into_iter()
-                .take(constraint.residual_dim())
+                .take(constraint.constraint.residual_dim())
             {
                 let this_row = row_num;
                 row_num += 1;
@@ -369,8 +374,11 @@ impl NonlinearSystem for Model<'_> {
 
         // Add regularization values.
         if self.config.regularization_enabled {
-            let num_constraint_residuals: usize =
-                self.constraints.iter().map(|c| c.residual_dim()).sum();
+            let num_constraint_residuals: usize = self
+                .constraints
+                .iter()
+                .map(|c| c.constraint.residual_dim())
+                .sum();
 
             for col in 0..self.layout.n_variables() {
                 let reg_row = num_constraint_residuals + col;
