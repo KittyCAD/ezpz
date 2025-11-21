@@ -320,6 +320,49 @@ fn chamfer_square() {
 }
 
 #[test]
+fn strange_nonconvergence() {
+    use crate::datatypes::DatumPoint;
+    let p = DatumPoint { x_id: 0, y_id: 1 };
+    let q = DatumPoint { x_id: 2, y_id: 3 };
+    let r = DatumPoint { x_id: 4, y_id: 5 };
+    let s = DatumPoint { x_id: 6, y_id: 7 };
+    let t = DatumPoint { x_id: 8, y_id: 9 };
+
+    let requests = [
+        Constraint::Fixed(0, 0.0),
+        Constraint::Fixed(1, 0.0),
+        Constraint::PointsCoincident(r, s),
+        Constraint::PointsCoincident(q, p),
+        Constraint::LinesEqualLength(
+            crate::datatypes::LineSegment { p0: q, p1: r },
+            crate::datatypes::LineSegment { p0: s, p1: t },
+        ),
+    ];
+    let initial_guesses = vec![
+        (0, 0.0),
+        (1, -0.02),
+        (2, -3.39),
+        (3, -0.38),
+        (4, -2.76),
+        (5, 4.83),
+        (6, -1.54),
+        (7, 5.21),
+        (8, -1.15),
+        (9, 2.75),
+    ];
+    let outcome = crate::solve(
+        &requests,
+        initial_guesses,
+        Config {
+            max_iterations: 31,
+            ..Default::default()
+        },
+    );
+    let iterations = outcome.unwrap().iterations;
+    assert_eq!(iterations, 30);
+}
+
+#[test]
 fn warnings() {
     let txt = "# constraints
 point p

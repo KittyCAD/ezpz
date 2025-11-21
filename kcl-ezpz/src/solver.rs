@@ -30,7 +30,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             regularization_enabled: true,
-            max_iterations: 25,
+            max_iterations: 35,
         }
     }
 }
