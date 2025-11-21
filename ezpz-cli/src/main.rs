@@ -113,11 +113,13 @@ fn print_output((outcome, duration, constraints): &RunOutcome, show_points: bool
         num_eqs,
         lines: _, // these are only used for visuals
         unsatisfied,
+        priority_solved,
     } = outcome;
     print_warnings(warnings);
     print_unsatisfied(unsatisfied, constraints);
     print_problem_size(*num_vars, *num_eqs);
     println!("Iterations needed: {iterations}");
+    println!("Solved up to priority: {priority_solved}");
     print_performance(*duration);
     if show_points {
         println!("Points:");

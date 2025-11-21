@@ -61,6 +61,7 @@ fn it_returns_best_satisfied_solution() {
     let solved =
         crate::solve_with_priority(&constraints, initial_guesses, Config::default()).unwrap();
     assert!(solved.is_satisfied());
+    assert_eq!(solved.priority_solved, high_priority);
 }
 
 #[test]
@@ -83,6 +84,7 @@ fn priority_solver_reports_original_indices() {
     let solved =
         crate::solve_with_priority(&constraints, initial_guess, Config::default()).unwrap();
     assert_eq!(solved.unsatisfied, vec![1, 2]);
+    assert_eq!(solved.priority_solved, high_priority);
 }
 
 #[test]

@@ -79,6 +79,9 @@ pub struct SolveOutcome {
     pub iterations: usize,
     /// Anything that went wrong either in problem definition or during solving it.
     pub warnings: Vec<Warning>,
+    /// What is the lowest priority that got solved?
+    /// 0 is the highest priority. Larger numbers are lower priority.
+    pub priority_solved: u32,
 }
 
 impl SolveOutcome {
@@ -119,6 +122,7 @@ pub fn solve_with_priority(
                 .collect(),
             iterations: 0,
             warnings: Vec::new(),
+            priority_solved: 0,
         });
     }
 
@@ -135,6 +139,7 @@ pub fn solve_with_priority(
     // Find all the priority levels, and put them into order from highest to lowest priority.
     let priorities: HashSet<_> = reqs.iter().map(|c| c.priority).collect();
     let mut priorities: Vec<_> = priorities.into_iter().collect();
+    let lowest_priority = priorities.iter().min().copied().unwrap_or(0);
     priorities.sort();
 
     // Handle the case with 0 constraints.
@@ -180,6 +185,7 @@ pub fn solve_with_priority(
         }
     }
     Ok(res.unwrap_or(SolveOutcome {
+        priority_solved: lowest_priority,
         unsatisfied: Vec::new(),
         final_values: initial_guesses
             .into_iter()
@@ -278,6 +284,7 @@ fn solve_inner(
     }
 
     Ok(SolveOutcome {
+        priority_solved: 0,
         unsatisfied,
         final_values: values,
         iterations,

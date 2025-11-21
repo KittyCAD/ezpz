@@ -447,6 +447,7 @@ impl ConstraintSystem<'_> {
             warnings,
             final_values,
             unsatisfied,
+            priority_solved,
         } = self.solve_no_metadata(config)?;
         let num_points = self.inner_points.len();
         let num_circles = self.inner_circles.len();
@@ -495,6 +496,7 @@ impl ConstraintSystem<'_> {
             );
         }
         Ok(Outcome {
+            priority_solved,
             unsatisfied,
             iterations,
             warnings,
@@ -519,6 +521,7 @@ pub struct Outcome {
     pub lines: Vec<(Label, Label)>,
     pub num_vars: usize,
     pub num_eqs: usize,
+    pub priority_solved: u32,
 }
 
 impl Outcome {
