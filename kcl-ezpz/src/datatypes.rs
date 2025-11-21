@@ -186,3 +186,51 @@ impl Datum for CircularArc {
         ]
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::f64::consts::PI;
+
+    #[test]
+    fn angle_conversions_and_display() {
+        let deg = Angle::from_degrees(180.0);
+        assert!((deg.to_radians() - PI).abs() < 1e-12);
+        assert_eq!(deg.to_string(), "180deg");
+
+        let rad = Angle::from_radians(PI);
+        assert!((rad.to_degrees() - 180.0).abs() < 1e-12);
+        assert_eq!(rad.to_string(), format!("{PI}rad"));
+    }
+
+    #[test]
+    fn datum_collects_all_variables() {
+        let mut ids = IdGenerator::default();
+        let p0 = DatumPoint::new(&mut ids);
+        let p1 = DatumPoint::new(&mut ids);
+        let line = LineSegment::new(p0, p1);
+        assert_eq!(
+            line.all_variables().into_iter().collect::<Vec<_>>(),
+            vec![0, 1, 2, 3]
+        );
+
+        let circle = Circle {
+            center: p0,
+            radius: DatumDistance::new(ids.next_id()),
+        };
+        assert_eq!(
+            circle.all_variables().into_iter().collect::<Vec<_>>(),
+            vec![0, 1, 4]
+        );
+
+        let arc = CircularArc {
+            center: p0,
+            a: p1,
+            b: DatumPoint::new_xy(6, 7),
+        };
+        assert_eq!(
+            arc.all_variables().into_iter().collect::<Vec<_>>(),
+            vec![2, 3, 6, 7, 0, 1]
+        );
+    }
+}

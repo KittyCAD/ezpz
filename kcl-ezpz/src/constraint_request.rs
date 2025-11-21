@@ -38,3 +38,38 @@ impl AsRef<Constraint> for ConstraintRequest {
         &self.constraint
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn demo_constraint() -> Constraint {
+        Constraint::Fixed(42, 3.1)
+    }
+
+    #[test]
+    fn builds_with_expected_priorities() {
+        let constraint = demo_constraint();
+        let custom = ConstraintRequest::new(constraint, 5);
+        assert_eq!(custom.priority, 5);
+
+        let highest = ConstraintRequest::highest_priority(custom.constraint);
+        let lower = ConstraintRequest::new(custom.constraint, 40);
+        assert!(highest.priority < lower.priority);
+    }
+
+    #[test]
+    fn converts_back_to_constraint() {
+        let constraint = demo_constraint();
+        let req = ConstraintRequest::new(constraint, 1);
+
+        let Constraint::Fixed(id, value) = Constraint::from(req) else {
+            panic!();
+        };
+        assert_eq!(id, 42);
+        assert_eq!(value, 3.1);
+
+        let req = ConstraintRequest::new(constraint, 1);
+        assert!(matches!(req.as_ref(), Constraint::Fixed(_, _)));
+    }
+}

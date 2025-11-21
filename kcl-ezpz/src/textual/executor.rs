@@ -540,3 +540,76 @@ impl Outcome {
         self.arcs.get(label).copied()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::textual::{PointGuess, instruction::FixPointComponent};
+
+    fn empty_problem() -> Problem {
+        Problem {
+            instructions: Vec::new(),
+            inner_points: Vec::new(),
+            inner_circles: Vec::new(),
+            inner_arcs: Vec::new(),
+            inner_lines: Vec::new(),
+            point_guesses: Vec::new(),
+            scalar_guesses: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn missing_guess_is_reported() {
+        let mut problem = empty_problem();
+        problem.inner_points.push(Label::from("p"));
+        let err = problem
+            .to_constraint_system()
+            .err()
+            .expect("expected missing guess");
+        assert!(matches!(err, Error::MissingGuess { label } if label == "p"));
+    }
+
+    #[test]
+    fn unused_guesses_are_detected() {
+        let mut problem = empty_problem();
+        problem.point_guesses.push(PointGuess {
+            point: Label::from("ghost"),
+            guess: Point { x: 0.0, y: 0.0 },
+        });
+
+        let err = problem
+            .to_constraint_system()
+            .err()
+            .expect("expected unused guess error");
+        match err {
+            Error::UnusedGuesses { labels } => {
+                assert_eq!(labels.len(), 1);
+                assert_eq!(labels[0], "ghost");
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn undefined_point_in_instruction_errors() {
+        let mut problem = empty_problem();
+        problem.inner_points.push(Label::from("p"));
+        problem.point_guesses.push(PointGuess {
+            point: Label::from("p"),
+            guess: Point { x: 0.0, y: 0.0 },
+        });
+        problem
+            .instructions
+            .push(Instruction::FixPointComponent(FixPointComponent {
+                point: Label::from("missing"),
+                component: Component::X,
+                value: 2.5,
+            }));
+
+        let err = problem
+            .to_constraint_system()
+            .err()
+            .expect("expected undefined point error");
+        assert!(matches!(err, Error::UndefinedPoint { label } if label == "missing"));
+    }
+}

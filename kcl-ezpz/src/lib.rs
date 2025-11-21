@@ -59,9 +59,9 @@ pub enum NonLinearSystemError {
     )]
     WrongNumberGuesses { labels: usize, guesses: usize },
     #[error(
-        "Constraint {c} references variable {v} but no such variable appears in your initial guesses."
+        "Constraint {constraint_id} references variable {variable} but no such variable appears in your initial guesses."
     )]
-    MissingGuess { c: usize, v: Id },
+    MissingGuess { constraint_id: usize, variable: Id },
     #[error("Could not create matrix: {error}")]
     FaerMatrix {
         #[from]
