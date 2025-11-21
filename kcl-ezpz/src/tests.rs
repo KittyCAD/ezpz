@@ -65,6 +65,23 @@ fn it_returns_best_satisfied_solution() {
 }
 
 #[test]
+fn initials_become_finals_if_no_constraints() {
+    // If a lower-priority constraint causes the higher-priority constraints to be unsatisfied,
+    // use the previous solution (i.e. the satisfied one, with only higher-priority constraints).
+
+    let mut ids = IdGenerator::default();
+    let var = ids.next_id();
+
+    let constraints = vec![];
+    let initial_guess = 0.5;
+    let initial_guesses = vec![(var, initial_guess)];
+    let solved =
+        crate::solve_with_priority(&constraints, initial_guesses, Config::default()).unwrap();
+    assert!(solved.is_satisfied());
+    assert_eq!(solved.final_values, vec![initial_guess]);
+}
+
+#[test]
 fn priority_solver_reports_original_indices() {
     // Place a lower-priority constraint before higher-priority ones so their indices shift.
     // When the high-priority subset is unsatisfied, the reported indices should still match
