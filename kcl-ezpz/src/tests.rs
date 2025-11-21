@@ -105,6 +105,28 @@ fn priority_solver_reports_original_indices() {
 }
 
 #[test]
+fn too_many_variables() {
+    // If you give too many variables and not enough guesses,
+    // there should be a nice error.
+    let id = 0;
+    let constraints = vec![ConstraintRequest::highest_priority(Constraint::Fixed(
+        id, 0.0,
+    ))];
+    let initial_guess = vec![];
+
+    let err = crate::solve_with_priority(&constraints, initial_guess, Config::default())
+        .unwrap_err()
+        .error;
+    assert!(matches!(
+        err,
+        Error::NonLinearSystemError(NonLinearSystemError::MissingGuess {
+            constraint_id: 0,
+            variable: 0
+        })
+    ));
+}
+
+#[test]
 fn coincident() {
     let solved = run("coincident");
     assert!(solved.unsatisfied.is_empty());

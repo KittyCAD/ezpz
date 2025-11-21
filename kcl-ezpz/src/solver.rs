@@ -62,9 +62,11 @@ impl Layout {
             num_residuals_constraints,
         }
     }
+
     pub fn index_of(&self, var: <Layout as RowMap>::Var) -> usize {
         var as usize
     }
+
     pub fn num_rows(&self) -> usize {
         self.total_num_residuals
     }
@@ -148,18 +150,24 @@ fn validate_variables(
     }
     let mut row0 = Vec::with_capacity(NONZEROES_PER_ROW);
     let mut row1 = Vec::with_capacity(NONZEROES_PER_ROW);
-    for (c, constraint) in constraints.iter().enumerate() {
+    for constraint in constraints {
         row0.clear();
         row1.clear();
         constraint.constraint.nonzeroes(&mut row0, &mut row1);
         for v in &row0 {
             if !all_variables.contains(v) {
-                return Err(NonLinearSystemError::MissingGuess { c, v: *v });
+                return Err(NonLinearSystemError::MissingGuess {
+                    constraint_id: constraint.id,
+                    variable: *v,
+                });
             }
         }
         for v in &row1 {
             if !all_variables.contains(v) {
-                return Err(NonLinearSystemError::MissingGuess { c, v: *v });
+                return Err(NonLinearSystemError::MissingGuess {
+                    constraint_id: constraint.id,
+                    variable: *v,
+                });
             }
         }
     }
