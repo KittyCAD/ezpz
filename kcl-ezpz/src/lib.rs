@@ -2,6 +2,7 @@
 //! Solves 2D constraint systems.
 
 pub use crate::constraints::Constraint;
+use crate::constraints::ConstraintEntry;
 pub use crate::solver::Config;
 // Only public for now so that I can benchmark it.
 // TODO: Replace this with an end-to-end benchmark,
@@ -94,10 +95,15 @@ pub fn solve(
     let num_vars = initial_guesses.len();
     let num_eqs = constraints.iter().map(|c| c.residual_dim()).sum();
     let (all_variables, mut values): (Vec<Id>, Vec<f64>) = initial_guesses.into_iter().unzip();
-    let mut warnings = warnings::lint(constraints);
+    let constraints: Vec<_> = constraints
+        .iter()
+        .enumerate()
+        .map(|(id, c)| ConstraintEntry { constraint: c, id })
+        .collect();
+    let mut warnings = warnings::lint(&constraints);
     let initial_values = values.clone();
 
-    let mut model = match Model::new(constraints, all_variables, initial_values, config) {
+    let mut model = match Model::new(&constraints, all_variables, initial_values, config) {
         Ok(o) => o,
         Err(e) => {
             return Err(FailureOutcome {
@@ -127,19 +133,20 @@ pub fn solve(
             });
         }
     };
-    let layout = crate::solver::Layout::new(&Vec::new(), constraints, config);
-    for (i, constraint) in constraints.iter().enumerate() {
+    let cs: Vec<_> = constraints.iter().map(|c| c.constraint).collect();
+    let layout = crate::solver::Layout::new(&Vec::new(), cs.as_slice(), config);
+    for constraint in constraints.iter() {
         let mut residual0 = 0.0;
         let mut residual1 = 0.0;
         let mut degenerate = false;
-        constraint.residual(
+        constraint.constraint.residual(
             &layout,
             &values,
             &mut residual0,
             &mut residual1,
             &mut degenerate,
         );
-        let satisfied = match constraint.residual_dim() {
+        let satisfied = match constraint.constraint.residual_dim() {
             1 => residual0.abs() < EPSILON,
             2 => residual0.abs() < EPSILON && residual1.abs() < EPSILON,
             other => unreachable!(
@@ -147,7 +154,7 @@ pub fn solve(
             ),
         };
         if !satisfied {
-            unsatisfied.push(i);
+            unsatisfied.push(constraint.id);
         }
     }
 
