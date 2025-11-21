@@ -97,7 +97,8 @@ fn main_inner(cli: &Cli) -> Result<RunResult, String> {
     }
     let elapsed = now.elapsed();
     let duration_per_iter = elapsed / NUM_ITERS_BENCHMARK;
-    Ok(Ok((solved, duration_per_iter, constraints)))
+    let cs = constraints.iter().copied().map(Constraint::from).collect();
+    Ok(Ok((solved, duration_per_iter, cs)))
 }
 
 /// Prints the output nicely to stdout.
@@ -112,11 +113,13 @@ fn print_output((outcome, duration, constraints): &RunOutcome, show_points: bool
         num_eqs,
         lines: _, // these are only used for visuals
         unsatisfied,
+        priority_solved,
     } = outcome;
     print_warnings(warnings);
     print_unsatisfied(unsatisfied, constraints);
     print_problem_size(*num_vars, *num_eqs);
     println!("Iterations needed: {iterations}");
+    println!("Solved up to priority: {priority_solved}");
     print_performance(*duration);
     if show_points {
         println!("Points:");

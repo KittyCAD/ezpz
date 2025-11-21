@@ -1,7 +1,7 @@
 use kcl_ezpz::{
-    Config, Constraint, IdGenerator,
+    Config, Constraint, ConstraintRequest, IdGenerator,
     datatypes::{DatumPoint, LineSegment},
-    solve,
+    solve_with_priority,
 };
 use wasm_bindgen::prelude::*;
 
@@ -84,9 +84,16 @@ pub fn benchmark() -> Vec<f64> {
         Constraint::Distance(p2, p7, 4.0),
     ];
 
-    let mut constraints = constraints0;
-    constraints.extend(constraints1);
-    let actual = solve(
+    let mut constraints: Vec<_> = constraints0
+        .into_iter()
+        .map(ConstraintRequest::highest_priority)
+        .collect();
+    constraints.extend(
+        constraints1
+            .into_iter()
+            .map(ConstraintRequest::highest_priority),
+    );
+    let actual = solve_with_priority(
         &constraints.clone(),
         initial_guesses.clone(),
         Config::default(),

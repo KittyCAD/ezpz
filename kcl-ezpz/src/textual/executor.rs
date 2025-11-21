@@ -4,6 +4,7 @@ use indexmap::IndexMap;
 
 use crate::Config;
 use crate::Constraint;
+use crate::ConstraintRequest;
 use crate::Error;
 use crate::FailureOutcome;
 use crate::IdGenerator;
@@ -395,6 +396,14 @@ impl Problem {
         }
         let initial_guesses = initial_guesses.done();
 
+        // At some point, the textual format should support setting priority.
+        // For now, set it to max priority.
+        let priority = 0;
+        let constraints = constraints
+            .into_iter()
+            .map(|c| ConstraintRequest::new(c, priority))
+            .collect();
+
         Ok(ConstraintSystem {
             constraints,
             initial_guesses,
@@ -408,7 +417,7 @@ impl Problem {
 
 #[derive(Clone)]
 pub struct ConstraintSystem<'a> {
-    pub constraints: Vec<Constraint>,
+    pub constraints: Vec<ConstraintRequest>,
     initial_guesses: GeometryVariables<DoneState>,
     inner_points: &'a [Label],
     inner_circles: &'a [Label],
@@ -418,7 +427,7 @@ pub struct ConstraintSystem<'a> {
 
 impl ConstraintSystem<'_> {
     pub fn solve_no_metadata(&self, config: Config) -> Result<SolveOutcome, FailureOutcome> {
-        crate::solve(&self.constraints, self.initial_guesses.variables(), config)
+        crate::solve_with_priority(&self.constraints, self.initial_guesses.variables(), config)
     }
 
     pub fn solve(&self) -> Result<Outcome, FailureOutcome> {
@@ -427,13 +436,18 @@ impl ConstraintSystem<'_> {
 
     pub fn solve_with_config(&self, config: Config) -> Result<Outcome, FailureOutcome> {
         let num_vars = self.initial_guesses.len();
-        let num_eqs = self.constraints.iter().map(|c| c.residual_dim()).sum();
+        let num_eqs = self
+            .constraints
+            .iter()
+            .map(|c| c.constraint.residual_dim())
+            .sum();
         // Pass into the solver.
         let SolveOutcome {
             iterations,
             warnings,
             final_values,
             unsatisfied,
+            priority_solved,
         } = self.solve_no_metadata(config)?;
         let num_points = self.inner_points.len();
         let num_circles = self.inner_circles.len();
@@ -482,6 +496,7 @@ impl ConstraintSystem<'_> {
             );
         }
         Ok(Outcome {
+            priority_solved,
             unsatisfied,
             iterations,
             warnings,
@@ -506,6 +521,7 @@ pub struct Outcome {
     pub lines: Vec<(Label, Label)>,
     pub num_vars: usize,
     pub num_eqs: usize,
+    pub priority_solved: u32,
 }
 
 impl Outcome {

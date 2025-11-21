@@ -1,7 +1,7 @@
 #![no_main]
 
 use arbitrary::Arbitrary;
-use kcl_ezpz::{Constraint, Id};
+use kcl_ezpz::{ConstraintRequest, Id};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|setup: Setup| {
@@ -13,11 +13,11 @@ fuzz_target!(|setup: Setup| {
         .map(|(i, v)| (Id::try_from(i).unwrap(), v))
         .collect();
     let constraints = &setup.constraints;
-    let _ = kcl_ezpz::solve(constraints, guesses, Default::default());
+    let _ = kcl_ezpz::solve_with_priority(constraints, guesses, Default::default());
 });
 
 #[derive(Debug, Arbitrary)]
 struct Setup {
-    constraints: Vec<Constraint>,
+    constraints: Vec<ConstraintRequest>,
     guesses: Vec<f64>,
 }
