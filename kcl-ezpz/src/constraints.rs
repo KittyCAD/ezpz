@@ -18,6 +18,8 @@ pub(crate) struct ConstraintEntry<'c> {
     pub constraint: &'c Constraint,
     /// The constraint's ID.
     pub id: usize,
+    /// The constraint's priority. 0 is highest, larger numbers are lower.
+    pub priority: u32,
 }
 
 impl<'c> AsRef<Constraint> for ConstraintEntry<'c> {

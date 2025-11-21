@@ -121,6 +121,17 @@ pub fn solve_with_priority(
             warnings: Vec::new(),
         });
     }
+
+    let reqs: Vec<_> = reqs
+        .iter()
+        .enumerate()
+        .map(|(id, c)| ConstraintEntry {
+            constraint: &c.constraint,
+            priority: c.priority,
+            id,
+        })
+        .collect();
+
     // Find all the priority levels, and put them into order from highest to lowest priority.
     let priorities: HashSet<_> = reqs.iter().map(|c| c.priority).collect();
     let mut priorities: Vec<_> = priorities.into_iter().collect();
@@ -134,31 +145,23 @@ pub fn solve_with_priority(
     // Try solving, starting with only the highest priority constraints,
     // adding more and more until we eventually either finish all constraints,
     // or cannot find a solution that satisfies all of them.
-    let mut constraint_subset: Vec<Constraint> = Vec::with_capacity(total_constraints);
-    // Maps the constraint indices in this subset, back to the constraint indices in the
-    // complete list the user gave us.
-    let mut subset_indices: Vec<usize> = Vec::with_capacity(total_constraints);
+    let mut constraint_subset: Vec<ConstraintEntry> = Vec::with_capacity(total_constraints);
 
     for curr_max_priority in priorities {
         constraint_subset.clear();
-        subset_indices.clear();
-        for (i, req) in reqs.iter().enumerate() {
+        for req in &reqs {
             if req.priority <= curr_max_priority {
-                constraint_subset.push(req.constraint);
-                subset_indices.push(i);
+                constraint_subset.push(req.to_owned()); // Notice: this clones.
             }
         }
-        let solve_res = solve(&constraint_subset, initial_guesses.clone(), config);
+        let solve_res = solve_inner(
+            constraint_subset.as_slice(),
+            initial_guesses.clone(),
+            config,
+        );
 
         match solve_res {
-            Ok(mut outcome) => {
-                // Put the indices back.
-                outcome.unsatisfied = outcome
-                    .unsatisfied
-                    .into_iter()
-                    .map(|i| subset_indices[i])
-                    .collect();
-
+            Ok(outcome) => {
                 // If there were unsatisfied constraints, then there's no point trying to add more lower-priority constraints,
                 // just return now.
                 if outcome.is_unsatisfied() {
@@ -193,14 +196,29 @@ pub fn solve(
     initial_guesses: Vec<(Id, f64)>,
     config: Config,
 ) -> Result<SolveOutcome, FailureOutcome> {
-    let num_vars = initial_guesses.len();
-    let num_eqs = constraints.iter().map(|c| c.residual_dim()).sum();
-    let (all_variables, mut values): (Vec<Id>, Vec<f64>) = initial_guesses.into_iter().unzip();
     let constraints: Vec<_> = constraints
         .iter()
         .enumerate()
-        .map(|(id, c)| ConstraintEntry { constraint: c, id })
+        .map(|(id, c)| ConstraintEntry {
+            constraint: c,
+            id,
+            priority: 0,
+        })
         .collect();
+    solve_inner(&constraints, initial_guesses, config)
+}
+
+fn solve_inner(
+    constraints: &[ConstraintEntry],
+    initial_guesses: Vec<(Id, f64)>,
+    config: Config,
+) -> Result<SolveOutcome, FailureOutcome> {
+    let num_vars = initial_guesses.len();
+    let num_eqs = constraints
+        .iter()
+        .map(|c| c.constraint.residual_dim())
+        .sum();
+    let (all_variables, mut values): (Vec<Id>, Vec<f64>) = initial_guesses.into_iter().unzip();
     let mut warnings = warnings::lint(&constraints);
     let initial_values = values.clone();
 
