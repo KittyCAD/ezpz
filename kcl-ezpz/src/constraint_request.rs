@@ -44,7 +44,7 @@ mod tests {
     use super::*;
 
     fn demo_constraint() -> Constraint {
-        Constraint::Fixed(42, 3.14)
+        Constraint::Fixed(42, 3.1)
     }
 
     #[test]
@@ -67,7 +67,7 @@ mod tests {
             panic!();
         };
         assert_eq!(id, 42);
-        assert_eq!(value, 3.14);
+        assert_eq!(value, 3.1);
 
         let req = ConstraintRequest::new(constraint, 1);
         assert!(matches!(req.as_ref(), Constraint::Fixed(_, _)));
