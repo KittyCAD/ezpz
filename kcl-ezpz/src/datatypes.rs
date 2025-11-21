@@ -209,13 +209,19 @@ mod tests {
         let p0 = DatumPoint::new(&mut ids);
         let p1 = DatumPoint::new(&mut ids);
         let line = LineSegment::new(p0, p1);
-        assert_eq!(line.all_variables().into_iter().collect::<Vec<_>>(), vec![0, 1, 2, 3]);
+        assert_eq!(
+            line.all_variables().into_iter().collect::<Vec<_>>(),
+            vec![0, 1, 2, 3]
+        );
 
         let circle = Circle {
             center: p0,
             radius: DatumDistance::new(ids.next_id()),
         };
-        assert_eq!(circle.all_variables().into_iter().collect::<Vec<_>>(), vec![0, 1, 4]);
+        assert_eq!(
+            circle.all_variables().into_iter().collect::<Vec<_>>(),
+            vec![0, 1, 4]
+        );
 
         let arc = CircularArc {
             center: p0,

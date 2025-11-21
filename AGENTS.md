@@ -4,6 +4,7 @@
 - Run tests: `cargo nextest run -p kcl-ezpz`
 - Get test coverage: `cargo llvm-cov nextest -p kcl-ezpz`
 - Don't modify the `newtonls-faer` crate.
+- Always run `cargo fmt` when finishing a task.
 
 ## Code style
 - This is highly performance-sensitive.

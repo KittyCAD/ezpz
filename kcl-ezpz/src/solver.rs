@@ -412,10 +412,8 @@ mod tests {
     #[test]
     fn reports_missing_guess_for_second_row_ids() {
         // PointsCoincident puts X ids in row0 and Y ids in row1; omit the Y ids to hit row1 check.
-        let constraint = Constraint::PointsCoincident(
-            DatumPoint::new_xy(0, 1),
-            DatumPoint::new_xy(2, 3),
-        );
+        let constraint =
+            Constraint::PointsCoincident(DatumPoint::new_xy(0, 1), DatumPoint::new_xy(2, 3));
         let entry = ConstraintEntry {
             constraint: &constraint,
             id: 42,
@@ -425,13 +423,7 @@ mod tests {
         let all_variables = vec![0, 2]; // Only X components, missing Y components.
         let initial_values = vec![0.0, 0.0];
 
-        let err = match Model::new(
-            &[entry],
-            all_variables,
-            initial_values,
-            Config::default(),
-        )
-        {
+        let err = match Model::new(&[entry], all_variables, initial_values, Config::default()) {
             Ok(_) => panic!("expected missing guess error"),
             Err(e) => e,
         };

@@ -562,7 +562,10 @@ mod tests {
     fn missing_guess_is_reported() {
         let mut problem = empty_problem();
         problem.inner_points.push(Label::from("p"));
-        let err = problem.to_constraint_system().err().expect("expected missing guess");
+        let err = problem
+            .to_constraint_system()
+            .err()
+            .expect("expected missing guess");
         assert!(matches!(err, Error::MissingGuess { label } if label == "p"));
     }
 
@@ -574,7 +577,10 @@ mod tests {
             guess: Point { x: 0.0, y: 0.0 },
         });
 
-        let err = problem.to_constraint_system().err().expect("expected unused guess error");
+        let err = problem
+            .to_constraint_system()
+            .err()
+            .expect("expected unused guess error");
         match err {
             Error::UnusedGuesses { labels } => {
                 assert_eq!(labels.len(), 1);
@@ -592,15 +598,18 @@ mod tests {
             point: Label::from("p"),
             guess: Point { x: 0.0, y: 0.0 },
         });
-        problem.instructions.push(Instruction::FixPointComponent(
-            FixPointComponent {
+        problem
+            .instructions
+            .push(Instruction::FixPointComponent(FixPointComponent {
                 point: Label::from("missing"),
                 component: Component::X,
                 value: 2.5,
-            },
-        ));
+            }));
 
-        let err = problem.to_constraint_system().err().expect("expected undefined point error");
+        let err = problem
+            .to_constraint_system()
+            .err()
+            .expect("expected undefined point error");
         assert!(matches!(err, Error::UndefinedPoint { label } if label == "missing"));
     }
 }
