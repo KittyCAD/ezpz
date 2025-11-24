@@ -6,6 +6,8 @@ use crate::{
     textual::{Outcome, Point, Problem},
 };
 
+mod proptests;
+
 fn run(test_case: &str) -> Outcome {
     let txt = std::fs::read_to_string(format!("../test_cases/{test_case}/problem.md")).unwrap();
     let problem = parse_problem(&txt);
