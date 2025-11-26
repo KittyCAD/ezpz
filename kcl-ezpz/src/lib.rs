@@ -230,34 +230,14 @@ fn solve_inner(
     let mut warnings = warnings::lint(external_constraints);
     let initial_values = values.clone();
 
-    // Build mapping from external variable IDs to an optimized internal
-    // problem.
-    let mapping =
-        ProblemMapping::from_constraints(external_constraints, all_variables.len() as u32);
-    // Map the constraints to the internal problem. This can't be contained
-    // within ProblemMapping because ConstraintEntry borrows its Constraint.
-    let internal_constraints = external_constraints
-        .iter()
-        .map(|c| {
-            let internal_constraint =
-                mapping
-                    .internal_constraint(*c.constraint, c.id)
-                    .map_err(|err| FailureOutcome {
-                        error: Error::NonLinearSystemError(err),
-                        warnings: warnings.clone(),
-                        num_vars,
-                        num_eqs,
-                    })?;
-            Ok((
-                c.id,
-                ConstraintRequest {
-                    constraint: internal_constraint,
-                    priority: c.priority,
-                },
-            ))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    let constraints = internal_constraints
+    // Build mapping from external problem to an optimized internal problem.
+    let mapping = ProblemMapping::from_constraints(
+        external_constraints,
+        all_variables.len() as u32,
+        &warnings,
+    )?;
+    let constraints = mapping
+        .constraints()
         .iter()
         .map(|(id, c)| ConstraintEntry {
             constraint: &c.constraint,

@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use ena::unify::{InPlaceUnificationTable, UnifyKey};
 
 use crate::{
-    Constraint, Id, NonLinearSystemError,
+    Constraint, ConstraintRequest, Error, FailureOutcome, Id, NonLinearSystemError, Warning,
     constraints::ConstraintEntry,
     datatypes::{Circle, CircularArc, DatumDistance, DatumPoint, LineSegment},
 };
@@ -35,22 +35,32 @@ impl UnifyKey for ExternalId {
     }
 }
 
-/// A mapping from external problem variable IDs to internal problem variable
-/// IDs.
+/// A mapping from external problem to optimized internal problem.
 #[derive(Debug)]
 pub(super) struct ProblemMapping {
     /// Map from external variable ID to internal variable ID. The index in
     /// the vector is the external variable ID.
     map: Vec<InternalId>,
+    /// Since `ConstraintEntry`s borrow their `Constraint`s, we need to
+    /// materialize the internal constraints and store them somewhere. The usize
+    /// is the constraint ID.
+    internal_constraints: Vec<(usize, ConstraintRequest)>,
 }
 
 impl ProblemMapping {
-    fn new(map: Vec<InternalId>) -> Self {
-        Self { map }
+    fn new(map: Vec<InternalId>, internal_constraints: Vec<(usize, ConstraintRequest)>) -> Self {
+        Self {
+            map,
+            internal_constraints,
+        }
     }
 
     /// Create a problem mapping from a set of constraints and all variable IDs.
-    pub fn from_constraints(constraints: &[ConstraintEntry], num_external_variables: u32) -> Self {
+    pub fn from_constraints(
+        constraints: &[ConstraintEntry],
+        num_external_variables: u32,
+        warnings: &[Warning],
+    ) -> Result<Self, FailureOutcome> {
         // Build the unification table where every key starts out separate.
         let mut vars_table = InPlaceUnificationTable::new();
         vars_table.reserve(num_external_variables as usize);
@@ -90,9 +100,75 @@ impl ProblemMapping {
                 | Constraint::Symmetric(_, _, _) => {}
             }
         }
+        // Build the mapping from external variable IDs to internal variable
+        // IDs.
         let external_to_internal = map_vars(&mut vars_table, num_external_variables);
         debug_assert_eq!(external_to_internal.len(), num_external_variables as usize);
-        ProblemMapping::new(external_to_internal)
+
+        // Use the mapping to convert the constraints to the internal problem.
+        let transformer = ConstraintTransformer {
+            map: external_to_internal,
+        };
+        transformer.into_problem_mapping(
+            constraints,
+            warnings,
+            num_external_variables as usize,
+            constraints.len(),
+        )
+    }
+
+    pub fn constraints(&self) -> &[(usize, ConstraintRequest)] {
+        &self.internal_constraints
+    }
+
+    /// Convert an internal solution to an external solution.
+    pub fn external_solution(&self, internal_solution: &[f64]) -> Vec<f64> {
+        self.map
+            .iter()
+            .copied()
+            .map(|internal| *internal_solution.get(internal.0 as usize).unwrap())
+            .collect()
+    }
+}
+
+/// Struct to convert external constraints to internal constraints.
+#[derive(Debug)]
+struct ConstraintTransformer {
+    /// Map from external variable ID to internal variable ID. The index in
+    /// the vector is the external variable ID.
+    map: Vec<InternalId>,
+}
+
+impl ConstraintTransformer {
+    pub fn into_problem_mapping(
+        self,
+        external_constraints: &[ConstraintEntry],
+        warnings: &[Warning],
+        num_external_vars: usize,
+        num_constraints: usize,
+    ) -> Result<ProblemMapping, FailureOutcome> {
+        let internal_constraints = external_constraints
+            .iter()
+            .map(|c| {
+                let internal_constraint =
+                    self.internal_constraint(*c.constraint, c.id)
+                        .map_err(|err| FailureOutcome {
+                            error: Error::NonLinearSystemError(err),
+                            warnings: warnings.to_vec(),
+                            num_vars: num_external_vars,
+                            num_eqs: num_constraints,
+                        })?;
+                Ok((
+                    c.id,
+                    ConstraintRequest {
+                        constraint: internal_constraint,
+                        priority: c.priority,
+                    },
+                ))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(ProblemMapping::new(self.map, internal_constraints))
     }
 
     fn find_by_external(
@@ -234,15 +310,6 @@ impl ProblemMapping {
             a: self.map_datum_point(circular_arc.a, constraint_id)?,
             b: self.map_datum_point(circular_arc.b, constraint_id)?,
         })
-    }
-
-    /// Convert an internal solution to an external solution.
-    pub fn external_solution(&self, internal_solution: &[f64]) -> Vec<f64> {
-        self.map
-            .iter()
-            .copied()
-            .map(|internal| *internal_solution.get(internal.0 as usize).unwrap())
-            .collect()
     }
 }
 
