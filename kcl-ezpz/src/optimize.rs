@@ -1,6 +1,8 @@
 //! Optimize an external, public-facing problem specified by initial guesses and
 //! constraints to an equivalent internal problem.
 
+use std::collections::HashMap;
+
 use ena::unify::{InPlaceUnificationTable, UnifyKey};
 
 use crate::{
@@ -33,20 +35,14 @@ impl UnifyKey for InternalId {
 /// IDs.
 #[derive(Debug)]
 pub(super) struct ProblemMapping {
-    /// Unification table of external variable IDs. It must be initialized with
-    /// one key for each external variable ID that has an initial guess.
-    table: InPlaceUnificationTable<InternalId>,
-    /// The number of variables in the external problem. We assume the IDs are
-    /// the range `0..num_external_variables`.
-    num_external_variables: u32,
+    /// Map from external variable ID to internal variable ID. The index in
+    /// the vector is the external variable ID.
+    map: Vec<InternalId>,
 }
 
 impl ProblemMapping {
-    fn new(map: InPlaceUnificationTable<InternalId>, num_external_variables: u32) -> Self {
-        Self {
-            table: map,
-            num_external_variables,
-        }
+    fn new(map: Vec<InternalId>) -> Self {
+        Self { map }
     }
 
     /// Create a problem mapping from a set of constraints and all variable IDs.
@@ -90,30 +86,31 @@ impl ProblemMapping {
                 | Constraint::Symmetric(_, _, _) => {}
             }
         }
-        ProblemMapping::new(vars_table, num_external_variables)
+        let external_to_internal = map_vars(&mut vars_table, num_external_variables);
+        debug_assert_eq!(external_to_internal.len(), num_external_variables as usize);
+        ProblemMapping::new(external_to_internal)
     }
 
     fn find_by_external(
-        &mut self,
+        &self,
         external: Id,
         constraint_id: usize,
     ) -> Result<InternalId, NonLinearSystemError> {
-        if external as usize >= self.table.len() {
+        if let Some(internal) = self.map.get(external as usize) {
+            Ok(*internal)
+        } else {
             // A constraint references a variable ID that was never given an
             // initial guess.
-            return Err(NonLinearSystemError::MissingGuess {
+            Err(NonLinearSystemError::MissingGuess {
                 constraint_id,
                 variable: external,
-            });
+            })
         }
-
-        // SAFETY: find() will panic if the key is not present.
-        Ok(self.table.find(InternalId(external)))
     }
 
     /// Convert an external constraint to an internal constraint.
     pub fn internal_constraint(
-        &mut self,
+        &self,
         constraint: Constraint,
         constraint_id: usize,
     ) -> Result<Constraint, NonLinearSystemError> {
@@ -181,7 +178,7 @@ impl ProblemMapping {
     }
 
     fn map_datum_point(
-        &mut self,
+        &self,
         datum_point: DatumPoint,
         constraint_id: usize,
     ) -> Result<DatumPoint, NonLinearSystemError> {
@@ -192,7 +189,7 @@ impl ProblemMapping {
     }
 
     fn map_line_segment(
-        &mut self,
+        &self,
         line: LineSegment,
         constraint_id: usize,
     ) -> Result<LineSegment, NonLinearSystemError> {
@@ -203,7 +200,7 @@ impl ProblemMapping {
     }
 
     fn map_datum_distance(
-        &mut self,
+        &self,
         datum_distance: DatumDistance,
         constraint_id: usize,
     ) -> Result<DatumDistance, NonLinearSystemError> {
@@ -213,7 +210,7 @@ impl ProblemMapping {
     }
 
     fn map_circle(
-        &mut self,
+        &self,
         circle: Circle,
         constraint_id: usize,
     ) -> Result<Circle, NonLinearSystemError> {
@@ -224,7 +221,7 @@ impl ProblemMapping {
     }
 
     fn map_circular_arc(
-        &mut self,
+        &self,
         circular_arc: CircularArc,
         constraint_id: usize,
     ) -> Result<CircularArc, NonLinearSystemError> {
@@ -236,17 +233,35 @@ impl ProblemMapping {
     }
 
     /// Convert an internal solution to an external solution.
-    pub fn external_solution(&mut self, internal_solution: &[f64]) -> Vec<f64> {
-        all_external_variables(self.num_external_variables)
-            .map(|external_idx| {
-                // SAFETY: find() will panic if the key is not present.
-                let internal = self.table.find(InternalId(external_idx));
-                internal_solution[internal.0 as usize]
-            })
+    pub fn external_solution(&self, internal_solution: &[f64]) -> Vec<f64> {
+        self.map
+            .iter()
+            .copied()
+            .map(|internal| internal_solution[internal.0 as usize])
             .collect()
     }
 }
 
 fn all_external_variables(num_external_variables: u32) -> impl Iterator<Item = Id> {
     0..num_external_variables
+}
+
+fn map_vars(
+    table: &mut InPlaceUnificationTable<InternalId>,
+    num_external_variables: u32,
+) -> Vec<InternalId> {
+    let mut next_internal_id: Id = 0;
+    let mut external_to_internal = Vec::with_capacity(num_external_variables as usize);
+    let mut root_to_internal = HashMap::new();
+    for external_id in all_external_variables(num_external_variables) {
+        // SAFETY: find() will panic if the key is not present.
+        let root = table.find(InternalId(external_id));
+        let internal_id = root_to_internal.entry(root).or_insert_with(|| {
+            let id = next_internal_id;
+            next_internal_id += 1;
+            id
+        });
+        external_to_internal.push(InternalId(*internal_id));
+    }
+    external_to_internal
 }

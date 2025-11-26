@@ -232,7 +232,7 @@ fn solve_inner(
 
     // Build mapping from external variable IDs to an optimized internal
     // problem.
-    let mut mapping =
+    let mapping =
         ProblemMapping::from_constraints(external_constraints, all_variables.len() as u32);
     // Map the constraints to the internal problem. This can't be contained
     // within ProblemMapping because ConstraintEntry borrows its Constraint.

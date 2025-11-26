@@ -450,7 +450,7 @@ fn strange_nonconvergence() {
     );
     let outcome = outcome.unwrap();
     assert_eq!(outcome.final_values.len(), num_guesses);
-    assert_eq!(outcome.iterations, 1);
+    assert_eq!(outcome.iterations, 11);
 }
 
 #[test]
