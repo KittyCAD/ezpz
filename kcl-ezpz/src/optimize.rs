@@ -15,7 +15,11 @@ use crate::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct InternalId(Id);
 
-impl UnifyKey for InternalId {
+/// A variable ID in the external problem.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct ExternalId(Id);
+
+impl UnifyKey for ExternalId {
     type Value = ();
 
     fn index(&self) -> u32 {
@@ -23,11 +27,11 @@ impl UnifyKey for InternalId {
     }
 
     fn from_index(index: u32) -> Self {
-        InternalId(index)
+        ExternalId(index)
     }
 
     fn tag() -> &'static str {
-        "InternalId"
+        "ExternalId"
     }
 }
 
@@ -60,15 +64,15 @@ impl ProblemMapping {
                 Constraint::PointsCoincident(p0, p1) => {
                     let (x0, x1) = (p0.id_x(), p1.id_x());
                     if x0 != x1 {
-                        let a_id = InternalId(x0);
-                        let b_id = InternalId(x1);
-                        vars_table.union(a_id, b_id);
+                        let a = ExternalId(x0);
+                        let b = ExternalId(x1);
+                        vars_table.union(a, b);
                     }
                     let (y0, y1) = (p0.id_y(), p1.id_y());
                     if y0 != y1 {
-                        let a_id = InternalId(y0);
-                        let b_id = InternalId(y1);
-                        vars_table.union(a_id, b_id);
+                        let a = ExternalId(y0);
+                        let b = ExternalId(y1);
+                        vars_table.union(a, b);
                     }
                 }
                 Constraint::LineTangentToCircle(_, _)
@@ -246,8 +250,10 @@ fn all_external_variables(num_external_variables: u32) -> impl Iterator<Item = I
     0..num_external_variables
 }
 
+/// Compact only the roots of the external variables into a contiguous range of
+/// internal variable IDs that can be used in a solve.
 fn map_vars(
-    table: &mut InPlaceUnificationTable<InternalId>,
+    table: &mut InPlaceUnificationTable<ExternalId>,
     num_external_variables: u32,
 ) -> Vec<InternalId> {
     let mut next_internal_id: Id = 0;
@@ -255,13 +261,13 @@ fn map_vars(
     let mut root_to_internal = HashMap::new();
     for external_id in all_external_variables(num_external_variables) {
         // SAFETY: find() will panic if the key is not present.
-        let root = table.find(InternalId(external_id));
+        let root = table.find(ExternalId(external_id));
         let internal_id = root_to_internal.entry(root).or_insert_with(|| {
-            let id = next_internal_id;
+            let id = InternalId(next_internal_id);
             next_internal_id += 1;
             id
         });
-        external_to_internal.push(InternalId(*internal_id));
+        external_to_internal.push(*internal_id);
     }
     external_to_internal
 }
