@@ -237,7 +237,7 @@ impl ProblemMapping {
         self.map
             .iter()
             .copied()
-            .map(|internal| internal_solution[internal.0 as usize])
+            .map(|internal| *internal_solution.get(internal.0 as usize).unwrap())
             .collect()
     }
 }
