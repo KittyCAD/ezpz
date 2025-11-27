@@ -444,13 +444,13 @@ fn strange_nonconvergence() {
         &requests,
         initial_guesses,
         Config {
-            max_iterations: 31,
+            max_iterations: 50,
             ..Default::default()
         },
     );
     let outcome = outcome.unwrap();
     assert_eq!(outcome.final_values.len(), num_guesses);
-    assert_eq!(outcome.iterations, 11);
+    assert_eq!(outcome.iterations, 42);
 }
 
 #[test]

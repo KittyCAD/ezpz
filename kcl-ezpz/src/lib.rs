@@ -226,16 +226,12 @@ fn solve_inner(
         .iter()
         .map(|c| c.constraint.residual_dim())
         .sum();
-    let (all_variables, mut values): (Vec<Id>, Vec<f64>) = initial_guesses.into_iter().unzip();
+    let (_, external_values): (Vec<Id>, Vec<f64>) = initial_guesses.into_iter().unzip();
     let mut warnings = warnings::lint(external_constraints);
-    let initial_values = values.clone();
 
     // Build mapping from external problem to an optimized internal problem.
-    let mapping = ProblemMapping::from_constraints(
-        external_constraints,
-        all_variables.len() as u32,
-        &warnings,
-    )?;
+    let mapping =
+        ProblemMapping::from_constraints(&external_values, external_constraints, &warnings)?;
     let constraints = mapping
         .constraints()
         .iter()
@@ -245,8 +241,10 @@ fn solve_inner(
             priority: c.priority,
         })
         .collect::<Vec<ConstraintEntry>>();
+    let mut values = mapping.internal_initial_values().to_vec();
+    let all_variables = mapping.internal_variables();
 
-    let mut model = match Model::new(&constraints, all_variables, initial_values, config) {
+    let mut model = match Model::new(&constraints, all_variables, values.clone(), config) {
         Ok(o) => o,
         Err(e) => {
             return Err(FailureOutcome {

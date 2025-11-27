@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use ena::unify::{InPlaceUnificationTable, UnifyKey};
+use ena::unify::{InPlaceUnificationTable, NoError, UnifyKey, UnifyValue};
 
 use crate::{
     Constraint, ConstraintRequest, Error, FailureOutcome, Id, NonLinearSystemError, Warning,
@@ -20,7 +20,7 @@ struct InternalId(Id);
 struct ExternalId(Id);
 
 impl UnifyKey for ExternalId {
-    type Value = ();
+    type Value = InitialValue;
 
     fn index(&self) -> u32 {
         self.0
@@ -35,12 +35,27 @@ impl UnifyKey for ExternalId {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct InitialValue(f64);
+
+impl UnifyValue for InitialValue {
+    type Error = NoError;
+
+    fn unify_values(value1: &Self, _value2: &Self) -> Result<Self, Self::Error> {
+        // For initial values, we can pick one of the values. We arbitrarily
+        // choose to keep the first one.
+        Ok(*value1)
+    }
+}
+
 /// A mapping from external problem to optimized internal problem.
 #[derive(Debug)]
 pub(super) struct ProblemMapping {
     /// Map from external variable ID to internal variable ID. The index in
     /// the vector is the external variable ID.
     map: Vec<InternalId>,
+    /// Initial values for the internal variables.
+    internal_initial_values: Vec<f64>,
     /// Since `ConstraintEntry`s borrow their `Constraint`s, we need to
     /// materialize the internal constraints and store them somewhere. The usize
     /// is the constraint ID.
@@ -48,24 +63,30 @@ pub(super) struct ProblemMapping {
 }
 
 impl ProblemMapping {
-    fn new(map: Vec<InternalId>, internal_constraints: Vec<(usize, ConstraintRequest)>) -> Self {
+    fn new(
+        map: Vec<InternalId>,
+        internal_initial_values: Vec<f64>,
+        internal_constraints: Vec<(usize, ConstraintRequest)>,
+    ) -> Self {
         Self {
             map,
+            internal_initial_values,
             internal_constraints,
         }
     }
 
     /// Create a problem mapping from a set of constraints and all variable IDs.
     pub fn from_constraints(
+        initial_values: &[f64],
         constraints: &[ConstraintEntry],
-        num_external_variables: u32,
         warnings: &[Warning],
     ) -> Result<Self, FailureOutcome> {
         // Build the unification table where every key starts out separate.
+        let num_external_variables: u32 = initial_values.len() as u32;
         let mut vars_table = InPlaceUnificationTable::new();
-        vars_table.reserve(num_external_variables as usize);
-        for _ in all_external_variables(num_external_variables) {
-            vars_table.new_key(());
+        vars_table.reserve(initial_values.len());
+        for value in initial_values {
+            vars_table.new_key(InitialValue(*value));
         }
 
         // Unify variables according to equality constraints.
@@ -102,14 +123,16 @@ impl ProblemMapping {
         }
         // Build the mapping from external variable IDs to internal variable
         // IDs.
-        let external_to_internal = map_vars(&mut vars_table, num_external_variables);
-        debug_assert_eq!(external_to_internal.len(), num_external_variables as usize);
+        let (external_to_internal, internal_initial_values) =
+            map_vars(&mut vars_table, num_external_variables);
+        debug_assert_eq!(external_to_internal.len(), initial_values.len());
 
         // Use the mapping to convert the constraints to the internal problem.
         let transformer = ConstraintTransformer {
             map: external_to_internal,
         };
         transformer.into_problem_mapping(
+            internal_initial_values,
             constraints,
             warnings,
             num_external_variables as usize,
@@ -119,6 +142,16 @@ impl ProblemMapping {
 
     pub fn constraints(&self) -> &[(usize, ConstraintRequest)] {
         &self.internal_constraints
+    }
+
+    pub fn internal_initial_values(&self) -> &[f64] {
+        &self.internal_initial_values
+    }
+
+    pub fn internal_variables(&self) -> Vec<Id> {
+        (0..self.internal_initial_values.len())
+            .map(|i| i as u32)
+            .collect()
     }
 
     /// Convert an internal solution to an external solution.
@@ -142,6 +175,7 @@ struct ConstraintTransformer {
 impl ConstraintTransformer {
     pub fn into_problem_mapping(
         self,
+        internal_initial_values: Vec<f64>,
         external_constraints: &[ConstraintEntry],
         warnings: &[Warning],
         num_external_vars: usize,
@@ -158,17 +192,24 @@ impl ConstraintTransformer {
                             num_vars: num_external_vars,
                             num_eqs: num_constraints,
                         })?;
-                Ok((
-                    c.id,
-                    ConstraintRequest {
-                        constraint: internal_constraint,
-                        priority: c.priority,
-                    },
-                ))
+                Ok(internal_constraint.map(|internal| {
+                    (
+                        c.id,
+                        ConstraintRequest {
+                            constraint: internal,
+                            priority: c.priority,
+                        },
+                    )
+                }))
             })
+            .filter_map(Result::transpose)
             .collect::<Result<Vec<_>, _>>()?;
 
-        Ok(ProblemMapping::new(self.map, internal_constraints))
+        Ok(ProblemMapping::new(
+            self.map,
+            internal_initial_values,
+            internal_constraints,
+        ))
     }
 
     fn find_by_external(
@@ -193,67 +234,67 @@ impl ConstraintTransformer {
         &self,
         constraint: Constraint,
         constraint_id: usize,
-    ) -> Result<Constraint, NonLinearSystemError> {
+    ) -> Result<Option<Constraint>, NonLinearSystemError> {
         match constraint {
-            Constraint::LineTangentToCircle(line, circle) => Ok(Constraint::LineTangentToCircle(
-                self.map_line_segment(line, constraint_id)?,
-                self.map_circle(circle, constraint_id)?,
-            )),
-            Constraint::Distance(p0, p1, distance) => Ok(Constraint::Distance(
+            Constraint::LineTangentToCircle(line, circle) => {
+                Ok(Some(Constraint::LineTangentToCircle(
+                    self.map_line_segment(line, constraint_id)?,
+                    self.map_circle(circle, constraint_id)?,
+                )))
+            }
+            Constraint::Distance(p0, p1, distance) => Ok(Some(Constraint::Distance(
                 self.map_datum_point(p0, constraint_id)?,
                 self.map_datum_point(p1, constraint_id)?,
                 distance,
-            )),
-            Constraint::Vertical(line) => Ok(Constraint::Vertical(
+            ))),
+            Constraint::Vertical(line) => Ok(Some(Constraint::Vertical(
                 self.map_line_segment(line, constraint_id)?,
-            )),
-            Constraint::Horizontal(line) => Ok(Constraint::Horizontal(
+            ))),
+            Constraint::Horizontal(line) => Ok(Some(Constraint::Horizontal(
                 self.map_line_segment(line, constraint_id)?,
-            )),
-            Constraint::LinesAtAngle(line0, line1, angle) => Ok(Constraint::LinesAtAngle(
+            ))),
+            Constraint::LinesAtAngle(line0, line1, angle) => Ok(Some(Constraint::LinesAtAngle(
                 self.map_line_segment(line0, constraint_id)?,
                 self.map_line_segment(line1, constraint_id)?,
                 angle,
-            )),
-            Constraint::Fixed(id, scalar) => Ok(Constraint::Fixed(
+            ))),
+            Constraint::Fixed(id, scalar) => Ok(Some(Constraint::Fixed(
                 self.find_by_external(id, constraint_id)?.0,
                 scalar,
-            )),
-            Constraint::PointsCoincident(datum_point0, datum_point1) => {
-                Ok(Constraint::PointsCoincident(
-                    self.map_datum_point(datum_point0, constraint_id)?,
-                    self.map_datum_point(datum_point1, constraint_id)?,
-                ))
-            }
-            Constraint::CircleRadius(circle, radius) => Ok(Constraint::CircleRadius(
+            ))),
+            // Point variables are unified, so the constraint isn't needed.
+            Constraint::PointsCoincident(_, _) => Ok(None),
+            Constraint::CircleRadius(circle, radius) => Ok(Some(Constraint::CircleRadius(
                 self.map_circle(circle, constraint_id)?,
                 radius,
-            )),
-            Constraint::LinesEqualLength(line0, line1) => Ok(Constraint::LinesEqualLength(
+            ))),
+            Constraint::LinesEqualLength(line0, line1) => Ok(Some(Constraint::LinesEqualLength(
                 self.map_line_segment(line0, constraint_id)?,
                 self.map_line_segment(line1, constraint_id)?,
-            )),
-            Constraint::ArcRadius(circular_arc, radius) => Ok(Constraint::ArcRadius(
+            ))),
+            Constraint::ArcRadius(circular_arc, radius) => Ok(Some(Constraint::ArcRadius(
                 self.map_circular_arc(circular_arc, constraint_id)?,
                 radius,
-            )),
-            Constraint::Arc(circular_arc) => Ok(Constraint::Arc(
+            ))),
+            Constraint::Arc(circular_arc) => Ok(Some(Constraint::Arc(
                 self.map_circular_arc(circular_arc, constraint_id)?,
-            )),
-            Constraint::Midpoint(line, point) => Ok(Constraint::Midpoint(
+            ))),
+            Constraint::Midpoint(line, point) => Ok(Some(Constraint::Midpoint(
                 self.map_line_segment(line, constraint_id)?,
                 self.map_datum_point(point, constraint_id)?,
-            )),
-            Constraint::PointLineDistance(pt, line, distance) => Ok(Constraint::PointLineDistance(
-                self.map_datum_point(pt, constraint_id)?,
-                self.map_line_segment(line, constraint_id)?,
-                distance,
-            )),
-            Constraint::Symmetric(line, p0, p1) => Ok(Constraint::Symmetric(
+            ))),
+            Constraint::PointLineDistance(pt, line, distance) => {
+                Ok(Some(Constraint::PointLineDistance(
+                    self.map_datum_point(pt, constraint_id)?,
+                    self.map_line_segment(line, constraint_id)?,
+                    distance,
+                )))
+            }
+            Constraint::Symmetric(line, p0, p1) => Ok(Some(Constraint::Symmetric(
                 self.map_line_segment(line, constraint_id)?,
                 self.map_datum_point(p0, constraint_id)?,
                 self.map_datum_point(p1, constraint_id)?,
-            )),
+            ))),
         }
     }
 
@@ -318,23 +359,30 @@ fn all_external_variables(num_external_variables: u32) -> impl Iterator<Item = I
 }
 
 /// Compact only the roots of the external variables into a contiguous range of
-/// internal variable IDs that can be used in a solve.
+/// internal variable IDs that can be used in a solve. Returns a mapping from
+/// external variable ID to internal variable ID, and the initial values of the
+/// internal variables.
 fn map_vars(
     table: &mut InPlaceUnificationTable<ExternalId>,
     num_external_variables: u32,
-) -> Vec<InternalId> {
+) -> (Vec<InternalId>, Vec<f64>) {
     let mut next_internal_id: Id = 0;
     let mut external_to_internal = Vec::with_capacity(num_external_variables as usize);
     let mut root_to_internal = HashMap::new();
+    let mut internal_initial_values = Vec::new();
     for external_id in all_external_variables(num_external_variables) {
         // SAFETY: find() will panic if the key is not present.
         let root = table.find(ExternalId(external_id));
         let internal_id = root_to_internal.entry(root).or_insert_with(|| {
+            internal_initial_values.push(table.probe_value(root).0);
+
             let id = InternalId(next_internal_id);
             next_internal_id += 1;
             id
         });
         external_to_internal.push(*internal_id);
     }
-    external_to_internal
+    debug_assert_eq!(next_internal_id as usize, internal_initial_values.len());
+
+    (external_to_internal, internal_initial_values)
 }
