@@ -439,16 +439,18 @@ fn strange_nonconvergence() {
         (8, -1.15),
         (9, 2.75),
     ];
+    let num_guesses = initial_guesses.len();
     let outcome = crate::solve(
         &requests,
         initial_guesses,
         Config {
-            max_iterations: 31,
+            max_iterations: 50,
             ..Default::default()
         },
     );
-    let iterations = outcome.unwrap().iterations;
-    assert_eq!(iterations, 30);
+    let outcome = outcome.unwrap();
+    assert_eq!(outcome.final_values.len(), num_guesses);
+    assert_eq!(outcome.iterations, 42);
 }
 
 #[test]

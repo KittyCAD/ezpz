@@ -6,6 +6,7 @@ use std::collections::HashSet;
 pub use crate::constraint_request::ConstraintRequest;
 pub use crate::constraints::Constraint;
 use crate::constraints::ConstraintEntry;
+use crate::optimize::ProblemMapping;
 pub use crate::solver::Config;
 // Only public for now so that I can benchmark it.
 // TODO: Replace this with an end-to-end benchmark,
@@ -22,6 +23,7 @@ mod constraints;
 pub mod datatypes;
 /// IDs of various entities, points, scalars etc.
 mod id;
+mod optimize;
 /// Numeric solver using sparse matrices.
 mod solver;
 /// Unit tests
@@ -215,20 +217,34 @@ pub fn solve(
 }
 
 fn solve_inner(
-    constraints: &[ConstraintEntry],
+    external_constraints: &[ConstraintEntry],
     initial_guesses: Vec<(Id, f64)>,
     config: Config,
 ) -> Result<SolveOutcome, FailureOutcome> {
     let num_vars = initial_guesses.len();
-    let num_eqs = constraints
+    let num_eqs = external_constraints
         .iter()
         .map(|c| c.constraint.residual_dim())
         .sum();
-    let (all_variables, mut values): (Vec<Id>, Vec<f64>) = initial_guesses.into_iter().unzip();
-    let mut warnings = warnings::lint(constraints);
-    let initial_values = values.clone();
+    let (_, external_values): (Vec<Id>, Vec<f64>) = initial_guesses.into_iter().unzip();
+    let mut warnings = warnings::lint(external_constraints);
 
-    let mut model = match Model::new(constraints, all_variables, initial_values, config) {
+    // Build mapping from external problem to an optimized internal problem.
+    let mapping =
+        ProblemMapping::from_constraints(&external_values, external_constraints, &warnings)?;
+    let constraints = mapping
+        .constraints()
+        .iter()
+        .map(|(id, c)| ConstraintEntry {
+            constraint: &c.constraint,
+            id: *id,
+            priority: c.priority,
+        })
+        .collect::<Vec<ConstraintEntry>>();
+    let mut values = mapping.internal_initial_values().to_vec();
+    let all_variables = mapping.internal_variables();
+
+    let mut model = match Model::new(&constraints, all_variables, values.clone(), config) {
         Ok(o) => o,
         Err(e) => {
             return Err(FailureOutcome {
@@ -283,10 +299,12 @@ fn solve_inner(
         }
     }
 
+    let final_values = mapping.external_solution(&values);
+
     Ok(SolveOutcome {
         priority_solved: 0,
         unsatisfied,
-        final_values: values,
+        final_values,
         iterations,
         warnings,
     })
