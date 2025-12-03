@@ -219,6 +219,7 @@ fn tiny_no_regularization() {
         Config {
             regularization_enabled: false,
             max_iterations: 25,
+            ..Default::default()
         },
     );
     assert!(solved.unsatisfied.is_empty());

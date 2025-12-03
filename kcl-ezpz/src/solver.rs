@@ -1,10 +1,11 @@
 use std::sync::Mutex;
 
 use faer::{
+    ColRef,
     prelude::Solve,
     sparse::{Pair, SymbolicSparseColMat},
 };
-use newton_faer::{JacobianCache, NewtonCfg, NonlinearSystem, RowMap};
+use newton_faer::{JacobianCache, NonlinearSystem, RowMap};
 
 use crate::{
     Constraint, ConstraintEntry, NonLinearSystemError, Warning, WarningContent,
@@ -26,6 +27,9 @@ pub struct Config {
     pub regularization_enabled: bool,
     /// How many iteration rounds before the solver gives up?
     pub max_iterations: usize,
+    /// How close can the residual be to 0 before we declare the system is solved?
+    /// Smaller number means more precise solves.
+    pub convergence_tolerance: f64,
 }
 
 impl Default for Config {
@@ -33,6 +37,7 @@ impl Default for Config {
         Self {
             regularization_enabled: true,
             max_iterations: 35,
+            convergence_tolerance: 1e-8,
         }
     }
 }
@@ -269,7 +274,7 @@ impl Model<'_> {
     pub fn run_solve(
         &mut self,
         current_values: &mut [f64],
-        config: NewtonCfg<f64>,
+        config: Config,
     ) -> Result<usize, NonLinearSystemError> {
         let m = self.layout.total_num_residuals;
         let n = self.layout.num_variables;
@@ -289,7 +294,7 @@ impl Model<'_> {
         .unwrap();
 
         // let a_matrix = SparseColMat::new(a_symbolic, a_val);
-        for this_iteration in 0..config.max_iter {
+        for this_iteration in 0..config.max_iterations {
             // Assemble global residual and Jacobian
             // Re-evaluate the global residual.
             self.residual(current_values, &mut global_residual);
@@ -301,42 +306,43 @@ impl Model<'_> {
             // or a 1D vec?
             // David's code:
             // if (r.array().abs().maxCoeff() <= params.tolerance)
+            // let largest = ColRef::from_slice(&global_residual)
             let largest_absolute_elem = global_residual
                 .iter()
                 .map(|x| x.abs())
                 .reduce(f64::max)
                 .unwrap();
-            if dbg!(largest_absolute_elem) <= dbg!(config.tol) {
+            if dbg!(largest_absolute_elem) <= dbg!(config.convergence_tolerance) {
                 return Ok(dbg!(this_iteration));
             }
 
-            /*
-                NOTE(dr): We solve the following linear system to get the damped Gauss-Newton step d
-
-                (JᵀJ + λI) d = -Jᵀr
-
-                This involves creating a matrix A and rhs b where
-
-                A = JᵀJ + λI
-                b = -Jᵀr
+            /* NOTE(dr): We solve the following linear system to get the damped Gauss-Newton step d
+               (JᵀJ + λI) d = -Jᵀr
+               This involves creating a matrix A and rhs b where
+               A = JᵀJ + λI
+               b = -Jᵀr
             */
 
-            let j = faer::sparse::SparseColMatRef::<usize, f64>::new(
-                self.jc.sym.as_ref(),
-                &self.jc.vals,
-            );
-            let jtj = j.transpose().to_col_major().unwrap() * &j;
+            let j = faer::sparse::SparseColMatRef::new(self.jc.sym.as_ref(), &self.jc.vals);
+            let jtj = j.transpose().to_col_major().unwrap() * j;
             let a = jtj + &lambda_i;
-            let b = j.transpose() * -faer::ColRef::from_slice(&global_residual);
+            let b = j.transpose() * -ColRef::from_slice(&global_residual);
 
             // Solve linear system
-            // David's code:
-            // solver.compute(A);
-            let factored_linear_system = a.sp_lu().unwrap();
-            let d = factored_linear_system.solve(&b);
-            for i in 0..current_values.len() {
-                current_values[i] += d.get(i);
-            }
+            // David's code: `solver.compute(A)`;
+            let factored = a.sp_lu().unwrap();
+            let d = factored.solve(&b);
+            assert_eq!(
+                d.nrows(),
+                current_values.len(),
+                "the `d` column must be the same size as the number of variables."
+            );
+            current_values
+                .iter_mut()
+                .zip(d.iter())
+                .for_each(|(curr_val, d)| {
+                    *curr_val += d;
+                });
         }
         Err(NonLinearSystemError::DidNotConverge)
     }
