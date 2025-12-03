@@ -272,8 +272,8 @@ impl Model<'_> {
                 .map(|x| x.abs())
                 .reduce(f64::max)
                 .unwrap();
-            if dbg!(largest_absolute_elem) <= dbg!(config.convergence_tolerance) {
-                return Ok(dbg!(this_iteration));
+            if largest_absolute_elem <= config.convergence_tolerance {
+                return Ok(this_iteration);
             }
 
             /* NOTE(dr): We solve the following linear system to get the damped Gauss-Newton step d
