@@ -11,6 +11,7 @@ gen := "test_cases/massive_parallel_system/gen_big_problem.py"
 
 lint:
     cargo clippy {{clippy-flags}} -- -D warnings
+    cargo clippy {{clippy-flags}} --features dbg-jac -- -D warnings
 
 # Fix some lints automatically.
 lint-fix:
