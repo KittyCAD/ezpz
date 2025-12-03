@@ -369,6 +369,8 @@ impl Model<'_> {
 
         // Build values by iterating through constraints in the same order as their construction.
         let mut row_num = 0;
+        #[cfg(feature = "dbg-jac")]
+        let mut dbg_matrix: Vec<Vec<f64>> = vec![];
         for (i, constraint) in self.constraints.iter().enumerate() {
             let mut degenerate = false;
             self.row0_scratch.clear();
@@ -395,9 +397,14 @@ impl Model<'_> {
             {
                 let this_row = row_num;
                 row_num += 1;
-                eprint!("J row {this_row}: [");
+                #[cfg(feature = "dbg-jac")]
+                dbg_matrix.push(vec![0.0; self.layout.num_variables]);
                 for jacobian_var in row {
-                    eprint!("{}={},", jacobian_var.id, jacobian_var.partial_derivative);
+                    #[cfg(feature = "dbg-jac")]
+                    {
+                        dbg_matrix.last_mut().unwrap()[jacobian_var.id as usize] +=
+                            jacobian_var.partial_derivative;
+                    }
                     let col = self.layout.index_of(jacobian_var.id);
 
                     // Find where this (row_num, col) entry should go in the sparse structure.
@@ -409,10 +416,26 @@ impl Model<'_> {
                     // Found the right position; accumulate the partials.
                     self.jc.vals[idx] += jacobian_var.partial_derivative;
                 }
-                eprintln!("]");
             }
         }
-
+        #[cfg(feature = "dbg-jac")]
+        assert_eq!(dbg_matrix.len(), self.layout.num_rows());
+        #[cfg(feature = "dbg-jac")]
+        {
+            for (i, dbg_row) in dbg_matrix.into_iter().enumerate() {
+                let inner: Vec<_> = dbg_row
+                    .into_iter()
+                    .map(|d| {
+                        if d.is_sign_positive() {
+                            format!(" {d:.2}")
+                        } else {
+                            format!("{d:.2}")
+                        }
+                    })
+                    .collect();
+                eprintln!("Row {i}: [{}]", inner.join(" "));
+            }
+        }
         // // Add regularization values.
         // if self.config.regularization_enabled {
         //     let num_constraint_residuals: usize = self
