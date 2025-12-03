@@ -205,7 +205,9 @@ impl<'c> Model<'c> {
         let layout = Layout::new(&all_variables, cs.as_slice(), config);
 
         // Generate the Jacobian matrix structure.
-        let mut nonzero_cells: Vec<Pair<usize, usize>> =
+        // This is the nonzeroes of `J`.
+        // It's MxN.
+        let mut nonzero_cells_j: Vec<Pair<usize, usize>> =
             Vec::with_capacity(NONZEROES_PER_ROW * layout.total_num_residuals);
         let mut row_num = 0;
         let mut nonzeroes_scratch0 = Vec::with_capacity(NONZEROES_PER_ROW);
@@ -223,24 +225,24 @@ impl<'c> Model<'c> {
                 row_num += 1;
                 for var in row.iter() {
                     let col = layout.index_of(*var);
-                    nonzero_cells.push(Pair { row: this_row, col });
+                    nonzero_cells_j.push(Pair { row: this_row, col });
                 }
             }
         }
 
-        // Stack our regularization rows below the constraint rows.
-        if config.regularization_enabled {
-            for col in 0..num_cols {
-                let reg_row = layout.num_residuals_constraints + col;
-                nonzero_cells.push(Pair { row: reg_row, col });
-            }
-        }
+        // // Stack our regularization rows below the constraint rows.
+        // if config.regularization_enabled {
+        //     for col in 0..num_cols {
+        //         let reg_row = layout.num_residuals_constraints + col;
+        //         nonzero_cells_j.push(Pair { row: reg_row, col });
+        //     }
+        // }
 
         // Create symbolic structure; this will automatically deduplicate and sort.
         let (sym, _) = SymbolicSparseColMat::try_new_from_indices(
             layout.num_rows(),
             num_cols,
-            &nonzero_cells,
+            &nonzero_cells_j,
         )?;
 
         // All done.
