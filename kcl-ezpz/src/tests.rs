@@ -448,7 +448,7 @@ fn strange_nonconvergence() {
         },
     );
     let iterations = outcome.unwrap().iterations;
-    assert_eq!(iterations, 30);
+    assert_eq!(iterations, 2);
 }
 
 #[test]
