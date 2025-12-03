@@ -67,6 +67,8 @@ pub enum NonLinearSystemError {
         #[from]
         error: CreationError,
     },
+    #[error("Could not find a solution in the allowed number of iterations")]
+    DidNotConverge,
 }
 
 #[derive(Debug)]
@@ -244,14 +246,15 @@ fn solve_inner(
     newton_faer_config.max_iter = config.max_iterations;
 
     let mut unsatisfied: Vec<usize> = Vec::new();
-    let outcome = newton_faer::solve(&mut model, &mut values, newton_faer_config)
-        .map_err(|errs| Error::Solver(Box::new(errs.into_error())));
+    // let outcome = newton_faer::solve(&mut model, &mut values, newton_faer_config)
+    //     .map_err(|errs| Error::Solver(Box::new(errs.into_error())));
+    let outcome = model.run_solve(&mut values, newton_faer_config);
     warnings.extend(model.warnings.lock().unwrap().drain(..));
     let iterations = match outcome {
         Ok(o) => o,
         Err(e) => {
             return Err(FailureOutcome {
-                error: e,
+                error: e.into(),
                 warnings,
                 num_vars,
                 num_eqs,
