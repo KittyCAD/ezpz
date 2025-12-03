@@ -308,6 +308,32 @@ impl Problem {
                         });
                     }
                 }
+                Instruction::FixObjectPointComponent(FixObjectPointComponent {
+                    object,
+                    value,
+                    point,
+                    point_component,
+                }) => {
+                    // Is this center talking about an arc object?
+                    if let Some(arc_id) = self.inner_arcs.iter().position(|label| label == object) {
+                        let the_point = if point.0 == "a" {
+                            initial_guesses.arc_ids(arc_id).a
+                        } else if point.0 == "b" {
+                            initial_guesses.arc_ids(arc_id).b
+                        } else {
+                            panic!("Unrecognized label {}", point.0)
+                        };
+                        let id = match point_component {
+                            Component::X => the_point.x,
+                            Component::Y => the_point.y,
+                        };
+                        constraints.push(Constraint::Fixed(id, *value));
+                    } else {
+                        return Err(Error::UndefinedPoint {
+                            label: object.0.clone(),
+                        });
+                    }
+                }
                 Instruction::Vertical(Vertical { label }) => {
                     let p0 = datum_point_for_label(&label.0)?;
                     let p1 = datum_point_for_label(&label.1)?;
