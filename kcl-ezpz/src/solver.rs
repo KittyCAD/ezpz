@@ -1,7 +1,10 @@
 use std::sync::Mutex;
 
-use faer::sparse::{Pair, SymbolicSparseColMat};
-use newton_faer::{JacobianCache, NonlinearSystem, RowMap};
+use faer::{
+    prelude::Solve,
+    sparse::{Pair, SymbolicSparseColMat, csc_numeric::generic::SparseColMat},
+};
+use newton_faer::{JacobianCache, NewtonCfg, NonlinearSystem, RowMap};
 
 use crate::{
     Constraint, ConstraintEntry, NonLinearSystemError, Warning, WarningContent,
@@ -47,14 +50,14 @@ impl Layout {
         // We'll have different numbers of rows in the system depending on whether
         // or not regularization is enabled.
         let num_residuals_constraints: usize = constraints.iter().map(|c| c.residual_dim()).sum();
-        let num_residuals_regularization = if config.regularization_enabled {
-            all_variables.len()
-        } else {
-            0
-        };
+        // let num_residuals_regularization = if config.regularization_enabled {
+        //     all_variables.len()
+        // } else {
+        //     0
+        // };
 
         // Build the full system.
-        let num_residuals = num_residuals_constraints + num_residuals_regularization;
+        let num_residuals = num_residuals_constraints;
         let num_rows = num_residuals;
         Self {
             total_num_residuals: num_rows,
@@ -262,6 +265,83 @@ impl<'c> Model<'c> {
     }
 }
 
+impl Model<'_> {
+    pub fn run_solve(
+        &mut self,
+        current_values: &mut [f64],
+        config: NewtonCfg<f64>,
+    ) -> Result<usize, NonLinearSystemError> {
+        let m = self.layout.total_num_residuals;
+        let n = self.layout.num_variables;
+
+        let mut global_residual = vec![0.0; m];
+
+        // Used in the matrix math below.
+        // This 'damps' the jacobian matrix, ensuring that as its coefficients get smaller,
+        // the solver takes smaller and smaller steps.
+        let lambda_i = faer::sparse::SparseColMat::<usize, f64>::try_new_from_triplets(
+            n,
+            n,
+            &(0..n)
+                .map(|i| faer::sparse::Triplet::new(i, i, REGULARIZATION_LAMBDA))
+                .collect::<Vec<_>>(),
+        )
+        .unwrap();
+
+        // let a_matrix = SparseColMat::new(a_symbolic, a_val);
+        for this_iteration in 0..config.max_iter {
+            // Assemble global residual and Jacobian
+            // Re-evaluate the global residual.
+            self.residual(current_values, &mut global_residual);
+            // Re-evaluate the global jacobian, write it into self.jc
+            self.refresh_jacobian(current_values);
+
+            // Converged if residual is within tolerance
+            // TODO: Is there a way to do this in faer, treating global_residual as a 1xN matrix
+            // or a 1D vec?
+            // David's code:
+            // if (r.array().abs().maxCoeff() <= params.tolerance)
+            let largest_absolute_elem = global_residual
+                .iter()
+                .map(|x| x.abs())
+                .reduce(f64::max)
+                .unwrap();
+            if largest_absolute_elem <= config.tol {
+                return Ok(this_iteration);
+            }
+
+            /*
+                NOTE(dr): We solve the following linear system to get the damped Gauss-Newton step d
+
+                (JᵀJ + λI) d = -Jᵀr
+
+                This involves creating a matrix A and rhs b where
+
+                A = JᵀJ + λI
+                b = -Jᵀr
+            */
+
+            let j = faer::sparse::SparseColMatRef::<usize, f64>::new(
+                self.jc.sym.as_ref(),
+                &self.jc.vals,
+            );
+            let jtj = j.transpose().to_col_major().unwrap() * &j;
+            let a = jtj + &lambda_i;
+            let b = j.transpose() * -faer::ColRef::from_slice(&global_residual);
+
+            // Solve linear system
+            // David's code:
+            // solver.compute(A);
+            let factored_linear_system = a.sp_lu().unwrap();
+            let d = factored_linear_system.solve(&b);
+            for i in 0..current_values.len() {
+                current_values[i] += d.get(i);
+            }
+        }
+        Err(NonLinearSystemError::DidNotConverge)
+    }
+}
+
 /// Connect the model to newton_faer's solver.
 impl NonlinearSystem for Model<'_> {
     /// What number type we're using.
@@ -283,6 +363,7 @@ impl NonlinearSystem for Model<'_> {
     }
 
     /// Compute the residual F, figuring out how close the problem is to being solved.
+    /// `out` is the global residual vector.
     fn residual(&self, current_assignments: &[Self::Real], out: &mut [Self::Real]) {
         // Each row of `out` corresponds to one row of the matrix, i.e. one equation.
         // Each item of `current_assignments` corresponds to one column of the matrix, i.e. one variable.
@@ -319,13 +400,13 @@ impl NonlinearSystem for Model<'_> {
             }
         }
 
-        // Add Tikhonov regularization residuals: lambda * (x - x0).
-        if self.config.regularization_enabled {
-            for (&val, &val_init) in current_assignments.iter().zip(self.initial_values.iter()) {
-                out[row_num] = REGULARIZATION_LAMBDA * (val - val_init);
-                row_num += 1;
-            }
-        }
+        // // Add Tikhonov regularization residuals: lambda * (x - x0).
+        // if self.config.regularization_enabled {
+        //     for (&val, &val_init) in current_assignments.iter().zip(self.initial_values.iter()) {
+        //         out[row_num] = REGULARIZATION_LAMBDA * (val - val_init);
+        //         row_num += 1;
+        //     }
+        // }
     }
 
     /// Update the values of a cached sparse Jacobian.
@@ -381,28 +462,28 @@ impl NonlinearSystem for Model<'_> {
             }
         }
 
-        // Add regularization values.
-        if self.config.regularization_enabled {
-            let num_constraint_residuals: usize = self
-                .constraints
-                .iter()
-                .map(|c| c.constraint.residual_dim())
-                .sum();
+        // // Add regularization values.
+        // if self.config.regularization_enabled {
+        //     let num_constraint_residuals: usize = self
+        //         .constraints
+        //         .iter()
+        //         .map(|c| c.constraint.residual_dim())
+        //         .sum();
 
-            for col in 0..self.layout.n_variables() {
-                let reg_row = num_constraint_residuals + col;
+        //     for col in 0..self.layout.n_variables() {
+        //         let reg_row = num_constraint_residuals + col;
 
-                // Find where this (reg_row, col) entry should go in the sparse structure.
-                let mut col_range = self.jc.sym.col_range(col);
-                let row_indices = self.jc.sym.row_idx();
+        //         // Find where this (reg_row, col) entry should go in the sparse structure.
+        //         let mut col_range = self.jc.sym.col_range(col);
+        //         let row_indices = self.jc.sym.row_idx();
 
-                // Search for our regularization row within this column's entries and set the regularization Jacobian
-                // entry to lambda. (Because derivative of lambda*(x-x0) w.r.t. x = lambda.)
-                let idx = col_range.find(|idx| row_indices[*idx] == reg_row).unwrap();
+        //         // Search for our regularization row within this column's entries and set the regularization Jacobian
+        //         // entry to lambda. (Because derivative of lambda*(x-x0) w.r.t. x = lambda.)
+        //         let idx = col_range.find(|idx| row_indices[*idx] == reg_row).unwrap();
 
-                self.jc.vals[idx] = REGULARIZATION_LAMBDA;
-            }
-        }
+        //         self.jc.vals[idx] = REGULARIZATION_LAMBDA;
+        //     }
+        // }
     }
 }
 
