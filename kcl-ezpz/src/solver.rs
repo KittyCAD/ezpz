@@ -2,7 +2,7 @@ use std::sync::Mutex;
 
 use faer::{
     prelude::Solve,
-    sparse::{Pair, SymbolicSparseColMat, csc_numeric::generic::SparseColMat},
+    sparse::{Pair, SymbolicSparseColMat},
 };
 use newton_faer::{JacobianCache, NewtonCfg, NonlinearSystem, RowMap};
 
@@ -42,11 +42,11 @@ pub struct Layout {
     pub total_num_residuals: usize,
     /// One variable per column of the matrix.
     pub num_variables: usize,
-    num_residuals_constraints: usize,
+    // num_residuals_constraints: usize,
 }
 
 impl Layout {
-    pub fn new(all_variables: &[Id], constraints: &[&Constraint], config: Config) -> Self {
+    pub fn new(all_variables: &[Id], constraints: &[&Constraint], _config: Config) -> Self {
         // We'll have different numbers of rows in the system depending on whether
         // or not regularization is enabled.
         let num_residuals_constraints: usize = constraints.iter().map(|c| c.residual_dim()).sum();
@@ -62,7 +62,7 @@ impl Layout {
         Self {
             total_num_residuals: num_rows,
             num_variables: all_variables.len(),
-            num_residuals_constraints,
+            // num_residuals_constraints,
         }
     }
 
@@ -135,8 +135,8 @@ pub(crate) struct Model<'c> {
     constraints: &'c [ConstraintEntry<'c>],
     row0_scratch: Vec<JacobianVar>,
     row1_scratch: Vec<JacobianVar>,
-    initial_values: Vec<f64>,
-    config: Config,
+    // initial_values: Vec<f64>,
+    // config: Config,
     pub(crate) warnings: Mutex<Vec<Warning>>,
 }
 
@@ -251,7 +251,7 @@ impl<'c> Model<'c> {
         // All done.
         Ok(Self {
             warnings: Default::default(),
-            config,
+            // config,
             layout,
             jc: Jc {
                 vals: vec![0.0; sym.compute_nnz()], // We have a nonzero count util.
@@ -260,7 +260,7 @@ impl<'c> Model<'c> {
             constraints,
             row0_scratch: Vec::with_capacity(NONZEROES_PER_ROW),
             row1_scratch: Vec::with_capacity(NONZEROES_PER_ROW),
-            initial_values,
+            // initial_values,
         })
     }
 }
@@ -306,8 +306,8 @@ impl Model<'_> {
                 .map(|x| x.abs())
                 .reduce(f64::max)
                 .unwrap();
-            if largest_absolute_elem <= config.tol {
-                return Ok(this_iteration);
+            if dbg!(largest_absolute_elem) <= dbg!(config.tol) {
+                return Ok(dbg!(this_iteration));
             }
 
             /*
@@ -447,7 +447,9 @@ impl NonlinearSystem for Model<'_> {
             {
                 let this_row = row_num;
                 row_num += 1;
+                eprint!("J row {this_row}: [");
                 for jacobian_var in row {
+                    eprint!("{}={},", jacobian_var.id, jacobian_var.partial_derivative);
                     let col = self.layout.index_of(jacobian_var.id);
 
                     // Find where this (row_num, col) entry should go in the sparse structure.
@@ -459,6 +461,7 @@ impl NonlinearSystem for Model<'_> {
                     // Found the right position; accumulate the partials.
                     self.jc.vals[idx] += jacobian_var.partial_derivative;
                 }
+                eprintln!("]");
             }
         }
 
