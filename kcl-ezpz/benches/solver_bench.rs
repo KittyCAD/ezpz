@@ -7,7 +7,6 @@ use kcl_ezpz::{
     solve_with_priority,
     textual::Problem,
 };
-use newton_faer::init_global_parallelism;
 
 /// General benchmark template.
 /// Opens a given test case from the test_cases/ dir,
@@ -59,7 +58,6 @@ fn solve_perpendicular(c: &mut Criterion) {
 /// depend on each other.
 fn solve_two_rectangles_dependent(c: &mut Criterion) {
     let mut id_generator = IdGenerator::default();
-    init_global_parallelism(1);
     let p0 = DatumPoint::new(&mut id_generator);
     let p1 = DatumPoint::new(&mut id_generator);
     let p2 = DatumPoint::new(&mut id_generator);
