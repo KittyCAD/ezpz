@@ -992,7 +992,6 @@ dependencies = [
  "getrandom 0.2.16",
  "indexmap",
  "libm",
- "newtonls_faer",
  "proptest",
  "thiserror 2.0.17",
  "winnow",

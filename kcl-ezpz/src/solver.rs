@@ -5,7 +5,6 @@ use faer::{
     prelude::Solve,
     sparse::{Pair, SymbolicSparseColMat},
 };
-use newton_faer::{JacobianCache, NonlinearSystem, RowMap};
 
 use crate::{
     Constraint, ConstraintEntry, NonLinearSystemError, Warning, WarningContent,
@@ -71,33 +70,12 @@ impl Layout {
         }
     }
 
-    pub fn index_of(&self, var: <Layout as RowMap>::Var) -> usize {
+    pub fn index_of(&self, var: Id) -> usize {
         var as usize
     }
 
     pub fn num_rows(&self) -> usize {
         self.total_num_residuals
-    }
-}
-
-impl RowMap for Layout {
-    type Var = Id;
-
-    // `faer_newton` stores variables in a vec, refers to them only by their offset.
-    // So this function lets you look up the index of a particular variable in that vec.
-    // `bus` is the row index and `var` is the variable being looked up,
-    // and you get the index (column) of the variable in that row.
-    fn row(&self, _row_number: usize, var: Self::Var) -> Option<usize> {
-        // In our system, variables are the same in every row.
-        Some(var as usize)
-    }
-
-    fn n_variables(&self) -> usize {
-        self.num_variables
-    }
-
-    fn n_residuals(&self) -> usize {
-        self.num_rows()
     }
 }
 
@@ -112,24 +90,6 @@ struct Jc {
     /// The values which belong in that symbolic matrix, sorted in column-major order.
     /// Must be column-major because faer expects that.
     vals: Vec<f64>,
-}
-
-impl JacobianCache<f64> for Jc {
-    /// Self owns the symbolic pattern, so it can
-    /// give out a reference to it.
-    fn symbolic(&self) -> &SymbolicSparseColMat<usize> {
-        &self.sym
-    }
-
-    /// Lets newton-faer read the current values.
-    fn values(&self) -> &[f64] {
-        &self.vals
-    }
-
-    /// Lets newton-faer overwrite the previous values.
-    fn values_mut(&mut self) -> &mut [f64] {
-        &mut self.vals
-    }
 }
 
 /// The problem to actually solve.
@@ -349,28 +309,10 @@ impl Model<'_> {
 }
 
 /// Connect the model to newton_faer's solver.
-impl NonlinearSystem for Model<'_> {
-    /// What number type we're using.
-    type Real = f64;
-    type Layout = Layout;
-
-    fn layout(&self) -> &Self::Layout {
-        &self.layout
-    }
-
-    /// Let the solver read the Jacobian cache.
-    fn jacobian(&self) -> &dyn JacobianCache<Self::Real> {
-        &self.jc
-    }
-
-    /// Let the solver write into the Jacobian cache.
-    fn jacobian_mut(&mut self) -> &mut dyn JacobianCache<Self::Real> {
-        &mut self.jc
-    }
-
+impl Model<'_> {
     /// Compute the residual F, figuring out how close the problem is to being solved.
     /// `out` is the global residual vector.
-    fn residual(&self, current_assignments: &[Self::Real], out: &mut [Self::Real]) {
+    fn residual(&self, current_assignments: &[f64], out: &mut [f64]) {
         // Each row of `out` corresponds to one row of the matrix, i.e. one equation.
         // Each item of `current_assignments` corresponds to one column of the matrix, i.e. one variable.
         let mut row_num = 0;
@@ -416,7 +358,7 @@ impl NonlinearSystem for Model<'_> {
     }
 
     /// Update the values of a cached sparse Jacobian.
-    fn refresh_jacobian(&mut self, current_assignments: &[Self::Real]) {
+    fn refresh_jacobian(&mut self, current_assignments: &[f64]) {
         // To enable per-variable partial derivative accumulation (i.e. local to global
         // Jacobian assembly), we need to zero out the Jacobian values first.
         self.jc.vals.fill(0.0);

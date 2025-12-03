@@ -15,7 +15,6 @@ faer = { version = "0.23.2", default-features = false, features = ["std", "spars
 getrandom = { version = "0.2.16", features = ["js"] }
 indexmap = "2.11.0"
 libm = "0.2.15"
-newtonls_faer = { version = "0.1.3", path = "../newtonls-faer" }
 thiserror = "2.0.14"
 winnow = { version = "0.7.13" }
 
