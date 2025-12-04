@@ -10,7 +10,7 @@ use super::Model;
 
 impl Model<'_> {
     #[inline(never)]
-    pub fn run_newtons_method(
+    pub fn solve_gauss_newton(
         &mut self,
         current_values: &mut [f64],
         config: Config,

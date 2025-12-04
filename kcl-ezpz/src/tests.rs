@@ -217,7 +217,6 @@ fn tiny_no_regularization() {
     let solved = run_with_config(
         "tiny",
         Config {
-            regularization_enabled: false,
             max_iterations: 25,
             ..Default::default()
         },
