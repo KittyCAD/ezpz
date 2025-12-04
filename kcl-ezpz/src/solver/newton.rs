@@ -1,7 +1,12 @@
 use faer::{
-    ColRef,
+    Accum, ColRef, Par,
+    dyn_stack::{MemBuffer, MemStack},
+    get_global_parallelism,
     prelude::Solve,
-    sparse::{SparseColMatRef, linalg::solvers::Lu},
+    sparse::{
+        SparseColMatMut, SparseColMatRef,
+        linalg::{matmul, solvers::Lu},
+    },
 };
 
 use crate::{Config, NonLinearSystemError};
@@ -16,8 +21,16 @@ impl Model<'_> {
         config: Config,
     ) -> Result<usize, NonLinearSystemError> {
         let m = self.layout.total_num_residuals;
-
         let mut global_residual = vec![0.0; m];
+
+        // Preallocate scratch space for computing JᵀJ.
+        let jtj_nnz = self.jtj_symbolic.0.compute_nnz();
+        let jtj_scratch_req = {
+            let (jtj_sym, _) = &self.jtj_symbolic;
+            matmul::sparse_sparse_matmul_numeric_scratch::<usize, f64>(jtj_sym.as_ref(), Par::Seq)
+        };
+        let mut jtj_vals = vec![0.0; jtj_nnz];
+        let mut jtj_mem = MemBuffer::new(jtj_scratch_req);
 
         for this_iteration in 0..config.max_iterations {
             // Assemble global residual and Jacobian
@@ -25,6 +38,7 @@ impl Model<'_> {
             self.residual(current_values, &mut global_residual);
             // Re-evaluate the global jacobian, write it into self.jc
             self.refresh_jacobian(current_values);
+            let (jtj_sym, jtj_info) = &self.jtj_symbolic;
 
             // Convergence check: if the residual is within our tolerance,
             // then the system is totally solved and we can return.
@@ -48,8 +62,20 @@ impl Model<'_> {
             // TODO: Is there any way to transpose `j` and keep it in column-major?
             // Converting from row- to column-major might not be necessary.
             let jt = j.transpose().to_col_major()?;
-            // TODO: Replace this, it should reuse self.jtj_symbolic
-            let jtj = jt * j;
+
+            // Compute JᵀJ, reusing its symbolic structure.
+            let jtj_stack = MemStack::new(&mut jtj_mem);
+            matmul::sparse_sparse_matmul_numeric(
+                SparseColMatMut::new(jtj_sym.as_ref(), &mut jtj_vals),
+                Accum::Replace,
+                jt.as_ref(),
+                j,
+                1.0,
+                jtj_info,
+                get_global_parallelism(),
+                jtj_stack,
+            );
+            let jtj = SparseColMatRef::new(jtj_sym.as_ref(), &jtj_vals);
 
             let a = jtj + &self.lambda_i;
             let b = j.transpose() * -ColRef::from_slice(&global_residual);
