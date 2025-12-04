@@ -9,6 +9,7 @@ use crate::{Config, NonLinearSystemError, solver::REGULARIZATION_LAMBDA};
 use super::Model;
 
 impl Model<'_> {
+    #[inline(never)]
     pub fn run_newtons_method(
         &mut self,
         current_values: &mut [f64],
@@ -18,18 +19,6 @@ impl Model<'_> {
         let n = self.layout.num_variables;
 
         let mut global_residual = vec![0.0; m];
-
-        // Used in the matrix math below.
-        // This 'damps' the jacobian matrix, ensuring that as its coefficients get smaller,
-        // the solver takes smaller and smaller steps.
-        let lambda_i = SparseColMat::<usize, f64>::try_new_from_triplets(
-            n,
-            n,
-            &(0..n)
-                .map(|i| faer::sparse::Triplet::new(i, i, REGULARIZATION_LAMBDA))
-                .collect::<Vec<_>>(),
-        )
-        .unwrap();
 
         for this_iteration in 0..config.max_iterations {
             // Assemble global residual and Jacobian
@@ -62,7 +51,7 @@ impl Model<'_> {
 
             let j = SparseColMatRef::new(self.jc.sym.as_ref(), &self.jc.vals);
             let jtj = j.transpose().to_col_major().unwrap() * j;
-            let a = jtj + &lambda_i;
+            let a = jtj + &self.lambda_i;
             let b = j.transpose() * -ColRef::from_slice(&global_residual);
 
             // Solve linear system
