@@ -149,6 +149,7 @@ fn validate_variables(
 }
 
 impl<'c> Model<'c> {
+    #[inline(never)]
     pub fn new(
         constraints: &'c [ConstraintEntry<'c>],
         all_variables: Vec<Id>,
@@ -222,7 +223,8 @@ impl<'c> Model<'c> {
         };
 
         // Precompute the symbolic LU of A = JᵀJ + λI so we can reuse it inside the Newton loop.
-        let (lu_symbolic, lu_scratch) = Self::precompute_symbolic_lu(&jc.sym, &lambda_i)?;
+        let (lu_symbolic, lu_scratch) =
+            Self::precompute_symbolic_lu(&jc.sym, &lambda_i, num_cols.max(layout.num_rows()))?;
         let lu_numeric = NumericLu::new();
 
         // All done.
@@ -246,6 +248,7 @@ impl<'c> Model<'c> {
     fn precompute_symbolic_lu(
         jc_sym: &SymbolicSparseColMat<usize>,
         lambda_i: &faer::sparse::SparseColMat<usize, f64>,
+        rhs_ncols: usize,
     ) -> Result<(SymbolicLu<usize>, MemBuffer), NonLinearSystemError> {
         // Any non-zero values will do; we only care about the sparsity pattern of JᵀJ + λI.
         let ones = vec![1.0; jc_sym.compute_nnz()];
@@ -256,7 +259,7 @@ impl<'c> Model<'c> {
         let symbolic = lu::factorize_symbolic_lu(a.symbolic(), Default::default())?;
         let par = get_global_parallelism();
         let factorize_req = symbolic.factorize_numeric_lu_scratch::<f64>(par, Default::default());
-        let solve_req = symbolic.solve_in_place_scratch::<f64>(1, par);
+        let solve_req = symbolic.solve_in_place_scratch::<f64>(rhs_ncols, par);
         let scratch_req = StackReq::or(factorize_req, solve_req);
         let lu_scratch =
             MemBuffer::try_new(scratch_req).map_err(|_| NonLinearSystemError::Faer {
