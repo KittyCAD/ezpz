@@ -47,7 +47,10 @@ impl Model<'_> {
             let j = SparseColMatRef::new(self.jc.sym.as_ref(), &self.jc.vals);
             // TODO: Is there any way to transpose `j` and keep it in column-major?
             // Converting from row- to column-major might not be necessary.
-            let jtj = j.transpose().to_col_major()? * j;
+            let jt = j.transpose().to_col_major()?;
+            // TODO: Replace this, it should reuse self.jtj_symbolic
+            let jtj = jt * j;
+
             let a = jtj + &self.lambda_i;
             let b = j.transpose() * -ColRef::from_slice(&global_residual);
 

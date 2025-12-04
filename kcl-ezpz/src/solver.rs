@@ -1,6 +1,9 @@
 use std::sync::Mutex;
 
-use faer::sparse::{Pair, SparseColMatRef, SymbolicSparseColMat, linalg::solvers::SymbolicLu};
+use faer::sparse::{
+    Pair, SparseColMatRef, SymbolicSparseColMat,
+    linalg::{matmul::SparseMatMulInfo, solvers::SymbolicLu},
+};
 
 use crate::{
     Constraint, ConstraintEntry, NonLinearSystemError, Warning, WarningContent,
@@ -96,6 +99,7 @@ pub(crate) struct Model<'c> {
     pub(crate) warnings: Mutex<Vec<Warning>>,
     lambda_i: faer::sparse::SparseColMat<usize, f64>,
     lu_symbolic: SymbolicLu<usize>,
+    jtj_symbolic: (SymbolicSparseColMat<usize>, SparseMatMulInfo),
 }
 
 fn validate_variables(
@@ -210,6 +214,7 @@ impl<'c> Model<'c> {
 
         // Precompute the symbolic LU of A = JᵀJ + λI so we can reuse it inside the Newton loop.
         let lu_symbolic = Self::precompute_symbolic_lu(&jc.sym, &lambda_i)?;
+        let jtj_symbolic = Self::precompute_symbolic_jtj(&jc.sym)?;
 
         // All done.
         Ok(Self {
@@ -221,7 +226,19 @@ impl<'c> Model<'c> {
             row1_scratch: Vec::with_capacity(NONZEROES_PER_ROW),
             lambda_i,
             lu_symbolic,
+            jtj_symbolic,
         })
+    }
+
+    fn precompute_symbolic_jtj(
+        jc_sym: &SymbolicSparseColMat<usize>,
+    ) -> Result<(SymbolicSparseColMat<usize>, SparseMatMulInfo), NonLinearSystemError> {
+        let jt_sym = jc_sym.transpose().to_col_major()?;
+        let jtj_sym = faer::sparse::linalg::matmul::sparse_sparse_matmul_symbolic(
+            jt_sym.as_ref(),
+            jc_sym.as_ref(),
+        )?;
+        Ok(jtj_sym)
     }
 
     /// This is used in the core Newton solving, but it can be calculated entirely from
