@@ -29,6 +29,8 @@ pub struct Config {
     /// How close can the residual be to 0 before we declare the system is solved?
     /// Smaller number means more precise solves.
     pub convergence_tolerance: f64,
+    /// Stop iterating if the step size becomes negligible (relative infinity norm).
+    pub step_tolerance: f64,
 }
 
 impl Default for Config {
@@ -37,6 +39,7 @@ impl Default for Config {
             regularization_enabled: true,
             max_iterations: 35,
             convergence_tolerance: 1e-8,
+            step_tolerance: 1e-12,
         }
     }
 }
@@ -297,12 +300,18 @@ impl Model<'_> {
                 current_values.len(),
                 "the `d` column must be the same size as the number of variables."
             );
+            let current_inf_norm = current_values.iter().map(|v| v.abs()).fold(0.0, f64::max);
+            let step_inf_norm = d.iter().map(|d| d.abs()).reduce(f64::max).unwrap_or(0.0);
             current_values
                 .iter_mut()
                 .zip(d.iter())
                 .for_each(|(curr_val, d)| {
                     *curr_val += d;
                 });
+            let step_threshold = config.step_tolerance * (current_inf_norm + config.step_tolerance);
+            if step_inf_norm <= step_threshold {
+                return Ok(this_iteration);
+            }
         }
         Err(NonLinearSystemError::DidNotConverge)
     }
