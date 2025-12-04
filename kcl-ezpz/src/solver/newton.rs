@@ -1,4 +1,8 @@
-use faer::{ColRef, prelude::Solve};
+use faer::{
+    ColRef,
+    prelude::Solve,
+    sparse::{SparseColMat, SparseColMatRef},
+};
 
 use crate::{Config, NonLinearSystemError, solver::REGULARIZATION_LAMBDA};
 
@@ -18,7 +22,7 @@ impl Model<'_> {
         // Used in the matrix math below.
         // This 'damps' the jacobian matrix, ensuring that as its coefficients get smaller,
         // the solver takes smaller and smaller steps.
-        let lambda_i = faer::sparse::SparseColMat::<usize, f64>::try_new_from_triplets(
+        let lambda_i = SparseColMat::<usize, f64>::try_new_from_triplets(
             n,
             n,
             &(0..n)
@@ -27,7 +31,6 @@ impl Model<'_> {
         )
         .unwrap();
 
-        // let a_matrix = SparseColMat::new(a_symbolic, a_val);
         for this_iteration in 0..config.max_iterations {
             // Assemble global residual and Jacobian
             // Re-evaluate the global residual.
@@ -57,7 +60,7 @@ impl Model<'_> {
                b = -Jᵀr
             */
 
-            let j = faer::sparse::SparseColMatRef::new(self.jc.sym.as_ref(), &self.jc.vals);
+            let j = SparseColMatRef::new(self.jc.sym.as_ref(), &self.jc.vals);
             let jtj = j.transpose().to_col_major().unwrap() * j;
             let a = jtj + &lambda_i;
             let b = j.transpose() * -ColRef::from_slice(&global_residual);
