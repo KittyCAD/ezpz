@@ -1,9 +1,9 @@
 [workspace]
-members = ["ezpz-cli", 'ezpz-wasm', 'fuzz', 'kcl-ezpz', 'newtonls-faer']
+members = ["ezpz-cli", 'ezpz-wasm', 'fuzz', 'kcl-ezpz']
 resolver = "3"
 
 [profile.dev.package]
 faer = { opt-level = 3 }
 
 [profile.bench]
-debug = true
+debug = "full"

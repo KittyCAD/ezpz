@@ -1,12 +1,13 @@
 use std::sync::Mutex;
 
-use faer::sparse::{Pair, SymbolicSparseColMat};
-use newton_faer::{JacobianCache, NonlinearSystem, RowMap};
+use faer::sparse::{Pair, SparseColMatRef, SymbolicSparseColMat, linalg::solvers::SymbolicLu};
 
 use crate::{
     Constraint, ConstraintEntry, NonLinearSystemError, Warning, WarningContent,
     constraints::JacobianVar, id::Id,
 };
+
+mod newton;
 
 // Roughly. Most constraints will only involve roughly 4 variables.
 // May as well round up to the nearest power of 2.
@@ -19,17 +20,21 @@ const REGULARIZATION_LAMBDA: f64 = 1e-9;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Config {
-    /// Use Tikhonov regularization to solve underdetermined systems.
-    pub regularization_enabled: bool,
     /// How many iteration rounds before the solver gives up?
     pub max_iterations: usize,
+    /// How close can the residual be to 0 before we declare the system is solved?
+    /// Smaller number means more precise solves.
+    pub convergence_tolerance: f64,
+    /// Stop iterating if the step size becomes negligible (relative infinity norm).
+    pub step_tolerance: f64,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
-            regularization_enabled: true,
             max_iterations: 35,
+            convergence_tolerance: 1e-8,
+            step_tolerance: 1e-12,
         }
     }
 }
@@ -39,57 +44,31 @@ pub struct Layout {
     pub total_num_residuals: usize,
     /// One variable per column of the matrix.
     pub num_variables: usize,
-    num_residuals_constraints: usize,
+    // num_residuals_constraints: usize,
 }
 
 impl Layout {
-    pub fn new(all_variables: &[Id], constraints: &[&Constraint], config: Config) -> Self {
+    pub fn new(all_variables: &[Id], constraints: &[&Constraint], _config: Config) -> Self {
         // We'll have different numbers of rows in the system depending on whether
         // or not regularization is enabled.
         let num_residuals_constraints: usize = constraints.iter().map(|c| c.residual_dim()).sum();
-        let num_residuals_regularization = if config.regularization_enabled {
-            all_variables.len()
-        } else {
-            0
-        };
 
         // Build the full system.
-        let num_residuals = num_residuals_constraints + num_residuals_regularization;
+        let num_residuals = num_residuals_constraints;
         let num_rows = num_residuals;
         Self {
             total_num_residuals: num_rows,
             num_variables: all_variables.len(),
-            num_residuals_constraints,
+            // num_residuals_constraints,
         }
     }
 
-    pub fn index_of(&self, var: <Layout as RowMap>::Var) -> usize {
+    pub fn index_of(&self, var: Id) -> usize {
         var as usize
     }
 
     pub fn num_rows(&self) -> usize {
         self.total_num_residuals
-    }
-}
-
-impl RowMap for Layout {
-    type Var = Id;
-
-    // `faer_newton` stores variables in a vec, refers to them only by their offset.
-    // So this function lets you look up the index of a particular variable in that vec.
-    // `bus` is the row index and `var` is the variable being looked up,
-    // and you get the index (column) of the variable in that row.
-    fn row(&self, _row_number: usize, var: Self::Var) -> Option<usize> {
-        // In our system, variables are the same in every row.
-        Some(var as usize)
-    }
-
-    fn n_variables(&self) -> usize {
-        self.num_variables
-    }
-
-    fn n_residuals(&self) -> usize {
-        self.num_rows()
     }
 }
 
@@ -106,24 +85,6 @@ struct Jc {
     vals: Vec<f64>,
 }
 
-impl JacobianCache<f64> for Jc {
-    /// Self owns the symbolic pattern, so it can
-    /// give out a reference to it.
-    fn symbolic(&self) -> &SymbolicSparseColMat<usize> {
-        &self.sym
-    }
-
-    /// Lets newton-faer read the current values.
-    fn values(&self) -> &[f64] {
-        &self.vals
-    }
-
-    /// Lets newton-faer overwrite the previous values.
-    fn values_mut(&mut self) -> &mut [f64] {
-        &mut self.vals
-    }
-}
-
 /// The problem to actually solve.
 /// Note that the initial values of each variable are required for Tikhonov regularization.
 pub(crate) struct Model<'c> {
@@ -132,9 +93,9 @@ pub(crate) struct Model<'c> {
     constraints: &'c [ConstraintEntry<'c>],
     row0_scratch: Vec<JacobianVar>,
     row1_scratch: Vec<JacobianVar>,
-    initial_values: Vec<f64>,
-    config: Config,
     pub(crate) warnings: Mutex<Vec<Warning>>,
+    lambda_i: faer::sparse::SparseColMat<usize, f64>,
+    lu_symbolic: SymbolicLu<usize>,
 }
 
 fn validate_variables(
@@ -205,7 +166,9 @@ impl<'c> Model<'c> {
         let layout = Layout::new(&all_variables, cs.as_slice(), config);
 
         // Generate the Jacobian matrix structure.
-        let mut nonzero_cells: Vec<Pair<usize, usize>> =
+        // This is the nonzeroes of `J`.
+        // It's MxN.
+        let mut nonzero_cells_j: Vec<Pair<usize, usize>> =
             Vec::with_capacity(NONZEROES_PER_ROW * layout.total_num_residuals);
         let mut row_num = 0;
         let mut nonzeroes_scratch0 = Vec::with_capacity(NONZEROES_PER_ROW);
@@ -223,16 +186,8 @@ impl<'c> Model<'c> {
                 row_num += 1;
                 for var in row.iter() {
                     let col = layout.index_of(*var);
-                    nonzero_cells.push(Pair { row: this_row, col });
+                    nonzero_cells_j.push(Pair { row: this_row, col });
                 }
-            }
-        }
-
-        // Stack our regularization rows below the constraint rows.
-        if config.regularization_enabled {
-            for col in 0..num_cols {
-                let reg_row = layout.num_residuals_constraints + col;
-                nonzero_cells.push(Pair { row: reg_row, col });
             }
         }
 
@@ -240,48 +195,68 @@ impl<'c> Model<'c> {
         let (sym, _) = SymbolicSparseColMat::try_new_from_indices(
             layout.num_rows(),
             num_cols,
-            &nonzero_cells,
+            &nonzero_cells_j,
         )?;
+
+        // Preallocate this so we can use it whenever we run a newton solve.
+        // This 'damps' the jacobian matrix, ensuring that as its coefficients get smaller,
+        // the solver takes smaller and smaller steps.
+        let lambda_i = build_lambda_i(layout.num_variables);
+
+        let jc = Jc {
+            vals: vec![0.0; sym.compute_nnz()], // We have a nonzero count util.
+            sym,
+        };
+
+        // Precompute the symbolic LU of A = JᵀJ + λI so we can reuse it inside the Newton loop.
+        let lu_symbolic = Self::precompute_symbolic_lu(&jc.sym, &lambda_i)?;
 
         // All done.
         Ok(Self {
             warnings: Default::default(),
-            config,
             layout,
-            jc: Jc {
-                vals: vec![0.0; sym.compute_nnz()], // We have a nonzero count util.
-                sym,
-            },
+            jc,
             constraints,
             row0_scratch: Vec::with_capacity(NONZEROES_PER_ROW),
             row1_scratch: Vec::with_capacity(NONZEROES_PER_ROW),
-            initial_values,
+            lambda_i,
+            lu_symbolic,
         })
+    }
+
+    /// This is used in the core Newton solving, but it can be calculated entirely from
+    /// the symbolic structure of the constraints. So let's do it here, before running
+    /// the newton loop, to keep that loop fast.
+    fn precompute_symbolic_lu(
+        jc_sym: &SymbolicSparseColMat<usize>,
+        lambda_i: &faer::sparse::SparseColMat<usize, f64>,
+    ) -> Result<SymbolicLu<usize>, NonLinearSystemError> {
+        // Any non-zero values will do; we only care about the sparsity pattern of JᵀJ + λI.
+        let ones = vec![1.0; jc_sym.compute_nnz()];
+        let j = SparseColMatRef::new(jc_sym.as_ref(), &ones);
+        let jt = j.transpose().to_col_major()?;
+        let jtj = jt * j;
+        let a = jtj + lambda_i;
+        Ok(SymbolicLu::try_new(a.symbolic())?)
     }
 }
 
+fn build_lambda_i(num_variables: usize) -> faer::sparse::SparseColMat<usize, f64> {
+    faer::sparse::SparseColMat::<usize, f64>::try_new_from_triplets(
+        num_variables,
+        num_variables,
+        &(0..num_variables)
+            .map(|i| faer::sparse::Triplet::new(i, i, REGULARIZATION_LAMBDA))
+            .collect::<Vec<_>>(),
+    )
+    .unwrap()
+}
+
 /// Connect the model to newton_faer's solver.
-impl NonlinearSystem for Model<'_> {
-    /// What number type we're using.
-    type Real = f64;
-    type Layout = Layout;
-
-    fn layout(&self) -> &Self::Layout {
-        &self.layout
-    }
-
-    /// Let the solver read the Jacobian cache.
-    fn jacobian(&self) -> &dyn JacobianCache<Self::Real> {
-        &self.jc
-    }
-
-    /// Let the solver write into the Jacobian cache.
-    fn jacobian_mut(&mut self) -> &mut dyn JacobianCache<Self::Real> {
-        &mut self.jc
-    }
-
+impl Model<'_> {
     /// Compute the residual F, figuring out how close the problem is to being solved.
-    fn residual(&self, current_assignments: &[Self::Real], out: &mut [Self::Real]) {
+    /// `out` is the global residual vector.
+    fn residual(&self, current_assignments: &[f64], out: &mut [f64]) {
         // Each row of `out` corresponds to one row of the matrix, i.e. one equation.
         // Each item of `current_assignments` corresponds to one column of the matrix, i.e. one variable.
         let mut row_num = 0;
@@ -316,18 +291,10 @@ impl NonlinearSystem for Model<'_> {
                 out[this_row] = **row;
             }
         }
-
-        // Add Tikhonov regularization residuals: lambda * (x - x0).
-        if self.config.regularization_enabled {
-            for (&val, &val_init) in current_assignments.iter().zip(self.initial_values.iter()) {
-                out[row_num] = REGULARIZATION_LAMBDA * (val - val_init);
-                row_num += 1;
-            }
-        }
     }
 
     /// Update the values of a cached sparse Jacobian.
-    fn refresh_jacobian(&mut self, current_assignments: &[Self::Real]) {
+    fn refresh_jacobian(&mut self, current_assignments: &[f64]) {
         // To enable per-variable partial derivative accumulation (i.e. local to global
         // Jacobian assembly), we need to zero out the Jacobian values first.
         self.jc.vals.fill(0.0);
@@ -338,6 +305,8 @@ impl NonlinearSystem for Model<'_> {
 
         // Build values by iterating through constraints in the same order as their construction.
         let mut row_num = 0;
+        #[cfg(feature = "dbg-jac")]
+        let mut dbg_matrix: Vec<Vec<f64>> = vec![];
         for (i, constraint) in self.constraints.iter().enumerate() {
             let mut degenerate = false;
             self.row0_scratch.clear();
@@ -364,7 +333,14 @@ impl NonlinearSystem for Model<'_> {
             {
                 let this_row = row_num;
                 row_num += 1;
+                #[cfg(feature = "dbg-jac")]
+                dbg_matrix.push(vec![0.0; self.layout.num_variables]);
                 for jacobian_var in row {
+                    #[cfg(feature = "dbg-jac")]
+                    {
+                        dbg_matrix.last_mut().unwrap()[jacobian_var.id as usize] +=
+                            jacobian_var.partial_derivative;
+                    }
                     let col = self.layout.index_of(jacobian_var.id);
 
                     // Find where this (row_num, col) entry should go in the sparse structure.
@@ -378,27 +354,22 @@ impl NonlinearSystem for Model<'_> {
                 }
             }
         }
-
-        // Add regularization values.
-        if self.config.regularization_enabled {
-            let num_constraint_residuals: usize = self
-                .constraints
-                .iter()
-                .map(|c| c.constraint.residual_dim())
-                .sum();
-
-            for col in 0..self.layout.n_variables() {
-                let reg_row = num_constraint_residuals + col;
-
-                // Find where this (reg_row, col) entry should go in the sparse structure.
-                let mut col_range = self.jc.sym.col_range(col);
-                let row_indices = self.jc.sym.row_idx();
-
-                // Search for our regularization row within this column's entries and set the regularization Jacobian
-                // entry to lambda. (Because derivative of lambda*(x-x0) w.r.t. x = lambda.)
-                let idx = col_range.find(|idx| row_indices[*idx] == reg_row).unwrap();
-
-                self.jc.vals[idx] = REGULARIZATION_LAMBDA;
+        #[cfg(feature = "dbg-jac")]
+        assert_eq!(dbg_matrix.len(), self.layout.num_rows());
+        #[cfg(feature = "dbg-jac")]
+        {
+            for (i, dbg_row) in dbg_matrix.into_iter().enumerate() {
+                let inner: Vec<_> = dbg_row
+                    .into_iter()
+                    .map(|d| {
+                        if d.is_sign_positive() {
+                            format!(" {d:.2}")
+                        } else {
+                            format!("{d:.2}")
+                        }
+                    })
+                    .collect();
+                eprintln!("Row {i}: [{}]", inner.join(" "));
             }
         }
     }

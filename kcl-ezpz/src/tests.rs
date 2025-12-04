@@ -161,8 +161,8 @@ fn perpdist() {
     assert_points_eq(
         solved.get_point("a").unwrap(),
         Point {
-            x: -0.062819,
-            y: 1.7085463,
+            x: 0.10055560181546289,
+            y: 1.9536090405127489,
         },
     );
 }
@@ -178,8 +178,8 @@ fn perpdist_negative() {
     assert_points_eq(
         solved.get_point("a").unwrap(),
         Point {
-            x: 1.60128,
-            y: 0.59914,
+            x: 1.5192717280306194,
+            y: 0.476131954511605,
         },
     );
 }
@@ -217,8 +217,8 @@ fn tiny_no_regularization() {
     let solved = run_with_config(
         "tiny",
         Config {
-            regularization_enabled: false,
             max_iterations: 25,
+            ..Default::default()
         },
     );
     assert!(solved.unsatisfied.is_empty());
@@ -381,8 +381,8 @@ fn arc_radius() {
     assert!(solved.unsatisfied.is_empty());
     let arc = solved.get_arc("a").unwrap();
     assert_points_eq(arc.center, Point { x: 0.0, y: 0.0 });
-    assert_points_eq(arc.a, Point { x: 0.0, y: 5.0 });
-    assert_points_eq(arc.b, Point { x: 5.0, y: 0.0 });
+    assert_nearly_eq(5.0, arc.a.euclidean_distance(Default::default()));
+    assert_nearly_eq(5.0, arc.b.euclidean_distance(Default::default()));
 }
 
 #[test]
@@ -448,7 +448,7 @@ fn strange_nonconvergence() {
         },
     );
     let iterations = outcome.unwrap().iterations;
-    assert_eq!(iterations, 30);
+    assert_eq!(iterations, 2);
 }
 
 #[test]

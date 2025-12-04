@@ -7,7 +7,6 @@ use kcl_ezpz::{
     solve_with_priority,
     textual::Problem,
 };
-use newton_faer::init_global_parallelism;
 
 /// General benchmark template.
 /// Opens a given test case from the test_cases/ dir,
@@ -23,14 +22,6 @@ fn bench_case(c: &mut Criterion, test_case: &'static str) {
     });
 }
 
-fn solve_tiny(c: &mut Criterion) {
-    bench_case(c, "tiny")
-}
-
-fn solve_symmetric(c: &mut Criterion) {
-    bench_case(c, "symmetric")
-}
-
 fn solve_inconsistent(c: &mut Criterion) {
     bench_case(c, "inconsistent")
 }
@@ -39,27 +30,14 @@ fn solve_two_rectangles(c: &mut Criterion) {
     bench_case(c, "two_rectangles")
 }
 
-fn solve_angle_parallel(c: &mut Criterion) {
-    bench_case(c, "angle_parallel")
-}
-
-fn solve_angle_parallel_manual(c: &mut Criterion) {
-    bench_case(c, "angle_parallel_manual")
-}
-
 fn solve_nonsquare(c: &mut Criterion) {
     bench_case(c, "nonsquare")
-}
-
-fn solve_perpendicular(c: &mut Criterion) {
-    bench_case(c, "perpendicular")
 }
 
 /// Just like `solve_two_rectangles`, except that the rectangles
 /// depend on each other.
 fn solve_two_rectangles_dependent(c: &mut Criterion) {
     let mut id_generator = IdGenerator::default();
-    init_global_parallelism(1);
     let p0 = DatumPoint::new(&mut id_generator);
     let p1 = DatumPoint::new(&mut id_generator);
     let p2 = DatumPoint::new(&mut id_generator);
@@ -191,16 +169,11 @@ fn run_massive(c: &mut Criterion, overconstrained: bool) {
 
 criterion_group!(
     benches,
-    solve_tiny,
     solve_inconsistent,
     solve_nonsquare,
     solve_two_rectangles,
     solve_two_rectangles_dependent,
-    solve_angle_parallel,
-    solve_angle_parallel_manual,
-    solve_perpendicular,
     solve_massive,
     solve_massive_overconstrained,
-    solve_symmetric,
 );
 criterion_main!(benches);

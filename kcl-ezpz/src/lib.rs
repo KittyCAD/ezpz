@@ -12,7 +12,8 @@ pub use crate::solver::Config;
 // or find a different way to structure modules.
 pub use crate::id::{Id, IdGenerator};
 use crate::solver::Model;
-use faer::sparse::CreationError;
+use faer::sparse::linalg::LuError;
+use faer::sparse::{CreationError, FaerError};
 pub use warnings::{Warning, WarningContent};
 
 mod constraint_request;
@@ -67,6 +68,20 @@ pub enum NonLinearSystemError {
         #[from]
         error: CreationError,
     },
+    #[error("Something went wrong in faer: {error}")]
+    Faer {
+        #[from]
+        error: FaerError,
+    },
+    #[error("Something went wrong doing matrix solves in faer: {error}")]
+    FaerSolve {
+        #[from]
+        error: LuError,
+    },
+    #[error("Could not find a solution in the allowed number of iterations")]
+    DidNotConverge,
+    #[error("Cannot solve an empty system")]
+    EmptySystemNotAllowed,
 }
 
 #[derive(Debug)]
@@ -240,18 +255,14 @@ fn solve_inner(
         }
     };
 
-    let mut newton_faer_config = newton_faer::NewtonCfg::sparse().with_adaptive(true);
-    newton_faer_config.max_iter = config.max_iterations;
-
     let mut unsatisfied: Vec<usize> = Vec::new();
-    let outcome = newton_faer::solve(&mut model, &mut values, newton_faer_config)
-        .map_err(|errs| Error::Solver(Box::new(errs.into_error())));
+    let outcome = model.solve_gauss_newton(&mut values, config);
     warnings.extend(model.warnings.lock().unwrap().drain(..));
     let iterations = match outcome {
         Ok(o) => o,
         Err(e) => {
             return Err(FailureOutcome {
-                error: e,
+                error: e.into(),
                 warnings,
                 num_vars,
                 num_eqs,
