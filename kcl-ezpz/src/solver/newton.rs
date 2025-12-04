@@ -6,6 +6,7 @@ use faer::{
     sparse::{
         SparseColMatMut, SparseColMatRef,
         linalg::{matmul, solvers::Lu},
+        ops,
     },
 };
 
@@ -31,6 +32,8 @@ impl Model<'_> {
         };
         let mut jtj_vals = vec![0.0; jtj_nnz];
         let mut jtj_mem = MemBuffer::new(jtj_scratch_req);
+        let mut a_vals = vec![0.0; self.a_sym.compute_nnz()];
+        let mut jt_vals = vec![0.0; self.jt_sym.compute_nnz()];
 
         for this_iteration in 0..config.max_iterations {
             // Assemble global residual and Jacobian
@@ -39,6 +42,9 @@ impl Model<'_> {
             // Re-evaluate the global jacobian, write it into self.jc
             self.refresh_jacobian(current_values);
             let (jtj_sym, jtj_info) = &self.jtj_symbolic;
+            for (jt_idx, jc_idx) in self.jt_value_indices.iter().copied().enumerate() {
+                jt_vals[jt_idx] = self.jc.vals[jc_idx];
+            }
 
             // Convergence check: if the residual is within our tolerance,
             // then the system is totally solved and we can return.
@@ -55,13 +61,11 @@ impl Model<'_> {
                (JᵀJ + λI) d = -Jᵀr
                This involves creating a matrix A and rhs b where
                A = JᵀJ + λI
-               b = -Jᵀr
+            b = -Jᵀr
             */
 
             let j = SparseColMatRef::new(self.jc.sym.as_ref(), &self.jc.vals);
-            // TODO: Is there any way to transpose `j` and keep it in column-major?
-            // Converting from row- to column-major might not be necessary.
-            let jt = j.transpose().to_col_major()?;
+            let jt = SparseColMatRef::new(self.jt_sym.as_ref(), &jt_vals);
 
             // Compute JᵀJ, reusing its symbolic structure.
             let jtj_stack = MemStack::new(&mut jtj_mem);
@@ -77,7 +81,24 @@ impl Model<'_> {
             );
             let jtj = SparseColMatRef::new(jtj_sym.as_ref(), &jtj_vals);
 
-            let a = jtj + &self.lambda_i;
+            a_vals.fill(0.0);
+            ops::binary_op_assign_into(
+                SparseColMatMut::new(self.a_sym.as_ref(), &mut a_vals),
+                jtj,
+                |dst, src| {
+                    *dst = *src.unwrap_or(&0.0);
+                },
+            );
+            ops::binary_op_assign_into(
+                SparseColMatMut::new(self.a_sym.as_ref(), &mut a_vals),
+                self.lambda_i.as_ref(),
+                |dst, src| {
+                    if let Some(val) = src {
+                        *dst += *val;
+                    }
+                },
+            );
+            let a = SparseColMatRef::new(self.a_sym.as_ref(), &a_vals);
             let b = j.transpose() * -ColRef::from_slice(&global_residual);
 
             // Solve linear system

@@ -101,6 +101,8 @@ pub(crate) struct Model<'c> {
     lu_symbolic: SymbolicLu<usize>,
     jt_sym: SymbolicSparseColMat<usize>,
     jtj_symbolic: (SymbolicSparseColMat<usize>, SparseMatMulInfo),
+    a_sym: SymbolicSparseColMat<usize>,
+    jt_value_indices: Vec<usize>,
 }
 
 fn validate_variables(
@@ -217,6 +219,8 @@ impl<'c> Model<'c> {
         let lu_symbolic = Self::precompute_symbolic_lu(&jc.sym, &lambda_i)?;
         let jt_sym = jc.sym.transpose().to_col_major()?;
         let jtj_symbolic = Self::precompute_symbolic_jtj(&jt_sym, &jc.sym)?;
+        let a_sym = Self::precompute_symbolic_a(&jtj_symbolic.0, &lambda_i)?;
+        let jt_value_indices = Self::precompute_jt_value_indices(&jc.sym, &jt_sym);
 
         // All done.
         Ok(Self {
@@ -230,6 +234,8 @@ impl<'c> Model<'c> {
             lu_symbolic,
             jt_sym,
             jtj_symbolic,
+            a_sym,
+            jt_value_indices,
         })
     }
 
@@ -242,6 +248,41 @@ impl<'c> Model<'c> {
             jc_sym.as_ref(),
         )?;
         Ok(jtj_sym)
+    }
+
+    fn precompute_symbolic_a(
+        jtj_sym: &SymbolicSparseColMat<usize>,
+        lambda_i: &faer::sparse::SparseColMat<usize, f64>,
+    ) -> Result<SymbolicSparseColMat<usize>, NonLinearSystemError> {
+        // Any non-zero values will do; we only care about the sparsity pattern of JᵀJ + λI.
+        let ones = vec![1.0; jtj_sym.compute_nnz()];
+        let jtj = SparseColMatRef::new(jtj_sym.as_ref(), &ones);
+        let a = jtj + lambda_i;
+        Ok(a.symbolic().to_owned()?)
+    }
+
+    fn precompute_jt_value_indices(
+        jc_sym: &SymbolicSparseColMat<usize>,
+        jt_sym: &SymbolicSparseColMat<usize>,
+    ) -> Vec<usize> {
+        let mut indices = Vec::with_capacity(jt_sym.compute_nnz());
+        let jc_row_idx = jc_sym.row_idx();
+        let jt_row_idx = jt_sym.row_idx();
+
+        for jt_col in 0..jt_sym.ncols() {
+            let jt_col_range = jt_sym.col_range(jt_col);
+            for jt_idx in jt_col_range.clone() {
+                let original_col = jt_row_idx[jt_idx];
+                let original_row = jt_col;
+                let mut jc_col_range = jc_sym.col_range(original_col);
+                let jc_idx = jc_col_range
+                    .find(|idx| jc_row_idx[*idx] == original_row)
+                    .expect("transpose symbolic structure mismatch");
+                indices.push(jc_idx);
+            }
+        }
+
+        indices
     }
 
     /// This is used in the core Newton solving, but it can be calculated entirely from
