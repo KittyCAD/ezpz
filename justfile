@@ -30,7 +30,7 @@ test-with-coverage:
 
 # Flamegraph our benchmarks
 flamegraph:
-    cargo flamegraph -p --root --bench solver_bench
+    cargo flamegraph -p kcl-ezpz --bench solver_bench
 
 # Run benchmarks
 bench:
