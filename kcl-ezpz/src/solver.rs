@@ -99,6 +99,7 @@ pub(crate) struct Model<'c> {
     pub(crate) warnings: Mutex<Vec<Warning>>,
     lambda_i: faer::sparse::SparseColMat<usize, f64>,
     lu_symbolic: SymbolicLu<usize>,
+    jt_sym: SymbolicSparseColMat<usize>,
     jtj_symbolic: (SymbolicSparseColMat<usize>, SparseMatMulInfo),
 }
 
@@ -214,7 +215,8 @@ impl<'c> Model<'c> {
 
         // Precompute the symbolic LU of A = JᵀJ + λI so we can reuse it inside the Newton loop.
         let lu_symbolic = Self::precompute_symbolic_lu(&jc.sym, &lambda_i)?;
-        let jtj_symbolic = Self::precompute_symbolic_jtj(&jc.sym)?;
+        let jt_sym = jc.sym.transpose().to_col_major()?;
+        let jtj_symbolic = Self::precompute_symbolic_jtj(&jt_sym, &jc.sym)?;
 
         // All done.
         Ok(Self {
@@ -226,14 +228,15 @@ impl<'c> Model<'c> {
             row1_scratch: Vec::with_capacity(NONZEROES_PER_ROW),
             lambda_i,
             lu_symbolic,
+            jt_sym,
             jtj_symbolic,
         })
     }
 
     fn precompute_symbolic_jtj(
+        jt_sym: &SymbolicSparseColMat<usize>,
         jc_sym: &SymbolicSparseColMat<usize>,
     ) -> Result<(SymbolicSparseColMat<usize>, SparseMatMulInfo), NonLinearSystemError> {
-        let jt_sym = jc_sym.transpose().to_col_major()?;
         let jtj_sym = faer::sparse::linalg::matmul::sparse_sparse_matmul_symbolic(
             jt_sym.as_ref(),
             jc_sym.as_ref(),
