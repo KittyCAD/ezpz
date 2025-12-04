@@ -243,8 +243,6 @@ fn solve_inner(
     };
 
     let mut unsatisfied: Vec<usize> = Vec::new();
-    // let outcome = newton_faer::solve(&mut model, &mut values, newton_faer_config)
-    //     .map_err(|errs| Error::Solver(Box::new(errs.into_error())));
     let outcome = model.run_newtons_method(&mut values, config);
     warnings.extend(model.warnings.lock().unwrap().drain(..));
     let iterations = match outcome {
