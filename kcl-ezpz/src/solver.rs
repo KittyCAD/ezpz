@@ -101,8 +101,10 @@ pub(crate) struct Model<'c> {
     lu_symbolic: SymbolicLu<usize>,
     jt_sym: SymbolicSparseColMat<usize>,
     jtj_symbolic: (SymbolicSparseColMat<usize>, SparseMatMulInfo),
-    a_sym: SymbolicSparseColMat<usize>,
     jt_value_indices: Vec<usize>,
+    a_sym: SymbolicSparseColMat<usize>,
+    a_from_jtj_indices: Vec<usize>,
+    lambda_diag_indices: Vec<usize>,
 }
 
 fn validate_variables(
@@ -219,8 +221,10 @@ impl<'c> Model<'c> {
         let lu_symbolic = Self::precompute_symbolic_lu(&jc.sym, &lambda_i)?;
         let jt_sym = jc.sym.transpose().to_col_major()?;
         let jtj_symbolic = Self::precompute_symbolic_jtj(&jt_sym, &jc.sym)?;
-        let a_sym = Self::precompute_symbolic_a(&jtj_symbolic.0, &lambda_i)?;
         let jt_value_indices = Self::precompute_jt_value_indices(&jc.sym, &jt_sym);
+        let a_sym = Self::precompute_symbolic_a(&jtj_symbolic.0, &lambda_i)?;
+        let a_from_jtj_indices = Self::precompute_a_from_jtj_indices(&jtj_symbolic.0, &a_sym);
+        let lambda_diag_indices = Self::precompute_lambda_diag_indices(&a_sym);
 
         // All done.
         Ok(Self {
@@ -234,8 +238,10 @@ impl<'c> Model<'c> {
             lu_symbolic,
             jt_sym,
             jtj_symbolic,
-            a_sym,
             jt_value_indices,
+            a_sym,
+            a_from_jtj_indices,
+            lambda_diag_indices,
         })
     }
 
@@ -248,17 +254,6 @@ impl<'c> Model<'c> {
             jc_sym.as_ref(),
         )?;
         Ok(jtj_sym)
-    }
-
-    fn precompute_symbolic_a(
-        jtj_sym: &SymbolicSparseColMat<usize>,
-        lambda_i: &faer::sparse::SparseColMat<usize, f64>,
-    ) -> Result<SymbolicSparseColMat<usize>, NonLinearSystemError> {
-        // Any non-zero values will do; we only care about the sparsity pattern of JᵀJ + λI.
-        let ones = vec![1.0; jtj_sym.compute_nnz()];
-        let jtj = SparseColMatRef::new(jtj_sym.as_ref(), &ones);
-        let a = jtj + lambda_i;
-        Ok(a.symbolic().to_owned()?)
     }
 
     fn precompute_jt_value_indices(
@@ -283,6 +278,49 @@ impl<'c> Model<'c> {
         }
 
         indices
+    }
+
+    fn precompute_symbolic_a(
+        jtj_sym: &SymbolicSparseColMat<usize>,
+        lambda_i: &faer::sparse::SparseColMat<usize, f64>,
+    ) -> Result<SymbolicSparseColMat<usize>, NonLinearSystemError> {
+        let ones = vec![1.0; jtj_sym.compute_nnz()];
+        let jtj = SparseColMatRef::new(jtj_sym.as_ref(), &ones);
+        let a = jtj + lambda_i;
+        Ok(a.symbolic().to_owned()?)
+    }
+
+    fn precompute_a_from_jtj_indices(
+        jtj_sym: &SymbolicSparseColMat<usize>,
+        a_sym: &SymbolicSparseColMat<usize>,
+    ) -> Vec<usize> {
+        let mut indices = Vec::with_capacity(jtj_sym.compute_nnz());
+        let a_row_idx = a_sym.row_idx();
+        for col in 0..jtj_sym.ncols() {
+            let jtj_col_range = jtj_sym.col_range(col);
+            for jtj_idx in jtj_col_range.clone() {
+                let row = jtj_sym.row_idx()[jtj_idx];
+                let mut a_col_range = a_sym.col_range(col);
+                let a_idx = a_col_range
+                    .find(|idx| a_row_idx[*idx] == row)
+                    .expect("A symbolic must contain all J^T J entries");
+                indices.push(a_idx);
+            }
+        }
+        indices
+    }
+
+    fn precompute_lambda_diag_indices(a_sym: &SymbolicSparseColMat<usize>) -> Vec<usize> {
+        let mut diag = Vec::with_capacity(a_sym.ncols());
+        let row_idx = a_sym.row_idx();
+        for col in 0..a_sym.ncols() {
+            let mut col_range = a_sym.col_range(col);
+            let idx = col_range
+                .find(|idx| row_idx[*idx] == col)
+                .expect("diagonal must exist in JᵀJ + λI");
+            diag.push(idx);
+        }
+        diag
     }
 
     /// This is used in the core Newton solving, but it can be calculated entirely from

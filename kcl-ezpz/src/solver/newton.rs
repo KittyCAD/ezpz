@@ -6,7 +6,6 @@ use faer::{
     sparse::{
         SparseColMatMut, SparseColMatRef,
         linalg::{matmul, solvers::Lu},
-        ops,
     },
 };
 
@@ -32,8 +31,8 @@ impl Model<'_> {
         };
         let mut jtj_vals = vec![0.0; jtj_nnz];
         let mut jtj_mem = MemBuffer::new(jtj_scratch_req);
-        let mut a_vals = vec![0.0; self.a_sym.compute_nnz()];
         let mut jt_vals = vec![0.0; self.jt_sym.compute_nnz()];
+        let mut a_vals = vec![0.0; self.a_sym.compute_nnz()];
 
         for this_iteration in 0..config.max_iterations {
             // Assemble global residual and Jacobian
@@ -79,25 +78,13 @@ impl Model<'_> {
                 get_global_parallelism(),
                 jtj_stack,
             );
-            let jtj = SparseColMatRef::new(jtj_sym.as_ref(), &jtj_vals);
-
             a_vals.fill(0.0);
-            ops::binary_op_assign_into(
-                SparseColMatMut::new(self.a_sym.as_ref(), &mut a_vals),
-                jtj,
-                |dst, src| {
-                    *dst = *src.unwrap_or(&0.0);
-                },
-            );
-            ops::binary_op_assign_into(
-                SparseColMatMut::new(self.a_sym.as_ref(), &mut a_vals),
-                self.lambda_i.as_ref(),
-                |dst, src| {
-                    if let Some(val) = src {
-                        *dst += *val;
-                    }
-                },
-            );
+            for (jtj_idx, a_idx) in self.a_from_jtj_indices.iter().copied().enumerate() {
+                a_vals[a_idx] = jtj_vals[jtj_idx];
+            }
+            for (col, diag_idx) in self.lambda_diag_indices.iter().copied().enumerate() {
+                a_vals[diag_idx] += self.lambda_i.val_of_col(col)[0];
+            }
             let a = SparseColMatRef::new(self.a_sym.as_ref(), &a_vals);
             let b = j.transpose() * -ColRef::from_slice(&global_residual);
 
