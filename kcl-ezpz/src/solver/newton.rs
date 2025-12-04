@@ -1,10 +1,13 @@
 use faer::{
     ColRef,
     prelude::Solve,
-    sparse::{SparseColMat, SparseColMatRef},
+    sparse::{
+        SparseColMatRef,
+        linalg::solvers::{Lu, SymbolicLu},
+    },
 };
 
-use crate::{Config, NonLinearSystemError, solver::REGULARIZATION_LAMBDA};
+use crate::{Config, NonLinearSystemError};
 
 use super::Model;
 
@@ -16,7 +19,6 @@ impl Model<'_> {
         config: Config,
     ) -> Result<usize, NonLinearSystemError> {
         let m = self.layout.total_num_residuals;
-        let n = self.layout.num_variables;
 
         let mut global_residual = vec![0.0; m];
 
@@ -30,14 +32,11 @@ impl Model<'_> {
             // Converged if residual is within tolerance
             // TODO: Is there a way to do this in faer, treating global_residual as a 1xN matrix
             // or a 1D vec?
-            // David's code:
-            // if (r.array().abs().maxCoeff() <= params.tolerance)
-            // let largest = ColRef::from_slice(&global_residual)
             let largest_absolute_elem = global_residual
                 .iter()
                 .map(|x| x.abs())
                 .reduce(f64::max)
-                .unwrap();
+                .ok_or(NonLinearSystemError::EmptySystemNotAllowed)?;
             if largest_absolute_elem <= config.convergence_tolerance {
                 return Ok(this_iteration);
             }
@@ -50,13 +49,16 @@ impl Model<'_> {
             */
 
             let j = SparseColMatRef::new(self.jc.sym.as_ref(), &self.jc.vals);
-            let jtj = j.transpose().to_col_major().unwrap() * j;
+            let jtj = j.transpose().to_col_major()? * j;
             let a = jtj + &self.lambda_i;
             let b = j.transpose() * -ColRef::from_slice(&global_residual);
 
             // Solve linear system
-            // David's code: `solver.compute(A)`;
-            let factored = a.sp_lu().unwrap();
+            // TODO: Can we calculate `a_sym` and therefore `lu_sym` OUTSIDE
+            // this main Newton loop, therefore making the solver much faster?
+            let a_sym = a.symbolic();
+            let lu_sym = SymbolicLu::try_new(a_sym)?;
+            let factored = Lu::try_new_with_symbolic(lu_sym, a.as_ref())?;
             let d = factored.solve(&b);
             assert_eq!(
                 d.nrows(),

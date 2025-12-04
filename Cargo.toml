@@ -6,4 +6,4 @@ resolver = "3"
 faer = { opt-level = 3 }
 
 [profile.bench]
-debug = true
+debug = "full"
