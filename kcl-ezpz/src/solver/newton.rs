@@ -33,6 +33,7 @@ impl Model<'_> {
         let mut jtj_mem = MemBuffer::new(jtj_scratch_req);
         let mut jt_vals = vec![0.0; self.jt_sym.compute_nnz()];
         let mut a_vals = vec![0.0; self.a_sym.compute_nnz()];
+        let mut b_vals = vec![0.0; self.layout.num_variables];
 
         for this_iteration in 0..config.max_iterations {
             // Assemble global residual and Jacobian
@@ -86,7 +87,16 @@ impl Model<'_> {
                 a_vals[diag_idx] += self.lambda_i.val_of_col(col)[0];
             }
             let a = SparseColMatRef::new(self.a_sym.as_ref(), &a_vals);
-            let b = j.transpose() * -ColRef::from_slice(&global_residual);
+            b_vals.fill(0.0);
+            let jt_row_idx = self.jt_sym.row_idx();
+            for (col, residual_val) in global_residual.iter().enumerate().take(self.jt_sym.ncols())
+            {
+                let col_range = self.jt_sym.col_range(col);
+                for idx in col_range.clone() {
+                    b_vals[jt_row_idx[idx]] -= jt_vals[idx] * residual_val;
+                }
+            }
+            let b = ColRef::from_slice(&b_vals);
 
             // Solve linear system
             let factored = Lu::try_new_with_symbolic(self.lu_symbolic.clone(), a.as_ref())?;
