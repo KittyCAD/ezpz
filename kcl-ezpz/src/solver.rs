@@ -97,6 +97,7 @@ pub(crate) struct Model<'c> {
     row0_scratch: Vec<JacobianVar>,
     row1_scratch: Vec<JacobianVar>,
     pub(crate) warnings: Mutex<Vec<Warning>>,
+    lambda_i: faer::sparse::SparseColMat<usize, f64>,
 }
 
 fn validate_variables(
@@ -199,6 +200,11 @@ impl<'c> Model<'c> {
             &nonzero_cells_j,
         )?;
 
+        // Preallocate this so we can use it whenever we run a newton solve.
+        // This 'damps' the jacobian matrix, ensuring that as its coefficients get smaller,
+        // the solver takes smaller and smaller steps.
+        let lambda_i = build_lambda_i(layout.num_variables);
+
         // All done.
         Ok(Self {
             warnings: Default::default(),
@@ -210,8 +216,20 @@ impl<'c> Model<'c> {
             constraints,
             row0_scratch: Vec::with_capacity(NONZEROES_PER_ROW),
             row1_scratch: Vec::with_capacity(NONZEROES_PER_ROW),
+            lambda_i,
         })
     }
+}
+
+fn build_lambda_i(num_variables: usize) -> faer::sparse::SparseColMat<usize, f64> {
+    faer::sparse::SparseColMat::<usize, f64>::try_new_from_triplets(
+        num_variables,
+        num_variables,
+        &(0..num_variables)
+            .map(|i| faer::sparse::Triplet::new(i, i, REGULARIZATION_LAMBDA))
+            .collect::<Vec<_>>(),
+    )
+    .unwrap()
 }
 
 /// Connect the model to newton_faer's solver.
