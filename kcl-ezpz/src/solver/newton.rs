@@ -5,7 +5,7 @@ use crate::{Config, NonLinearSystemError, solver::REGULARIZATION_LAMBDA};
 use super::Model;
 
 impl Model<'_> {
-    pub fn run_solve(
+    pub fn run_newtons_method(
         &mut self,
         current_values: &mut [f64],
         config: Config,

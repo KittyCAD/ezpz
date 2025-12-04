@@ -55,11 +55,6 @@ impl Layout {
         // We'll have different numbers of rows in the system depending on whether
         // or not regularization is enabled.
         let num_residuals_constraints: usize = constraints.iter().map(|c| c.residual_dim()).sum();
-        // let num_residuals_regularization = if config.regularization_enabled {
-        //     all_variables.len()
-        // } else {
-        //     0
-        // };
 
         // Build the full system.
         let num_residuals = num_residuals_constraints;
@@ -101,8 +96,6 @@ pub(crate) struct Model<'c> {
     constraints: &'c [ConstraintEntry<'c>],
     row0_scratch: Vec<JacobianVar>,
     row1_scratch: Vec<JacobianVar>,
-    // initial_values: Vec<f64>,
-    // config: Config,
     pub(crate) warnings: Mutex<Vec<Warning>>,
 }
 
@@ -199,14 +192,6 @@ impl<'c> Model<'c> {
             }
         }
 
-        // // Stack our regularization rows below the constraint rows.
-        // if config.regularization_enabled {
-        //     for col in 0..num_cols {
-        //         let reg_row = layout.num_residuals_constraints + col;
-        //         nonzero_cells_j.push(Pair { row: reg_row, col });
-        //     }
-        // }
-
         // Create symbolic structure; this will automatically deduplicate and sort.
         let (sym, _) = SymbolicSparseColMat::try_new_from_indices(
             layout.num_rows(),
@@ -217,7 +202,6 @@ impl<'c> Model<'c> {
         // All done.
         Ok(Self {
             warnings: Default::default(),
-            // config,
             layout,
             jc: Jc {
                 vals: vec![0.0; sym.compute_nnz()], // We have a nonzero count util.
@@ -226,7 +210,6 @@ impl<'c> Model<'c> {
             constraints,
             row0_scratch: Vec::with_capacity(NONZEROES_PER_ROW),
             row1_scratch: Vec::with_capacity(NONZEROES_PER_ROW),
-            // initial_values,
         })
     }
 }
@@ -270,14 +253,6 @@ impl Model<'_> {
                 out[this_row] = **row;
             }
         }
-
-        // // Add Tikhonov regularization residuals: lambda * (x - x0).
-        // if self.config.regularization_enabled {
-        //     for (&val, &val_init) in current_assignments.iter().zip(self.initial_values.iter()) {
-        //         out[row_num] = REGULARIZATION_LAMBDA * (val - val_init);
-        //         row_num += 1;
-        //     }
-        // }
     }
 
     /// Update the values of a cached sparse Jacobian.
@@ -359,28 +334,6 @@ impl Model<'_> {
                 eprintln!("Row {i}: [{}]", inner.join(" "));
             }
         }
-        // // Add regularization values.
-        // if self.config.regularization_enabled {
-        //     let num_constraint_residuals: usize = self
-        //         .constraints
-        //         .iter()
-        //         .map(|c| c.constraint.residual_dim())
-        //         .sum();
-
-        //     for col in 0..self.layout.n_variables() {
-        //         let reg_row = num_constraint_residuals + col;
-
-        //         // Find where this (reg_row, col) entry should go in the sparse structure.
-        //         let mut col_range = self.jc.sym.col_range(col);
-        //         let row_indices = self.jc.sym.row_idx();
-
-        //         // Search for our regularization row within this column's entries and set the regularization Jacobian
-        //         // entry to lambda. (Because derivative of lambda*(x-x0) w.r.t. x = lambda.)
-        //         let idx = col_range.find(|idx| row_indices[*idx] == reg_row).unwrap();
-
-        //         self.jc.vals[idx] = REGULARIZATION_LAMBDA;
-        //     }
-        // }
     }
 }
 
