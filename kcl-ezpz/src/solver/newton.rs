@@ -59,6 +59,7 @@ impl Model<'_> {
                     Default::default(),
                 )?;
             }
+            // d = LU(a, b)
             let mut d = b;
             {
                 let stack = MemStack::new(&mut self.lu_scratch);
