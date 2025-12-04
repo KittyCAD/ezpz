@@ -1,10 +1,7 @@
 use faer::{
     ColRef,
     prelude::Solve,
-    sparse::{
-        SparseColMatRef,
-        linalg::solvers::{Lu, SymbolicLu},
-    },
+    sparse::{SparseColMatRef, linalg::solvers::Lu},
 };
 
 use crate::{Config, NonLinearSystemError};
@@ -55,11 +52,7 @@ impl Model<'_> {
             let b = j.transpose() * -ColRef::from_slice(&global_residual);
 
             // Solve linear system
-            // TODO: Can we calculate `a_sym` and therefore `lu_sym` OUTSIDE
-            // this main Newton loop, therefore making the solver much faster?
-            let a_sym = a.symbolic();
-            let lu_sym = SymbolicLu::try_new(a_sym)?;
-            let factored = Lu::try_new_with_symbolic(lu_sym, a.as_ref())?;
+            let factored = Lu::try_new_with_symbolic(self.lu_symbolic.clone(), a.as_ref())?;
             let d = factored.solve(&b);
             assert_eq!(
                 d.nrows(),
