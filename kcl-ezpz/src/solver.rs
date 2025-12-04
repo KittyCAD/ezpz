@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 
-use faer::sparse::{Pair, SymbolicSparseColMat};
+use faer::sparse::{Pair, SparseColMatRef, SymbolicSparseColMat, linalg::solvers::SymbolicLu};
 
 use crate::{
     Constraint, ConstraintEntry, NonLinearSystemError, Warning, WarningContent,
@@ -98,6 +98,7 @@ pub(crate) struct Model<'c> {
     row1_scratch: Vec<JacobianVar>,
     pub(crate) warnings: Mutex<Vec<Warning>>,
     lambda_i: faer::sparse::SparseColMat<usize, f64>,
+    lu_symbolic: SymbolicLu<usize>,
 }
 
 fn validate_variables(
@@ -205,19 +206,41 @@ impl<'c> Model<'c> {
         // the solver takes smaller and smaller steps.
         let lambda_i = build_lambda_i(layout.num_variables);
 
+        let jc = Jc {
+            vals: vec![0.0; sym.compute_nnz()], // We have a nonzero count util.
+            sym,
+        };
+
+        // Precompute the symbolic LU of A = JᵀJ + λI so we can reuse it inside the Newton loop.
+        let lu_symbolic = Self::precompute_symbolic_lu(&jc.sym, &lambda_i)?;
+
         // All done.
         Ok(Self {
             warnings: Default::default(),
             layout,
-            jc: Jc {
-                vals: vec![0.0; sym.compute_nnz()], // We have a nonzero count util.
-                sym,
-            },
+            jc,
             constraints,
             row0_scratch: Vec::with_capacity(NONZEROES_PER_ROW),
             row1_scratch: Vec::with_capacity(NONZEROES_PER_ROW),
             lambda_i,
+            lu_symbolic,
         })
+    }
+
+    /// This is used in the core Newton solving, but it can be calculated entirely from
+    /// the symbolic structure of the constraints. So let's do it here, before running
+    /// the newton loop, to keep that loop fast.
+    fn precompute_symbolic_lu(
+        jc_sym: &SymbolicSparseColMat<usize>,
+        lambda_i: &faer::sparse::SparseColMat<usize, f64>,
+    ) -> Result<SymbolicLu<usize>, NonLinearSystemError> {
+        // Any non-zero values will do; we only care about the sparsity pattern of JᵀJ + λI.
+        let ones = vec![1.0; jc_sym.compute_nnz()];
+        let j = SparseColMatRef::new(jc_sym.as_ref(), &ones);
+        let jt = j.transpose().to_col_major()?;
+        let jtj = jt * j;
+        let a = jtj + lambda_i;
+        Ok(SymbolicLu::try_new(a.symbolic())?)
     }
 }
 
