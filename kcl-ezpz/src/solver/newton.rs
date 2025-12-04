@@ -1,8 +1,4 @@
-use faer::{
-    ColRef,
-    prelude::Solve,
-    sparse::{SparseColMatRef, linalg::solvers::Lu},
-};
+use faer::{ColRef, Conj, dyn_stack::MemStack, get_global_parallelism, sparse::SparseColMatRef};
 
 use crate::{Config, NonLinearSystemError};
 
@@ -52,8 +48,29 @@ impl Model<'_> {
             let b = j.transpose() * -ColRef::from_slice(&global_residual);
 
             // Solve linear system
-            let factored = Lu::try_new_with_symbolic(self.lu_symbolic.clone(), a.as_ref())?;
-            let d = factored.solve(&b);
+            let par = get_global_parallelism();
+            {
+                let stack = MemStack::new(&mut self.lu_scratch);
+                self.lu_symbolic.factorize_numeric_lu(
+                    &mut self.lu_numeric,
+                    a.as_ref(),
+                    par,
+                    stack,
+                    Default::default(),
+                )?;
+            }
+            // d = LU(a, b)
+            let mut d = b;
+            {
+                let stack = MemStack::new(&mut self.lu_scratch);
+                let lu_ref = unsafe {
+                    faer::sparse::linalg::lu::LuRef::<'_, usize, f64>::new_unchecked(
+                        &self.lu_symbolic,
+                        &self.lu_numeric,
+                    )
+                };
+                lu_ref.solve_in_place_with_conj(Conj::No, d.as_mut().as_mat_mut(), par, stack);
+            }
             assert_eq!(
                 d.nrows(),
                 current_values.len(),

@@ -1,6 +1,14 @@
 use std::sync::Mutex;
 
-use faer::sparse::{Pair, SparseColMatRef, SymbolicSparseColMat, linalg::solvers::SymbolicLu};
+use faer::dyn_stack::{MemBuffer, StackReq};
+use faer::sparse::FaerError;
+use faer::{
+    get_global_parallelism,
+    sparse::{
+        Pair, SparseColMatRef, SymbolicSparseColMat,
+        linalg::lu::{self, NumericLu, SymbolicLu},
+    },
+};
 
 use crate::{
     Constraint, ConstraintEntry, NonLinearSystemError, Warning, WarningContent,
@@ -99,6 +107,8 @@ pub(crate) struct Model<'c> {
     pub(crate) warnings: Mutex<Vec<Warning>>,
     lambda_i: faer::sparse::SparseColMat<usize, f64>,
     lu_symbolic: SymbolicLu<usize>,
+    lu_numeric: NumericLu<usize, f64>,
+    lu_scratch: MemBuffer,
 }
 
 fn validate_variables(
@@ -139,6 +149,7 @@ fn validate_variables(
 }
 
 impl<'c> Model<'c> {
+    #[inline(never)]
     pub fn new(
         constraints: &'c [ConstraintEntry<'c>],
         all_variables: Vec<Id>,
@@ -212,7 +223,9 @@ impl<'c> Model<'c> {
         };
 
         // Precompute the symbolic LU of A = JᵀJ + λI so we can reuse it inside the Newton loop.
-        let lu_symbolic = Self::precompute_symbolic_lu(&jc.sym, &lambda_i)?;
+        let (lu_symbolic, lu_scratch) =
+            Self::precompute_symbolic_lu(&jc.sym, &lambda_i, num_cols.max(layout.num_rows()))?;
+        let lu_numeric = NumericLu::new();
 
         // All done.
         Ok(Self {
@@ -224,6 +237,8 @@ impl<'c> Model<'c> {
             row1_scratch: Vec::with_capacity(NONZEROES_PER_ROW),
             lambda_i,
             lu_symbolic,
+            lu_numeric,
+            lu_scratch,
         })
     }
 
@@ -233,14 +248,24 @@ impl<'c> Model<'c> {
     fn precompute_symbolic_lu(
         jc_sym: &SymbolicSparseColMat<usize>,
         lambda_i: &faer::sparse::SparseColMat<usize, f64>,
-    ) -> Result<SymbolicLu<usize>, NonLinearSystemError> {
+        rhs_ncols: usize,
+    ) -> Result<(SymbolicLu<usize>, MemBuffer), NonLinearSystemError> {
         // Any non-zero values will do; we only care about the sparsity pattern of JᵀJ + λI.
         let ones = vec![1.0; jc_sym.compute_nnz()];
         let j = SparseColMatRef::new(jc_sym.as_ref(), &ones);
         let jt = j.transpose().to_col_major()?;
         let jtj = jt * j;
         let a = jtj + lambda_i;
-        Ok(SymbolicLu::try_new(a.symbolic())?)
+        let symbolic = lu::factorize_symbolic_lu(a.symbolic(), Default::default())?;
+        let par = get_global_parallelism();
+        let factorize_req = symbolic.factorize_numeric_lu_scratch::<f64>(par, Default::default());
+        let solve_req = symbolic.solve_in_place_scratch::<f64>(rhs_ncols, par);
+        let scratch_req = StackReq::or(factorize_req, solve_req);
+        let lu_scratch =
+            MemBuffer::try_new(scratch_req).map_err(|_| NonLinearSystemError::Faer {
+                error: FaerError::OutOfMemory,
+            })?;
+        Ok((symbolic, lu_scratch))
     }
 }
 
