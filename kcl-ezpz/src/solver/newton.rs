@@ -29,9 +29,8 @@ impl Model<'_> {
             // Re-evaluate the global jacobian, write it into self.jc
             self.refresh_jacobian(current_values);
 
-            // Converged if residual is within tolerance
-            // TODO: Is there a way to do this in faer, treating global_residual as a 1xN matrix
-            // or a 1D vec?
+            // Convergence check: if the residual is within our tolerance,
+            // then the system is totally solved and we can return.
             let largest_absolute_elem = global_residual
                 .iter()
                 .map(|x| x.abs())
@@ -49,6 +48,8 @@ impl Model<'_> {
             */
 
             let j = SparseColMatRef::new(self.jc.sym.as_ref(), &self.jc.vals);
+            // TODO: Is there any way to transpose `j` and keep it in column-major?
+            // Converting from row- to column-major might not be necessary.
             let jtj = j.transpose().to_col_major()? * j;
             let a = jtj + &self.lambda_i;
             let b = j.transpose() * -ColRef::from_slice(&global_residual);
@@ -74,6 +75,11 @@ impl Model<'_> {
                     *curr_val += d;
                 });
             let step_threshold = config.step_tolerance * (current_inf_norm + config.step_tolerance);
+
+            // Convergence check: if `d` is small enough,
+            // then the system is at a local minimum. It might be inconsistent, and therefore
+            // its residual will never get close to zero, but this is still a good least-squares solution,
+            // so we can return.
             if step_inf_norm <= step_threshold {
                 return Ok(this_iteration);
             }
