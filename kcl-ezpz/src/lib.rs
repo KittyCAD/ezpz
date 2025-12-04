@@ -12,7 +12,8 @@ pub use crate::solver::Config;
 // or find a different way to structure modules.
 pub use crate::id::{Id, IdGenerator};
 use crate::solver::Model;
-use faer::sparse::CreationError;
+use faer::sparse::linalg::LuError;
+use faer::sparse::{CreationError, FaerError};
 pub use warnings::{Warning, WarningContent};
 
 mod constraint_request;
@@ -67,8 +68,20 @@ pub enum NonLinearSystemError {
         #[from]
         error: CreationError,
     },
+    #[error("Something went wrong in faer: {error}")]
+    Faer {
+        #[from]
+        error: FaerError,
+    },
+    #[error("Something went wrong doing matrix solves in faer: {error}")]
+    FaerSolve {
+        #[from]
+        error: LuError,
+    },
     #[error("Could not find a solution in the allowed number of iterations")]
     DidNotConverge,
+    #[error("Cannot solve an empty system")]
+    EmptySystemNotAllowed,
 }
 
 #[derive(Debug)]
