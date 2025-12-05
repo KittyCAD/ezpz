@@ -21,6 +21,7 @@ pub enum Instruction {
     Tangent(Tangent),
     ArcRadius(ArcRadius),
     FixCenterPointComponent(FixCenterPointComponent),
+    FixObjectPointComponent(FixObjectPointComponent),
     LinesEqualLength(LinesEqualLength),
     IsArc(IsArc),
     PointLineDistance(PointLineDistance),
@@ -153,5 +154,13 @@ pub struct FixPointComponent {
 pub struct FixCenterPointComponent {
     pub object: Label,
     pub center_component: Component,
+    pub value: f64,
+}
+
+#[derive(Debug)]
+pub struct FixObjectPointComponent {
+    pub object: Label,
+    pub point: Label,
+    pub point_component: Component,
     pub value: f64,
 }

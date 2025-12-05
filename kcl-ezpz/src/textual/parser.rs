@@ -4,8 +4,9 @@ use crate::{
         ScalarGuess,
         instruction::{
             AngleLine, ArcRadius, CircleRadius, DeclareArc, DeclareCircle, Distance,
-            FixCenterPointComponent, IsArc, Line, LinesEqualLength, Midpoint, Parallel,
-            Perpendicular, PointLineDistance, PointsCoincident, Symmetric, Tangent,
+            FixCenterPointComponent, FixObjectPointComponent, IsArc, Line, LinesEqualLength,
+            Midpoint, Parallel, Perpendicular, PointLineDistance, PointsCoincident, Symmetric,
+            Tangent,
         },
     },
 };
@@ -381,6 +382,9 @@ fn parse_instruction(i: &mut &str) -> WResult<Vec<Instruction>> {
         parse_fix_center_point_component
             .map(Instruction::FixCenterPointComponent)
             .map(sv),
+        parse_fix_some_point_component
+            .map(Instruction::FixObjectPointComponent)
+            .map(sv),
         assign_point,
         parse_horizontal.map(Instruction::Horizontal).map(sv),
         parse_coincident.map(Instruction::PointsCoincident).map(sv),
@@ -500,6 +504,29 @@ fn parse_fix_center_point_component(i: &mut &str) -> WResult<FixCenterPointCompo
                 object: label,
                 center_component: component,
                 value,
+            },
+        )
+        .parse_next(i)
+}
+
+fn parse_fix_some_point_component(i: &mut &str) -> WResult<FixObjectPointComponent> {
+    (
+        parse_label,
+        '.',
+        parse_label,
+        '.',
+        parse_component,
+        delimited(space0, '=', space0),
+        parse_number,
+    )
+        .map(
+            |(label, _dot, point_label, _dot2, component, _equals, value)| {
+                FixObjectPointComponent {
+                    object: label,
+                    value,
+                    point: point_label,
+                    point_component: component,
+                }
             },
         )
         .parse_next(i)
