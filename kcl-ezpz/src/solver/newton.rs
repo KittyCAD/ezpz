@@ -92,6 +92,9 @@ impl Model<'_> {
     pub fn is_underconstrained(&self) -> Result<bool, NonLinearSystemError> {
         // First step is to compute the SVD.
         // Faer doesn't have a sparse SVD algorithm, so let's convert it to a dense matrix.
+        // This step is SLOW.
+        // Faer maintainer said she has a sparse SVD algorithm she hasn't published yet,
+        // so hopefully she will publish it soon and this slow step won't be necessary.
         let j_sparse = SparseColMatRef::new(self.jc.sym.as_ref(), &self.jc.vals);
         let j_dense = j_sparse.to_dense();
         debug_assert_eq!(
