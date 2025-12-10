@@ -3,6 +3,8 @@
 
 use std::collections::HashSet;
 
+pub use crate::analysis::FreedomAnalysis;
+use crate::analysis::{Analysis, NoAnalysis, SolveOutcomeAnalysis};
 pub use crate::constraint_request::ConstraintRequest;
 pub use crate::constraints::Constraint;
 use crate::constraints::ConstraintEntry;
@@ -17,6 +19,7 @@ use faer::sparse::linalg::LuError;
 use faer::sparse::{CreationError, FaerError};
 pub use warnings::{Warning, WarningContent};
 
+mod analysis;
 mod constraint_request;
 /// Each kind of constraint we support.
 mod constraints;
@@ -121,32 +124,6 @@ impl AsRef<SolveOutcome> for SolveOutcomeFreedomAnalysis {
     }
 }
 
-impl From<SolveOutcomeFreedomAnalysis> for SolveOutcomeAnalysis<FreedomAnalysis> {
-    fn from(value: SolveOutcomeFreedomAnalysis) -> Self {
-        Self {
-            analysis: value.analysis,
-            outcome: value.outcome,
-        }
-    }
-}
-
-impl From<SolveOutcomeAnalysis<FreedomAnalysis>> for SolveOutcomeFreedomAnalysis {
-    fn from(value: SolveOutcomeAnalysis<FreedomAnalysis>) -> Self {
-        Self {
-            analysis: value.analysis,
-            outcome: value.outcome,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct SolveOutcomeAnalysis<A> {
-    /// Extra analysis for the system.
-    pub analysis: A,
-    /// Other data.
-    pub outcome: SolveOutcome,
-}
-
 impl SolveOutcome {
     /// Were all constraints satisfied?
     pub fn is_satisfied(&self) -> bool {
@@ -165,44 +142,6 @@ pub struct FailureOutcome {
     pub warnings: Vec<Warning>,
     pub num_vars: usize,
     pub num_eqs: usize,
-}
-
-trait Analysis: Sized {
-    fn analyze(model: Model<'_>) -> Result<Self, NonLinearSystemError>;
-    fn no_constraints() -> Self;
-}
-
-#[derive(Default, Debug)]
-pub struct NoAnalysis;
-
-impl Analysis for NoAnalysis {
-    fn analyze(_: Model<'_>) -> Result<Self, NonLinearSystemError> {
-        Ok(Self)
-    }
-
-    fn no_constraints() -> Self {
-        Self
-    }
-}
-
-#[derive(Default, Debug)]
-pub struct FreedomAnalysis {
-    pub is_underconstrained: bool,
-}
-
-impl Analysis for FreedomAnalysis {
-    fn analyze(model: Model<'_>) -> Result<Self, NonLinearSystemError> {
-        let is_underconstrained = model.is_underconstrained()?;
-        Ok(Self {
-            is_underconstrained,
-        })
-    }
-
-    fn no_constraints() -> Self {
-        Self {
-            is_underconstrained: true,
-        }
-    }
 }
 
 /// Given some initial guesses, constrain them.
