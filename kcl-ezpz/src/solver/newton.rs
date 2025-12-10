@@ -94,6 +94,11 @@ impl Model<'_> {
         // Faer doesn't have a sparse SVD algorithm, so let's convert it to a dense matrix.
         let j_sparse = SparseColMatRef::new(self.jc.sym.as_ref(), &self.jc.vals);
         let j_dense = j_sparse.to_dense();
+        debug_assert_eq!(
+            self.layout.num_variables,
+            j_dense.ncols(),
+            "Jacobian was malformed, Adam messed something up here."
+        );
         let svd = j_dense.svd().map_err(NonLinearSystemError::FaerSvd)?;
         let sigma_diags = svd.S();
 

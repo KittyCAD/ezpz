@@ -138,6 +138,13 @@ fn coincident() {
 }
 
 #[test]
+fn massive() {
+    let solved = run("massive_parallel_system");
+    assert!(solved.unsatisfied.is_empty());
+    assert!(!solved.is_underconstrained);
+}
+
+#[test]
 fn symmetric() {
     let solved = run("symmetric");
     assert!(solved.unsatisfied.is_empty());
