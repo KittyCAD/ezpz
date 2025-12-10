@@ -3,6 +3,8 @@
 
 use std::collections::HashSet;
 
+pub use crate::analysis::FreedomAnalysis;
+use crate::analysis::{Analysis, NoAnalysis, SolveOutcomeAnalysis};
 pub use crate::constraint_request::ConstraintRequest;
 pub use crate::constraints::Constraint;
 use crate::constraints::ConstraintEntry;
@@ -12,10 +14,12 @@ pub use crate::solver::Config;
 // or find a different way to structure modules.
 pub use crate::id::{Id, IdGenerator};
 use crate::solver::Model;
+use faer::linalg::svd::SvdError;
 use faer::sparse::linalg::LuError;
 use faer::sparse::{CreationError, FaerError};
 pub use warnings::{Warning, WarningContent};
 
+mod analysis;
 mod constraint_request;
 /// Each kind of constraint we support.
 mod constraints;
@@ -78,6 +82,8 @@ pub enum NonLinearSystemError {
         #[from]
         error: LuError,
     },
+    #[error("Something went wrong doing SVD in faer")]
+    FaerSvd(SvdError),
     #[error("Could not find a solution in the allowed number of iterations")]
     DidNotConverge,
     #[error("Cannot solve an empty system")]
@@ -97,6 +103,25 @@ pub struct SolveOutcome {
     /// What is the lowest priority that got solved?
     /// 0 is the highest priority. Larger numbers are lower priority.
     pub priority_solved: u32,
+}
+
+/// Just like [`SolveOutcome`] except it also contains the result of
+/// expensive numeric analysis on the final solved system.
+// This is just like `SolveOutcomeAnalysis<FreedomAnalysis>`,
+// except it doesn't leak the private trait `Analysis`.
+#[derive(Debug)]
+pub struct SolveOutcomeFreedomAnalysis {
+    /// Extra analysis for the system,
+    /// which is probably expensive to compute.
+    pub analysis: FreedomAnalysis,
+    /// Other data.
+    pub outcome: SolveOutcome,
+}
+
+impl AsRef<SolveOutcome> for SolveOutcomeFreedomAnalysis {
+    fn as_ref(&self) -> &SolveOutcome {
+        &self.outcome
+    }
 }
 
 impl SolveOutcome {
@@ -126,18 +151,48 @@ pub fn solve_with_priority(
     initial_guesses: Vec<(Id, f64)>,
     config: Config,
 ) -> Result<SolveOutcome, FailureOutcome> {
+    let out = solve_with_priority_inner::<NoAnalysis>(reqs, initial_guesses, config)?;
+    Ok(out.outcome)
+}
+
+/// Just like [`solve_with_priority`] except it also does some expensive analysis steps
+/// at the end. This lets it calculate helpful data for the user, like degrees of freedom.
+/// Should not be called on every iteration of a system when you change the initial values!
+/// Just call this when you change the constraint structure.
+pub fn solve_with_priority_analysis(
+    reqs: &[ConstraintRequest],
+    initial_guesses: Vec<(Id, f64)>,
+    config: Config,
+) -> Result<SolveOutcomeFreedomAnalysis, FailureOutcome> {
+    let out = solve_with_priority_inner::<FreedomAnalysis>(reqs, initial_guesses, config)?;
+    Ok(SolveOutcomeFreedomAnalysis {
+        analysis: out.analysis,
+        outcome: out.outcome,
+    })
+}
+
+/// Given some initial guesses, constrain them.
+/// Returns the same variables in the same order, but constrained.
+pub(crate) fn solve_with_priority_inner<A: Analysis>(
+    reqs: &[ConstraintRequest],
+    initial_guesses: Vec<(Id, f64)>,
+    config: Config,
+) -> Result<SolveOutcomeAnalysis<A>, FailureOutcome> {
     // When there's no constraints, return early.
     // Use the initial guesses as the final values.
     if reqs.is_empty() {
-        return Ok(SolveOutcome {
-            unsatisfied: Vec::new(),
-            final_values: initial_guesses
-                .into_iter()
-                .map(|(_id, guess)| guess)
-                .collect(),
-            iterations: 0,
-            warnings: Vec::new(),
-            priority_solved: 0,
+        return Ok(SolveOutcomeAnalysis {
+            analysis: A::no_constraints(),
+            outcome: SolveOutcome {
+                unsatisfied: Vec::new(),
+                final_values: initial_guesses
+                    .into_iter()
+                    .map(|(_id, guess)| guess)
+                    .collect(),
+                iterations: 0,
+                warnings: Vec::new(),
+                priority_solved: 0,
+            },
         });
     }
 
@@ -184,7 +239,7 @@ pub fn solve_with_priority(
             Ok(outcome) => {
                 // If there were unsatisfied constraints, then there's no point trying to add more lower-priority constraints,
                 // just return now.
-                if outcome.is_unsatisfied() {
+                if outcome.outcome.is_unsatisfied() {
                     return Ok(res.unwrap_or(outcome));
                 }
                 // Otherwise, continue the loop again, adding higher-priority constraints.
@@ -199,41 +254,28 @@ pub fn solve_with_priority(
             }
         }
     }
-    Ok(res.unwrap_or(SolveOutcome {
-        priority_solved: lowest_priority,
-        unsatisfied: Vec::new(),
-        final_values: initial_guesses
-            .into_iter()
-            .map(|(_id, guess)| guess)
-            .collect(),
-        iterations: 0,
-        warnings: Vec::new(),
+    // The unwrap default value is used when
+    // there were 0 constraints.
+    Ok(res.unwrap_or(SolveOutcomeAnalysis {
+        analysis: A::no_constraints(),
+        outcome: SolveOutcome {
+            unsatisfied: Vec::new(),
+            final_values: initial_guesses
+                .into_iter()
+                .map(|(_id, guess)| guess)
+                .collect(),
+            iterations: 0,
+            warnings: Vec::new(),
+            priority_solved: lowest_priority,
+        },
     }))
 }
 
-/// Solve, assuming all constraints are the same priority.
-pub fn solve(
-    constraints: &[Constraint],
-    initial_guesses: Vec<(Id, f64)>,
-    config: Config,
-) -> Result<SolveOutcome, FailureOutcome> {
-    let constraints: Vec<_> = constraints
-        .iter()
-        .enumerate()
-        .map(|(id, c)| ConstraintEntry {
-            constraint: c,
-            id,
-            priority: 0,
-        })
-        .collect();
-    solve_inner(&constraints, initial_guesses, config)
-}
-
-fn solve_inner(
+fn solve_inner<A: Analysis>(
     constraints: &[ConstraintEntry],
     initial_guesses: Vec<(Id, f64)>,
     config: Config,
-) -> Result<SolveOutcome, FailureOutcome> {
+) -> Result<SolveOutcomeAnalysis<A>, FailureOutcome> {
     let num_vars = initial_guesses.len();
     let num_eqs = constraints
         .iter()
@@ -258,7 +300,7 @@ fn solve_inner(
     let mut unsatisfied: Vec<usize> = Vec::new();
     let outcome = model.solve_gauss_newton(&mut values, config);
     warnings.extend(model.warnings.lock().unwrap().drain(..));
-    let iterations = match outcome {
+    let success = match outcome {
         Ok(o) => o,
         Err(e) => {
             return Err(FailureOutcome {
@@ -293,12 +335,26 @@ fn solve_inner(
             unsatisfied.push(constraint.id);
         }
     }
+    let analysis = match A::analyze(model) {
+        Ok(o) => o,
+        Err(e) => {
+            return Err(FailureOutcome {
+                error: e.into(),
+                warnings,
+                num_vars,
+                num_eqs,
+            });
+        }
+    };
 
-    Ok(SolveOutcome {
-        priority_solved: 0,
-        unsatisfied,
-        final_values: values,
-        iterations,
-        warnings,
+    Ok(SolveOutcomeAnalysis {
+        outcome: SolveOutcome {
+            priority_solved: 0,
+            unsatisfied,
+            final_values: values,
+            iterations: success.iterations,
+            warnings,
+        },
+        analysis,
     })
 }

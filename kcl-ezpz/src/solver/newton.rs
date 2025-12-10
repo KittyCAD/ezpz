@@ -8,13 +8,18 @@ use crate::{Config, NonLinearSystemError};
 
 use super::Model;
 
+#[derive(Debug)]
+pub struct SuccessfulSolve {
+    pub iterations: usize,
+}
+
 impl Model<'_> {
     #[inline(never)]
     pub fn solve_gauss_newton(
         &mut self,
         current_values: &mut [f64],
         config: Config,
-    ) -> Result<usize, NonLinearSystemError> {
+    ) -> Result<SuccessfulSolve, NonLinearSystemError> {
         let m = self.layout.total_num_residuals;
 
         let mut global_residual = vec![0.0; m];
@@ -34,7 +39,9 @@ impl Model<'_> {
                 .reduce(f64::max)
                 .ok_or(NonLinearSystemError::EmptySystemNotAllowed)?;
             if largest_absolute_elem <= config.convergence_tolerance {
-                return Ok(this_iteration);
+                return Ok(SuccessfulSolve {
+                    iterations: this_iteration,
+                });
             }
 
             /* NOTE(dr): We solve the following linear system to get the damped Gauss-Newton step d
@@ -74,9 +81,45 @@ impl Model<'_> {
             // its residual will never get close to zero, but this is still a good least-squares solution,
             // so we can return.
             if step_inf_norm <= step_threshold {
-                return Ok(this_iteration);
+                return Ok(SuccessfulSolve {
+                    iterations: this_iteration,
+                });
             }
         }
         Err(NonLinearSystemError::DidNotConverge)
+    }
+
+    pub fn is_underconstrained(&self) -> Result<bool, NonLinearSystemError> {
+        // First step is to compute the SVD.
+        // Faer doesn't have a sparse SVD algorithm, so let's convert it to a dense matrix.
+        // This step is SLOW.
+        // Faer maintainer said she has a sparse SVD algorithm she hasn't published yet,
+        // so hopefully she will publish it soon and this slow step won't be necessary.
+        let j_sparse = SparseColMatRef::new(self.jc.sym.as_ref(), &self.jc.vals);
+        let j_dense = j_sparse.to_dense();
+        debug_assert_eq!(
+            self.layout.num_variables,
+            j_dense.ncols(),
+            "Jacobian was malformed, Adam messed something up here."
+        );
+        let svd = j_dense.svd().map_err(NonLinearSystemError::FaerSvd)?;
+        let sigma_diags = svd.S();
+
+        // These are the 'singular values'.
+        let sigma_col = sigma_diags.column_vector();
+
+        // The system is underconstrained if there's too many singular values
+        // close to 0. How close to 0? The tolerance should be derived from
+        // the largest singular value.
+        let largest_singular_value = sigma_col
+            .iter()
+            .copied()
+            .reduce(f64::max)
+            .ok_or(NonLinearSystemError::EmptySystemNotAllowed)?;
+        let tolerance = 1e-8 * largest_singular_value;
+
+        let rank = sigma_col.iter().filter(|&&s| s > tolerance).count();
+        let degrees_of_freedom = self.layout.num_variables - rank;
+        Ok(degrees_of_freedom > 0)
     }
 }
