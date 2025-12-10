@@ -23,11 +23,11 @@ check-wasm:
     cd ezpz-wasm; wasm-pack build --target web --dev; cd -
 
 test:
-    cargo nextest run --all-features --release
+    cargo nextest run --release
 
 # Run unit tests, output coverage to `lcov.info`.
 test-with-coverage:
-    cargo llvm-cov nextest --all-features --release --workspace --lcov --output-path lcov.info
+    cargo llvm-cov nextest --release --workspace --lcov --output-path lcov.info
 
 # Flamegraph our benchmarks
 flamegraph:
