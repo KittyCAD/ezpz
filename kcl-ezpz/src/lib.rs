@@ -12,6 +12,7 @@ pub use crate::solver::Config;
 // or find a different way to structure modules.
 pub use crate::id::{Id, IdGenerator};
 use crate::solver::Model;
+use faer::linalg::svd::SvdError;
 use faer::sparse::linalg::LuError;
 use faer::sparse::{CreationError, FaerError};
 pub use warnings::{Warning, WarningContent};
@@ -78,6 +79,8 @@ pub enum NonLinearSystemError {
         #[from]
         error: LuError,
     },
+    #[error("Something went wrong doing SVD in faer")]
+    FaerSvd(SvdError),
     #[error("Could not find a solution in the allowed number of iterations")]
     DidNotConverge,
     #[error("Cannot solve an empty system")]
@@ -280,7 +283,17 @@ fn solve_inner(
     // if it's expensive to compute. E.g. for interactive solves you
     // don't need it, but you probably want it when you add a constraint for
     // the first time.
-    let is_underconstrained = model.is_underconstrained();
+    let is_underconstrained = match model.is_underconstrained() {
+        Ok(o) => o,
+        Err(e) => {
+            return Err(FailureOutcome {
+                error: e.into(),
+                warnings,
+                num_vars,
+                num_eqs,
+            });
+        }
+    };
     let cs: Vec<_> = constraints.iter().map(|c| c.constraint).collect();
     let layout = crate::solver::Layout::new(&Vec::new(), cs.as_slice(), config);
     for constraint in constraints.iter() {

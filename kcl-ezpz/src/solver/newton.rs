@@ -89,7 +89,29 @@ impl Model<'_> {
         Err(NonLinearSystemError::DidNotConverge)
     }
 
-    pub fn is_underconstrained(&self) -> bool {
-        todo!()
+    pub fn is_underconstrained(&self) -> Result<bool, NonLinearSystemError> {
+        // First step is to compute the SVD.
+        // Faer doesn't have a sparse SVD algorithm, so let's convert it to a dense matrix.
+        let j_sparse = SparseColMatRef::new(self.jc.sym.as_ref(), &self.jc.vals);
+        let j_dense = j_sparse.to_dense();
+        let svd = j_dense.svd().map_err(NonLinearSystemError::FaerSvd)?;
+        let sigma_diags = svd.S();
+
+        // These are the 'singular values'.
+        let sigma_col = sigma_diags.column_vector();
+
+        // The system is underconstrained if there's too many singular values
+        // close to 0. How close to 0? The tolerance should be derived from
+        // the largest singular value.
+        let largest_singular_value = sigma_col
+            .iter()
+            .copied()
+            .reduce(f64::max)
+            .ok_or(NonLinearSystemError::EmptySystemNotAllowed)?;
+        let tolerance = 1e-8 * largest_singular_value;
+
+        let rank = sigma_col.iter().filter(|&&s| s > tolerance).count();
+        let degrees_of_freedom = self.layout.num_variables - rank;
+        Ok(degrees_of_freedom > 0)
     }
 }

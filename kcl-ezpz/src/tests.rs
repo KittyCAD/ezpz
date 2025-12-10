@@ -197,6 +197,7 @@ fn midpoint() {
 #[test]
 fn underconstrained() {
     let solved = run("underconstrained");
+    assert!(solved.is_underconstrained);
     assert!(solved.unsatisfied.is_empty());
     // p should be whatever the user's initial guess was.
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 1.0, y: 1.0 });
@@ -208,6 +209,7 @@ fn underconstrained() {
 fn tiny() {
     let solved = run("tiny");
     assert!(solved.unsatisfied.is_empty());
+    assert!(!solved.is_underconstrained);
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 0.0 });
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 0.0, y: 0.0 });
 }
@@ -222,6 +224,7 @@ fn tiny_no_regularization() {
         },
     );
     assert!(solved.unsatisfied.is_empty());
+    assert!(!solved.is_underconstrained);
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 0.0 });
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 0.0, y: 0.0 });
 }
@@ -234,6 +237,7 @@ fn inconsistent() {
     // solution which minimizes the squared error instead.
     let solved = run("inconsistent");
     assert!(!solved.unsatisfied.is_empty());
+    assert!(!solved.is_underconstrained); // If anything it's OVERconstrained not UNDER.
     assert_points_eq(solved.get_point("o").unwrap(), Point { x: 0.0, y: 0.0 });
     // (2.5, 2.5) is midway between the two inconsistent requirement points.
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 2.5, y: 2.5 });
@@ -243,6 +247,7 @@ fn inconsistent() {
 fn circle() {
     let solved = run("circle");
     assert!(solved.unsatisfied.is_empty());
+    assert!(!solved.is_underconstrained);
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 5.0, y: 5.0 });
     let circle_a = solved.get_circle("a").unwrap();
     // From the problem:
@@ -258,6 +263,7 @@ fn circle_center() {
     // Very similar to test `circle` above,
     // except it gives each constraint on the center separately.
     let solved = run("circle_center");
+    assert!(!solved.is_underconstrained);
     assert!(solved.unsatisfied.is_empty());
     let circle_a = solved.get_circle("a").unwrap();
     assert_nearly_eq(circle_a.radius, 1.0);
