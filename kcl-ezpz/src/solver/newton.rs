@@ -8,13 +8,18 @@ use crate::{Config, NonLinearSystemError};
 
 use super::Model;
 
+#[derive(Debug)]
+pub struct SuccessfulSolve {
+    pub iterations: usize,
+}
+
 impl Model<'_> {
     #[inline(never)]
     pub fn solve_gauss_newton(
         &mut self,
         current_values: &mut [f64],
         config: Config,
-    ) -> Result<usize, NonLinearSystemError> {
+    ) -> Result<SuccessfulSolve, NonLinearSystemError> {
         let m = self.layout.total_num_residuals;
 
         let mut global_residual = vec![0.0; m];
@@ -34,7 +39,9 @@ impl Model<'_> {
                 .reduce(f64::max)
                 .ok_or(NonLinearSystemError::EmptySystemNotAllowed)?;
             if largest_absolute_elem <= config.convergence_tolerance {
-                return Ok(this_iteration);
+                return Ok(SuccessfulSolve {
+                    iterations: this_iteration,
+                });
             }
 
             /* NOTE(dr): We solve the following linear system to get the damped Gauss-Newton step d
@@ -74,7 +81,9 @@ impl Model<'_> {
             // its residual will never get close to zero, but this is still a good least-squares solution,
             // so we can return.
             if step_inf_norm <= step_threshold {
-                return Ok(this_iteration);
+                return Ok(SuccessfulSolve {
+                    iterations: this_iteration,
+                });
             }
         }
         Err(NonLinearSystemError::DidNotConverge)

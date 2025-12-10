@@ -258,7 +258,7 @@ fn solve_inner(
     let mut unsatisfied: Vec<usize> = Vec::new();
     let outcome = model.solve_gauss_newton(&mut values, config);
     warnings.extend(model.warnings.lock().unwrap().drain(..));
-    let iterations = match outcome {
+    let success = match outcome {
         Ok(o) => o,
         Err(e) => {
             return Err(FailureOutcome {
@@ -298,7 +298,7 @@ fn solve_inner(
         priority_solved: 0,
         unsatisfied,
         final_values: values,
-        iterations,
+        iterations: success.iterations,
         warnings,
     })
 }
