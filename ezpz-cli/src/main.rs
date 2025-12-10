@@ -111,18 +111,11 @@ fn print_output((outcome, duration, constraints): &RunOutcome, show_points: bool
         arcs,
         num_vars,
         num_eqs,
-        is_underconstrained,
         lines: _, // these are only used for visuals
         unsatisfied,
         priority_solved,
     } = outcome;
     print_warnings(warnings);
-    if *is_underconstrained {
-        println!(
-            "{}: system was underconstrained",
-            colored::Colorize::yellow("Warning")
-        );
-    }
     print_unsatisfied(unsatisfied, constraints);
     print_problem_size(*num_vars, *num_eqs);
     println!("Iterations needed: {iterations}");

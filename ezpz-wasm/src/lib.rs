@@ -100,5 +100,4 @@ pub fn benchmark() -> Vec<f64> {
     )
     .unwrap();
     actual.final_values
-    // vec![]
 }

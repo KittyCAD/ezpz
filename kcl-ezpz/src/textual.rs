@@ -6,6 +6,7 @@ mod parser;
 use std::str::FromStr;
 
 pub use executor::Outcome;
+pub use executor::OutcomeAnalysis;
 use instruction::Instruction;
 use winnow::Parser;
 

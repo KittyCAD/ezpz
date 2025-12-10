@@ -2,13 +2,17 @@ use std::collections::HashMap;
 
 use indexmap::IndexMap;
 
+use crate::Analysis;
 use crate::Config;
 use crate::Constraint;
 use crate::ConstraintRequest;
 use crate::Error;
 use crate::FailureOutcome;
+use crate::FreedomAnalysis;
 use crate::IdGenerator;
+use crate::NoAnalysis;
 use crate::SolveOutcome;
+use crate::SolveOutcomeAnalysis;
 use crate::Warning;
 use crate::datatypes;
 use crate::datatypes::AngleKind;
@@ -430,11 +434,38 @@ impl ConstraintSystem<'_> {
         crate::solve_with_priority(&self.constraints, self.initial_guesses.variables(), config)
     }
 
+    fn solve_no_metadata_inner<A: Analysis>(
+        &self,
+        config: Config,
+    ) -> Result<SolveOutcomeAnalysis<A>, FailureOutcome> {
+        crate::solve_with_priority_inner(
+            &self.constraints,
+            self.initial_guesses.variables(),
+            config,
+        )
+    }
+
     pub fn solve(&self) -> Result<Outcome, FailureOutcome> {
         self.solve_with_config(Default::default())
     }
 
+    pub fn solve_with_config_analysis(
+        &self,
+        config: Config,
+    ) -> Result<OutcomeAnalysis, FailureOutcome> {
+        let (analysis, outcome) = self.solve_with_config_inner::<FreedomAnalysis>(config)?;
+        Ok(OutcomeAnalysis { analysis, outcome })
+    }
+
     pub fn solve_with_config(&self, config: Config) -> Result<Outcome, FailureOutcome> {
+        let (NoAnalysis, outcome) = self.solve_with_config_inner::<NoAnalysis>(config)?;
+        Ok(outcome)
+    }
+
+    fn solve_with_config_inner<A: Analysis>(
+        &self,
+        config: Config,
+    ) -> Result<(A, Outcome), FailureOutcome> {
         let num_vars = self.initial_guesses.len();
         let num_eqs = self
             .constraints
@@ -442,14 +473,17 @@ impl ConstraintSystem<'_> {
             .map(|c| c.constraint.residual_dim())
             .sum();
         // Pass into the solver.
-        let SolveOutcome {
-            is_underconstrained,
-            iterations,
-            warnings,
-            final_values,
-            unsatisfied,
-            priority_solved,
-        } = self.solve_no_metadata(config)?;
+        let SolveOutcomeAnalysis {
+            analysis,
+            outcome:
+                SolveOutcome {
+                    iterations,
+                    warnings,
+                    final_values,
+                    unsatisfied,
+                    priority_solved,
+                },
+        } = self.solve_no_metadata_inner::<A>(config)?;
         let num_points = self.inner_points.len();
         let num_circles = self.inner_circles.len();
         let num_arcs = self.inner_arcs.len();
@@ -496,19 +530,21 @@ impl ConstraintSystem<'_> {
                 },
             );
         }
-        Ok(Outcome {
-            priority_solved,
-            unsatisfied,
-            iterations,
-            warnings,
-            is_underconstrained,
-            points: final_points,
-            circles: final_circles,
-            arcs: final_arcs,
-            num_vars,
-            lines: self.inner_lines.to_vec(),
-            num_eqs,
-        })
+        Ok((
+            analysis,
+            Outcome {
+                priority_solved,
+                unsatisfied,
+                iterations,
+                warnings,
+                points: final_points,
+                circles: final_circles,
+                arcs: final_arcs,
+                num_vars,
+                lines: self.inner_lines.to_vec(),
+                num_eqs,
+            },
+        ))
     }
 }
 
@@ -516,7 +552,6 @@ impl ConstraintSystem<'_> {
 pub struct Outcome {
     pub unsatisfied: Vec<usize>,
     pub iterations: usize,
-    pub is_underconstrained: bool,
     pub warnings: Vec<Warning>,
     pub points: IndexMap<String, Point>,
     pub circles: IndexMap<String, Circle>,
@@ -525,6 +560,12 @@ pub struct Outcome {
     pub num_vars: usize,
     pub num_eqs: usize,
     pub priority_solved: u32,
+}
+
+#[derive(Debug)]
+pub struct OutcomeAnalysis {
+    pub analysis: FreedomAnalysis,
+    pub outcome: Outcome,
 }
 
 impl Outcome {
@@ -541,6 +582,33 @@ impl Outcome {
     #[cfg(test)]
     pub fn get_arc(&self, label: &str) -> Option<Arc> {
         self.arcs.get(label).copied()
+    }
+}
+
+impl OutcomeAnalysis {
+    #[cfg(test)]
+    pub fn get_point(&self, label: &str) -> Option<Point> {
+        self.outcome.get_point(label)
+    }
+
+    #[cfg(test)]
+    pub fn get_circle(&self, label: &str) -> Option<Circle> {
+        self.outcome.get_circle(label)
+    }
+
+    #[cfg(test)]
+    pub fn get_arc(&self, label: &str) -> Option<Arc> {
+        self.outcome.get_arc(label)
+    }
+
+    #[cfg(test)]
+    pub fn is_satisfied(&self) -> bool {
+        !self.is_unsatisfied()
+    }
+
+    #[cfg(test)]
+    pub fn is_unsatisfied(&self) -> bool {
+        !self.outcome.unsatisfied.is_empty()
     }
 }
 
