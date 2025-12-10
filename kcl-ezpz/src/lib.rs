@@ -97,6 +97,9 @@ pub struct SolveOutcome {
     /// What is the lowest priority that got solved?
     /// 0 is the highest priority. Larger numbers are lower priority.
     pub priority_solved: u32,
+    /// Was the system underconstrained, i.e. has degrees of freedom left
+    /// that the user should add more constraints for?
+    pub is_underconstrained: bool,
 }
 
 impl SolveOutcome {
@@ -138,6 +141,7 @@ pub fn solve_with_priority(
             iterations: 0,
             warnings: Vec::new(),
             priority_solved: 0,
+            is_underconstrained: true,
         });
     }
 
@@ -199,7 +203,10 @@ pub fn solve_with_priority(
             }
         }
     }
+    // The unwrap default value is used when
+    // there were 0 constraints.
     Ok(res.unwrap_or(SolveOutcome {
+        is_underconstrained: true,
         priority_solved: lowest_priority,
         unsatisfied: Vec::new(),
         final_values: initial_guesses
@@ -269,6 +276,11 @@ fn solve_inner(
             });
         }
     };
+    // TODO: Let user choose whether they want this,
+    // if it's expensive to compute. E.g. for interactive solves you
+    // don't need it, but you probably want it when you add a constraint for
+    // the first time.
+    let is_underconstrained = model.is_underconstrained();
     let cs: Vec<_> = constraints.iter().map(|c| c.constraint).collect();
     let layout = crate::solver::Layout::new(&Vec::new(), cs.as_slice(), config);
     for constraint in constraints.iter() {
@@ -295,6 +307,7 @@ fn solve_inner(
     }
 
     Ok(SolveOutcome {
+        is_underconstrained,
         priority_solved: 0,
         unsatisfied,
         final_values: values,

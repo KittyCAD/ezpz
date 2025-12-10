@@ -88,4 +88,8 @@ impl Model<'_> {
         }
         Err(NonLinearSystemError::DidNotConverge)
     }
+
+    pub fn is_underconstrained(&self) -> bool {
+        todo!()
+    }
 }

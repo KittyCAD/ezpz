@@ -443,6 +443,7 @@ impl ConstraintSystem<'_> {
             .sum();
         // Pass into the solver.
         let SolveOutcome {
+            is_underconstrained,
             iterations,
             warnings,
             final_values,
@@ -500,6 +501,7 @@ impl ConstraintSystem<'_> {
             unsatisfied,
             iterations,
             warnings,
+            is_underconstrained,
             points: final_points,
             circles: final_circles,
             arcs: final_arcs,
@@ -514,6 +516,7 @@ impl ConstraintSystem<'_> {
 pub struct Outcome {
     pub unsatisfied: Vec<usize>,
     pub iterations: usize,
+    pub is_underconstrained: bool,
     pub warnings: Vec<Warning>,
     pub points: IndexMap<String, Point>,
     pub circles: IndexMap<String, Circle>,
