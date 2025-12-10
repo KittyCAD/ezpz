@@ -249,7 +249,7 @@ fn inconsistent() {
     // solution which minimizes the squared error instead.
     let solved = run("inconsistent");
     assert!(!solved.is_satisfied());
-    assert!(!solved.analysis.is_underconstrained); // If anything it's OVERconstrained not UNDER.
+    assert!(!solved.analysis.is_underconstrained); // If anything it's overconstrained not under.
     assert_points_eq(solved.get_point("o").unwrap(), Point { x: 0.0, y: 0.0 });
     // (2.5, 2.5) is midway between the two inconsistent requirement points.
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 2.5, y: 2.5 });
