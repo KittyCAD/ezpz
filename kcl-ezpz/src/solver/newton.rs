@@ -92,56 +92,68 @@ impl Model<'_> {
 
     pub fn is_underconstrained(&self) -> Result<bool, NonLinearSystemError> {
         // First step is to compute the SVD.
-        let j = SparseColMatRef::new(self.jc.sym.as_ref(), &self.jc.vals);
-        let jtj = j.transpose().to_col_major()? * j;
-        let a = jtj + &self.lambda_i;
-
-        // Figure out the parameters
+        // If the problem is very very small, just use dense SVD.
         let n = self.layout.num_variables;
-        let k = usize::min(self.layout.num_variables, self.layout.num_rows());
-        let mut u = faer::Mat::zeros(n, k);
-        let mut v = faer::Mat::zeros(n, k);
-        let mut singular_values = vec![0.0; k];
-        let par = get_global_parallelism();
+        let m = self.layout.num_rows();
+        let k = usize::min(n, m);
 
-        // Make a unit basis vector, with length n, it should be normalized (unit).
-        // It's trivially normalized if we set all entries to 0 and the first one to 1.
-        let mut v0_buf = vec![0.0_f64; n];
-        v0_buf[0] = 1.0;
-        let v0 = faer::ColRef::from_slice(&v0_buf);
+        let sigma_col = if k <= 2 {
+            // Small, use sparse SVD
+            let j_sparse = SparseColMatRef::new(self.jc.sym.as_ref(), &self.jc.vals);
+            let j_dense = j_sparse.to_dense();
+            debug_assert_eq!(
+                self.layout.num_variables,
+                j_dense.ncols(),
+                "Jacobian was malformed, Adam messed something up here."
+            );
+            let svd = j_dense.svd().map_err(NonLinearSystemError::FaerSvd)?;
+            let v: Vec<_> = svd.S().column_vector().iter().copied().collect();
+            v
+        } else {
+            // Large, use dense SVD
+            let j = SparseColMatRef::new(self.jc.sym.as_ref(), &self.jc.vals);
+            let jtj = j.transpose().to_col_major()? * j;
+            let a = jtj + &self.lambda_i;
 
-        // Allocate the scratch space
-        let estimated_memory_needed = partial_eigen_scratch(
-            &a,
-            self.layout.num_variables.max(self.layout.num_rows()),
-            par,
-            Default::default(),
-        );
-        let mut memory = faer::dyn_stack::MemBuffer::new(estimated_memory_needed);
-        let stack = faer::dyn_stack::MemStack::new(&mut memory);
+            // Figure out the parameters
+            let mut u = faer::Mat::zeros(n, k);
+            let mut v = faer::Mat::zeros(n, k);
+            let mut singular_values = vec![0.0; k];
+            let par = get_global_parallelism();
 
-        let _svd_info = faer::matrix_free::eigen::partial_svd(
-            // Output matrix for U (n by k), the left_singular_rows
-            u.as_mut(),
-            // Output matrix for V (n by k), the right_singular_rows
-            v.as_mut(),
-            // length k, output sigma (largest first)
-            &mut singular_values,
-            // square operator, n by n
-            &a,
-            // length n start vector (normalized)
-            v0,
-            // convergence threshold for residuals
-            self.config.convergence_tolerance,
-            par,
-            // scratch space
-            stack,
-            // Parameters
-            Default::default(),
-        );
+            // Make a unit basis vector, with length n, it should be normalized (unit).
+            // It's trivially normalized if we set all entries to 0 and the first one to 1.
+            let mut v0_buf = vec![0.0_f64; n];
+            v0_buf[0] = 1.0;
+            let v0 = faer::ColRef::from_slice(&v0_buf);
 
-        // These are the 'singular values'.
-        let sigma_col = singular_values;
+            // Allocate the scratch space
+            let estimated_memory_needed =
+                partial_eigen_scratch(&a, n.max(m), par, Default::default());
+            let mut memory = faer::dyn_stack::MemBuffer::new(estimated_memory_needed);
+            let stack = faer::dyn_stack::MemStack::new(&mut memory);
+
+            let _svd_info = faer::matrix_free::eigen::partial_svd(
+                // Output matrix for U (n by k), the left_singular_rows
+                u.as_mut(),
+                // Output matrix for V (n by k), the right_singular_rows
+                v.as_mut(),
+                // length k, output sigma (largest first)
+                &mut singular_values,
+                // square operator, n by n
+                &a,
+                // length n start vector (normalized)
+                v0,
+                // convergence threshold for residuals
+                self.config.convergence_tolerance,
+                par,
+                // scratch space
+                stack,
+                // Parameters
+                Default::default(),
+            );
+            singular_values
+        };
 
         // The system is underconstrained if there's too many singular values
         // close to 0. How close to 0? The tolerance should be derived from
@@ -154,7 +166,7 @@ impl Model<'_> {
         let tolerance = 1e-8 * largest_singular_value;
 
         let rank = sigma_col.iter().filter(|&&s| s > tolerance).count();
-        let degrees_of_freedom = self.layout.num_variables - rank;
+        let degrees_of_freedom = n - rank;
         Ok(degrees_of_freedom > 0)
     }
 }
