@@ -21,7 +21,6 @@ impl Analysis for NoAnalysis {
 #[derive(Default, Debug)]
 pub struct FreedomAnalysis {
     pub underconstrained: Vec<crate::Id>,
-    pub is_underconstrained: bool,
 }
 
 impl Analysis for FreedomAnalysis {
@@ -32,8 +31,13 @@ impl Analysis for FreedomAnalysis {
     fn no_constraints() -> Self {
         Self {
             underconstrained: Vec::new(),
-            is_underconstrained: true,
         }
+    }
+}
+
+impl FreedomAnalysis {
+    pub fn is_underconstrained(&self) -> bool {
+        !self.underconstrained.is_empty()
     }
 }
 

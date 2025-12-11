@@ -132,7 +132,7 @@ fn too_many_variables() {
 fn coincident() {
     let solved = run("coincident");
     assert!(solved.is_satisfied());
-    assert!(!solved.analysis.is_underconstrained);
+    assert!(!solved.analysis.is_underconstrained());
     // P and Q are coincident, so they should be equal.
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 3.0, y: 3.0 });
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 3.0, y: 3.0 });
@@ -142,14 +142,14 @@ fn coincident() {
 // fn massive() {
 //     let solved = run("massive_parallel_system");
 //     assert!(solved.is_satisfied());
-//     assert!(!solved.analysis.is_underconstrained);
+//     assert!(!solved.analysis.is_underconstrained());
 // }
 
 #[test]
 fn symmetric() {
     let solved = run("symmetric");
     assert!(solved.is_satisfied());
-    assert!(!solved.analysis.is_underconstrained);
+    assert!(!solved.analysis.is_underconstrained());
     // P and Q are fixed
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 0.0 });
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 2.0, y: 2.0 });
@@ -166,7 +166,7 @@ fn perpdist() {
     assert!(solved.is_satisfied());
     // A is underdetermined, it has to be a certain distance from the line, but that leaves
     // a range of possible absolute positions it could be at.
-    assert!(solved.analysis.is_underconstrained);
+    assert!(solved.analysis.is_underconstrained());
     assert_eq!(
         solved.analysis.underconstrained,
         vec![4, 5],
@@ -190,7 +190,7 @@ fn perpdist_negative() {
     // instead of positive. So the point should be flipped to the other side of the line.
     let solved = run("perpdist_negative");
     assert!(solved.is_satisfied());
-    assert!(solved.analysis.is_underconstrained);
+    assert!(solved.analysis.is_underconstrained());
     assert_eq!(
         solved.analysis.underconstrained,
         vec![4, 5],
@@ -211,7 +211,7 @@ fn perpdist_negative() {
 fn midpoint() {
     let solved = run("midpoint");
     assert!(solved.is_satisfied());
-    assert!(!solved.analysis.is_underconstrained);
+    assert!(!solved.analysis.is_underconstrained());
     // P and Q have a midpoint M.
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 0.0 });
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 2.0, y: 3.0 });
@@ -221,7 +221,7 @@ fn midpoint() {
 #[test]
 fn underconstrained() {
     let solved = run("underconstrained");
-    assert!(solved.analysis.is_underconstrained);
+    assert!(solved.analysis.is_underconstrained());
     assert!(solved.is_satisfied());
     assert_eq!(solved.analysis.underconstrained, vec![0, 1]);
     // p should be whatever the user's initial guess was.
@@ -234,7 +234,7 @@ fn underconstrained() {
 fn tiny() {
     let solved = run("tiny");
     assert!(solved.is_satisfied());
-    assert!(!solved.analysis.is_underconstrained);
+    assert!(!solved.analysis.is_underconstrained());
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 0.0 });
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 0.0, y: 0.0 });
 }
@@ -247,7 +247,7 @@ fn inconsistent() {
     // solution which minimizes the squared error instead.
     let solved = run("inconsistent");
     assert!(!solved.is_satisfied());
-    assert!(!solved.analysis.is_underconstrained); // If anything it's overconstrained not under.
+    assert!(!solved.analysis.is_underconstrained()); // If anything it's overconstrained not under.
     assert_points_eq(solved.get_point("o").unwrap(), Point { x: 0.0, y: 0.0 });
     // (2.5, 2.5) is midway between the two inconsistent requirement points.
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 2.5, y: 2.5 });
@@ -257,7 +257,7 @@ fn inconsistent() {
 fn circle() {
     let solved = run("circle");
     assert!(solved.is_satisfied());
-    assert!(!solved.analysis.is_underconstrained);
+    assert!(!solved.analysis.is_underconstrained());
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 5.0, y: 5.0 });
     let circle_a = solved.get_circle("a").unwrap();
     // From the problem:
@@ -273,7 +273,7 @@ fn circle_center() {
     // Very similar to test `circle` above,
     // except it gives each constraint on the center separately.
     let solved = run("circle_center");
-    assert!(!solved.analysis.is_underconstrained);
+    assert!(!solved.analysis.is_underconstrained());
     assert!(solved.is_satisfied());
     let circle_a = solved.get_circle("a").unwrap();
     assert_nearly_eq(circle_a.radius, 1.0);
@@ -287,7 +287,7 @@ fn circle_tangent() {
     // y=4.5. We test the other solution in the `circle_tangent_other_dir` test.
     let solved = run("circle_tangent");
     assert!(solved.is_satisfied());
-    assert!(!solved.analysis.is_underconstrained);
+    assert!(!solved.analysis.is_underconstrained());
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 3.0 });
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 5.0, y: 3.0 });
     let circle_a = solved.get_circle("a").unwrap();
@@ -300,7 +300,7 @@ fn circle_tangent_other_dir() {
     // other case of tangent direction.
     let solved = run("circle_tangent_other_dir");
     assert!(solved.is_satisfied());
-    assert!(!solved.analysis.is_underconstrained);
+    assert!(!solved.analysis.is_underconstrained());
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 3.0 });
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 5.0, y: 3.0 });
     let circle_a = solved.get_circle("a").unwrap();
@@ -311,7 +311,7 @@ fn circle_tangent_other_dir() {
 fn two_rectangles() {
     let solved = run("two_rectangles");
     assert!(solved.is_satisfied());
-    assert!(!solved.analysis.is_underconstrained);
+    assert!(!solved.analysis.is_underconstrained());
     // This forms two rectangles.
     assert_points_eq(solved.get_point("p0").unwrap(), Point { x: 1.0, y: 1.0 });
     assert_points_eq(solved.get_point("p1").unwrap(), Point { x: 5.0, y: 1.0 });
@@ -329,7 +329,7 @@ fn angle_constraints() {
     for file in ["angle_parallel", "angle_parallel_manual"] {
         let solved = run(file);
         assert!(solved.is_satisfied());
-        assert!(!solved.analysis.is_underconstrained);
+        assert!(!solved.analysis.is_underconstrained());
         assert_points_eq(solved.get_point("p0").unwrap(), Point { x: 0.0, y: 0.0 });
         assert_points_eq(solved.get_point("p1").unwrap(), Point { x: 4.0, y: 4.0 });
         assert_points_eq(solved.get_point("p2").unwrap(), Point { x: 0.0, y: 0.0 });
@@ -341,7 +341,7 @@ fn angle_constraints() {
 fn perpendicular() {
     let solved = run("perpendicular");
     assert!(solved.is_satisfied());
-    assert!(!solved.analysis.is_underconstrained);
+    assert!(!solved.analysis.is_underconstrained());
     assert_points_eq(solved.get_point("p0").unwrap(), Point { x: 0.0, y: 0.0 });
     assert_points_eq(solved.get_point("p1").unwrap(), Point { x: 0.0, y: 4.0 });
     assert_points_eq(solved.get_point("p2").unwrap(), Point { x: 0.0, y: 0.0 });
@@ -352,7 +352,7 @@ fn perpendicular() {
 fn nonsquare() {
     let solved = run("nonsquare");
     assert!(solved.is_satisfied());
-    assert!(!solved.analysis.is_underconstrained);
+    assert!(!solved.analysis.is_underconstrained());
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 0.0 });
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 0.0, y: 0.0 });
 }
@@ -361,7 +361,7 @@ fn nonsquare() {
 fn square() {
     let solved = run("square");
     assert!(solved.is_satisfied());
-    assert!(!solved.analysis.is_underconstrained);
+    assert!(!solved.analysis.is_underconstrained());
     assert_nearly_eq(
         solved.get_point("a").unwrap().y - solved.get_point("c").unwrap().y,
         solved.get_point("b").unwrap().y - solved.get_point("d").unwrap().y,
@@ -377,7 +377,7 @@ fn parallelogram() {
     let solved = run("parallelogram");
     // The paralallelogram has two vertical lines AB and CD.
     // A and B are fully determined, but C and D are free.
-    assert!(solved.analysis.is_underconstrained);
+    assert!(solved.analysis.is_underconstrained());
     // A = 0 and 1
     // B = 2 and 3
     // CD are 4, 5, 6 and 7, and aren't constrained.
@@ -399,7 +399,7 @@ fn underdetermined_lines() {
     // line is not specified; we're relying on regularisation to push our solution
     // towards its start point.
     let solved = run("underdetermined_lines");
-    assert!(solved.analysis.is_underconstrained);
+    assert!(solved.analysis.is_underconstrained());
     assert_eq!(
         solved.analysis.underconstrained,
         vec![5],
@@ -415,7 +415,7 @@ fn underdetermined_lines() {
 fn arc_radius() {
     let solved = run("arc_radius");
     assert!(solved.is_satisfied());
-    assert!(solved.analysis.is_underconstrained);
+    assert!(solved.analysis.is_underconstrained());
     assert_eq!(
         solved.analysis.underconstrained,
         vec![
@@ -438,7 +438,7 @@ fn arc_radius() {
 fn arc_equidistant() {
     let solved = run("arc_equidistant");
     assert!(solved.is_satisfied());
-    assert!(solved.analysis.is_underconstrained);
+    assert!(solved.analysis.is_underconstrained());
     assert_eq!(
         solved.analysis.underconstrained,
         vec![
@@ -463,7 +463,7 @@ fn arc_equidistant() {
 fn chamfer_square() {
     let solved = run("chamfer_square");
     assert!(solved.is_satisfied());
-    assert!(!solved.analysis.is_underconstrained);
+    assert!(!solved.analysis.is_underconstrained());
     assert_points_eq(solved.get_point("a").unwrap(), Point { x: 0.0, y: 40.0 });
     assert_points_eq(solved.get_point("b").unwrap(), Point { x: 30.0, y: 40.0 });
     assert_points_eq(solved.get_point("c").unwrap(), Point { x: 40.0, y: 30.0 });
