@@ -285,8 +285,8 @@ where
         return Ok(());
     }
 
-    let start_angle = (p0.y - center.y).atan2(p0.x - center.x);
-    let potential_end = (p1.y - center.y).atan2(p1.x - center.x);
+    let start_angle = libm::atan2(p0.y - center.y, p0.x - center.x);
+    let potential_end = libm::atan2(p1.y - center.y, p1.x - center.x);
     let mut delta = potential_end - start_angle;
 
     // Normalize to the shortest signed delta in (-PI, PI].
@@ -309,8 +309,8 @@ where
         .map(|step| {
             let t = step as f64 / steps as f64;
             let angle = start_angle + delta * t;
-            let x = center.x + radius * angle.cos();
-            let y = center.y + radius * angle.sin();
+            let x = center.x + radius * libm::cos(angle);
+            let y = center.y + radius * libm::sin(angle);
             (x, y)
         })
         .collect();
