@@ -167,6 +167,11 @@ fn perpdist() {
     // A is underdetermined, it has to be a certain distance from the line, but that leaves
     // a range of possible absolute positions it could be at.
     assert!(solved.analysis.is_underconstrained);
+    assert_eq!(
+        solved.analysis.underconstrained,
+        vec![4, 5],
+        "P and Q are constrained, but A is not, it could move along the PQ line as long as it stays a fixed perp distance away."
+    );
     // P and Q are fixed:
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 0.0 });
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 2.0, y: 3.0 });
@@ -186,6 +191,11 @@ fn perpdist_negative() {
     let solved = run("perpdist_negative");
     assert!(solved.is_satisfied());
     assert!(solved.analysis.is_underconstrained);
+    assert_eq!(
+        solved.analysis.underconstrained,
+        vec![4, 5],
+        "P and Q are constrained, but A is not, it could move along the PQ line as long as it stays a fixed perp distance away."
+    );
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 0.0 });
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 2.0, y: 3.0 });
     assert_points_eq(
@@ -213,6 +223,7 @@ fn underconstrained() {
     let solved = run("underconstrained");
     assert!(solved.analysis.is_underconstrained);
     assert!(solved.is_satisfied());
+    assert_eq!(solved.analysis.underconstrained, vec![0, 1]);
     // p should be whatever the user's initial guess was.
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 1.0, y: 1.0 });
     // q should be what it was constrained to be.
@@ -364,7 +375,13 @@ fn square() {
 #[test]
 fn parallelogram() {
     let solved = run("parallelogram");
+    // The paralallelogram has two vertical lines AB and CD.
+    // A and B are fully determined, but C and D are free.
     assert!(solved.analysis.is_underconstrained);
+    // A = 0 and 1
+    // B = 2 and 3
+    // CD are 4, 5, 6 and 7, and aren't constrained.
+    assert_eq!(solved.analysis.underconstrained, vec![4, 5, 6, 7]);
     assert_nearly_eq(
         solved.get_point("a").unwrap().y - solved.get_point("c").unwrap().y,
         solved.get_point("b").unwrap().y - solved.get_point("d").unwrap().y,
@@ -383,6 +400,11 @@ fn underdetermined_lines() {
     // towards its start point.
     let solved = run("underdetermined_lines");
     assert!(solved.analysis.is_underconstrained);
+    assert_eq!(
+        solved.analysis.underconstrained,
+        vec![5],
+        "P0 and P1 are constrained, but P2 is only fixed in the X direction, not Y"
+    );
     assert!(solved.is_satisfied());
     assert_points_eq(solved.get_point("p0").unwrap(), Point { x: 0.0, y: 0.0 });
     assert_points_eq(solved.get_point("p1").unwrap(), Point { x: 4.0, y: 0.0 });
@@ -394,6 +416,18 @@ fn arc_radius() {
     let solved = run("arc_radius");
     assert!(solved.is_satisfied());
     assert!(solved.analysis.is_underconstrained);
+    assert_eq!(
+        solved.analysis.underconstrained,
+        vec![
+            // P is vars 0,1, and P is totally unconstrained.
+            0, 1,
+            // The arc's endpoint A (2, 3) and B (4, 5) are unconstrained, they can be anywhere
+            // as long as they're the right distance from the arc's center.
+            // But the center (6, 7) is fully constrained.
+            2, 3, 4, 5
+        ],
+        "Center of arc is fixed, but the other 2 points can vary."
+    );
     let arc = solved.get_arc("a").unwrap();
     assert_points_eq(arc.center, Point { x: 0.0, y: 0.0 });
     assert_nearly_eq(5.0, arc.a.euclidean_distance(Default::default()));
@@ -405,6 +439,18 @@ fn arc_equidistant() {
     let solved = run("arc_equidistant");
     assert!(solved.is_satisfied());
     assert!(solved.analysis.is_underconstrained);
+    assert_eq!(
+        solved.analysis.underconstrained,
+        vec![
+            // P is vars 0,1, and P is totally unconstrained.
+            0, 1,
+            // The arc's endpoint A (2, 3) and B (4, 5) are unconstrained, they can be anywhere
+            // as long as they're the right distance from the arc's center.
+            // But the center (6, 7) is fully constrained.
+            2, 3, 4, 5
+        ],
+        "Center of arc is fixed, but the other 2 points can vary."
+    );
     let arc = solved.get_arc("a").unwrap();
     assert_points_eq(arc.center, Point { x: 0.0, y: 0.0 });
     assert_nearly_eq(

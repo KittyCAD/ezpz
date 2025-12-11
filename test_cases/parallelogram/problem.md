@@ -4,12 +4,12 @@ point b
 point c
 point d
 lines_equal_length(a, b, c, d)
+lines_equal_length(b, d, a, c)
 parallel(a, b, c, d)
-horizontal(a, b)
+vertical(a, b)
+vertical(c, d)
 a = (0, 0)
 b.y = 4
-c = (0, 0)
-vertical(b, d)
 
 # guesses
 a roughly (3, 4)

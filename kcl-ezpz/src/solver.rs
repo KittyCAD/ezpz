@@ -39,12 +39,12 @@ impl Default for Config {
     }
 }
 
+#[derive(Debug)]
 pub struct Layout {
     /// Equivalent to number of rows in the matrix being solved.
     pub total_num_residuals: usize,
     /// One variable per column of the matrix.
     pub num_variables: usize,
-    // num_residuals_constraints: usize,
 }
 
 impl Layout {
