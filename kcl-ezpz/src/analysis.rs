@@ -25,10 +25,7 @@ pub struct FreedomAnalysis {
 
 impl Analysis for FreedomAnalysis {
     fn analyze(model: Model<'_>) -> Result<Self, NonLinearSystemError> {
-        let is_underconstrained = model.is_underconstrained()?;
-        Ok(Self {
-            is_underconstrained,
-        })
+        model.freedom_analysis()
     }
 
     fn no_constraints() -> Self {
