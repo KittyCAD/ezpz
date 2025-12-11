@@ -368,7 +368,7 @@ impl Constraint {
                 let (a, b, c) = equation_of_line(current_assignments, line, layout);
 
                 // The above equation is a division, so make sure not to divide by zero.
-                let denominator = f64::hypot(a, b);
+                let denominator = libm::hypot(a, b);
                 let is_invalid = denominator < EPSILON;
                 if is_invalid {
                     *residual0 = 0.0;
@@ -1185,7 +1185,7 @@ fn pds_for_point_line(
     // playground above to get an intuition for what I'm doing.
     // The first two, d_px and d_py are relatively simple. They use the same denominator,
     // which represents the Euclidean distance between p0 and p1.
-    let euclid_dist = f64::hypot(-p0x + p1x, p0y - p1y);
+    let euclid_dist = libm::hypot(-p0x + p1x, p0y - p1y);
     let d_px = (p0y - p1y) / euclid_dist;
     let d_py = (-p0x + p1x) / euclid_dist;
 
