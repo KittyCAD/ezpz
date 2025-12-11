@@ -213,6 +213,7 @@ fn underconstrained() {
     let solved = run("underconstrained");
     assert!(solved.analysis.is_underconstrained);
     assert!(solved.is_satisfied());
+    assert_eq!(solved.analysis.underconstrained, vec![0, 1]);
     // p should be whatever the user's initial guess was.
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 1.0, y: 1.0 });
     // q should be what it was constrained to be.

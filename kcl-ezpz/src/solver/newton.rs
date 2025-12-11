@@ -91,10 +91,10 @@ impl Model<'_> {
 
     pub fn freedom_analysis(&self) -> Result<FreedomAnalysis, NonLinearSystemError> {
         // First step is to compute the SVD.
-        // Faer doesn't have a sparse SVD algorithm, so let's convert it to a dense matrix.
-        // This step is SLOW.
-        // Faer maintainer said she has a sparse SVD algorithm she hasn't published yet,
-        // so hopefully she will publish it soon and this slow step won't be necessary.
+        // Faer has a sparse SVD algorithm called `partial_svd`, but I haven't been
+        // able to get it working properly yet.
+        // For now, we'll just use a dense SVD algorithm.
+        // This is VERY SLOW for large matrices.
         let j_sparse = SparseColMatRef::new(self.jc.sym.as_ref(), &self.jc.vals);
         let j_dense = j_sparse.to_dense();
         debug_assert_eq!(
@@ -102,6 +102,8 @@ impl Model<'_> {
             j_dense.ncols(),
             "Jacobian was malformed, Adam messed something up here."
         );
+
+        // SVD decomposes `J` into `J = UΣVᵀ`.
         let svd = j_dense.svd().map_err(NonLinearSystemError::FaerSvd)?;
         let sigma_diags = svd.S();
 
@@ -122,7 +124,49 @@ impl Model<'_> {
         let degrees_of_freedom = self.layout.num_variables - rank;
         let is_underconstrained = degrees_of_freedom > 0;
 
+        // Fully constrained: no underconstrained variables.
+        if !is_underconstrained {
+            return Ok(FreedomAnalysis {
+                underconstrained: Vec::new(),
+                is_underconstrained,
+            });
+        }
+
+        // 3. Degrees of freedom
+        let nvars = self.layout.num_variables;
+        let dof = nvars - rank;
+        println!("rank = {rank}, dof = {dof}");
+
+        // 4. Nullspace column indices in V
+        let null_indices: Vec<usize> = (rank..nvars).collect();
+        println!("Null indices (columns of V): {:?}", null_indices);
+
+        // Compute participation norm for each variable.
+        // If a variable's participation is basically zero, then it's constrained.
+        // If it's nonzero, then it moves in some DOF and is unconstrained.
+        let mut participation = Vec::with_capacity(nvars);
+        for j in 0..nvars {
+            let mut sum_sq = 0.0;
+
+            for &k in &null_indices {
+                // v[j, k] is the component of variable j for the k-th DOF.
+                let v_jk = svd.V().get(j, k);
+                sum_sq += v_jk * v_jk;
+            }
+            participation.push(sum_sq.sqrt());
+        }
+        let max_participation = participation.iter().cloned().fold(0.0, f64::max);
+
+        // Relative threshold to classify variables
+        let var_tol = 1e-3 * max_participation;
+
+        let underconstrained: Vec<crate::Id> = (0..nvars)
+            .filter(|&j| participation[j] > var_tol)
+            .map(|x| x as u32)
+            .collect();
+
         Ok(FreedomAnalysis {
+            underconstrained,
             is_underconstrained,
         })
     }
