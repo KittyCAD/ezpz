@@ -12,7 +12,7 @@ impl V {
 
     #[inline(always)]
     pub fn magnitude(&self) -> f64 {
-        f64::hypot(self.x, self.y)
+        libm::hypot(self.x, self.y)
     }
 
     #[inline(always)]

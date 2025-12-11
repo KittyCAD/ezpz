@@ -36,7 +36,7 @@ impl Model<'_> {
             let largest_absolute_elem = global_residual
                 .iter()
                 .map(|x| x.abs())
-                .reduce(f64::max)
+                .reduce(libm::fmax)
                 .ok_or(NonLinearSystemError::EmptySystemNotAllowed)?;
             if largest_absolute_elem <= config.convergence_tolerance {
                 return Ok(SuccessfulSolve {
@@ -66,8 +66,8 @@ impl Model<'_> {
                 current_values.len(),
                 "the `d` column must be the same size as the number of variables."
             );
-            let current_inf_norm = current_values.iter().map(|v| v.abs()).fold(0.0, f64::max);
-            let step_inf_norm = d.iter().map(|d| d.abs()).reduce(f64::max).unwrap_or(0.0);
+            let current_inf_norm = current_values.iter().map(|v| v.abs()).fold(0.0, libm::fmax);
+            let step_inf_norm = d.iter().map(|d| d.abs()).reduce(libm::fmax).unwrap_or(0.0);
             current_values
                 .iter_mut()
                 .zip(d.iter())
@@ -114,7 +114,7 @@ impl Model<'_> {
         let largest_singular_value = sigma_col
             .iter()
             .copied()
-            .reduce(f64::max)
+            .reduce(libm::fmax)
             .ok_or(NonLinearSystemError::EmptySystemNotAllowed)?;
         let tolerance = 1e-8 * largest_singular_value;
 

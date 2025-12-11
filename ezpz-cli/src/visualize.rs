@@ -160,12 +160,12 @@ impl Bounds {
             ys.push(arc.0.b.y);
         }
         let padding = 1.0;
-        let min_x = xs.iter().copied().reduce(f64::min).unwrap_or(0.0) - padding;
-        let max_x = xs.iter().copied().reduce(f64::max).unwrap_or(0.0) + padding;
-        let min_y = ys.iter().copied().reduce(f64::min).unwrap_or(0.0) - padding;
-        let max_y = ys.iter().copied().reduce(f64::max).unwrap_or(0.0) + padding;
-        let min = min_x.min(min_y);
-        let max = max_x.max(max_y);
+        let min_x = xs.iter().copied().reduce(libm::fmin).unwrap_or(0.0) - padding;
+        let max_x = xs.iter().copied().reduce(libm::fmax).unwrap_or(0.0) + padding;
+        let min_y = ys.iter().copied().reduce(libm::fmin).unwrap_or(0.0) - padding;
+        let max_y = ys.iter().copied().reduce(libm::fmax).unwrap_or(0.0) + padding;
+        let min = libm::fmin(min_x, min_y);
+        let max = libm::fmax(max_x, max_y);
         Self { min, max }
     }
 }
@@ -285,8 +285,8 @@ where
         return Ok(());
     }
 
-    let start_angle = (p0.y - center.y).atan2(p0.x - center.x);
-    let potential_end = (p1.y - center.y).atan2(p1.x - center.x);
+    let start_angle = libm::atan2(p0.y - center.y, p0.x - center.x);
+    let potential_end = libm::atan2(p1.y - center.y, p1.x - center.x);
     let mut delta = potential_end - start_angle;
 
     // Normalize to the shortest signed delta in (-PI, PI].
@@ -309,8 +309,8 @@ where
         .map(|step| {
             let t = step as f64 / steps as f64;
             let angle = start_angle + delta * t;
-            let x = center.x + radius * angle.cos();
-            let y = center.y + radius * angle.sin();
+            let x = center.x + radius * libm::cos(angle);
+            let y = center.y + radius * libm::sin(angle);
             (x, y)
         })
         .collect();
