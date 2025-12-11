@@ -1,4 +1,6 @@
 disallowed-methods = [
+  { path = "f64::min",   reason = "Use trig functions from libm crate instead, to ensure FP math works the same across OSs and platforms."},
+  { path = "f64::max",   reason = "Use trig functions from libm crate instead, to ensure FP math works the same across OSs and platforms."},
   { path = "f64::sin",   reason = "Use trig functions from libm crate instead, to ensure FP math works the same across OSs and platforms."},
   { path = "f64::cos",   reason = "Use trig functions from libm crate instead, to ensure FP math works the same across OSs and platforms."},
   { path = "f64::tan",   reason = "Use trig functions from libm crate instead, to ensure FP math works the same across OSs and platforms."},

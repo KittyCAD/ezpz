@@ -160,12 +160,12 @@ impl Bounds {
             ys.push(arc.0.b.y);
         }
         let padding = 1.0;
-        let min_x = xs.iter().copied().reduce(f64::min).unwrap_or(0.0) - padding;
-        let max_x = xs.iter().copied().reduce(f64::max).unwrap_or(0.0) + padding;
-        let min_y = ys.iter().copied().reduce(f64::min).unwrap_or(0.0) - padding;
-        let max_y = ys.iter().copied().reduce(f64::max).unwrap_or(0.0) + padding;
-        let min = min_x.min(min_y);
-        let max = max_x.max(max_y);
+        let min_x = xs.iter().copied().reduce(libm::fmin).unwrap_or(0.0) - padding;
+        let max_x = xs.iter().copied().reduce(libm::fmax).unwrap_or(0.0) + padding;
+        let min_y = ys.iter().copied().reduce(libm::fmin).unwrap_or(0.0) - padding;
+        let max_y = ys.iter().copied().reduce(libm::fmax).unwrap_or(0.0) + padding;
+        let min = libm::fmin(min_x, min_y);
+        let max = libm::fmax(max_x, max_y);
         Self { min, max }
     }
 }
