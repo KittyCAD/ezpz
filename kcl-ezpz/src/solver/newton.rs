@@ -1,6 +1,6 @@
 use faer::{
     ColRef, get_global_parallelism,
-    matrix_free::eigen::partial_eigen_scratch,
+    matrix_free::eigen::{PartialEigenParams, partial_eigen_scratch},
     prelude::Solve,
     sparse::{SparseColMatRef, linalg::solvers::Lu},
 };
@@ -95,11 +95,14 @@ impl Model<'_> {
         // If the problem is very very small, just use dense SVD.
         let n = self.layout.num_variables;
         let m = self.layout.num_rows();
-        let k = usize::min(n, m);
-        eprintln!("{n}, {m}, {k}");
+        let k = 40;
+        // This is the number of singular values in the SVD.
+        let min_mn = usize::min(n, m);
+        assert!(k < min_mn, "faer's sparse SVD algorithm has a bound for k");
+        eprintln!("Jacobian is {m}x{n}, k = {k}");
 
-        let sigma_col = if k <= 2 {
-            eprintln!("Dense SVD");
+        let singular_values = if k <= 32 {
+            eprintln!("Matrix is small, using dense SVD");
             // Small, use sparse SVD
             let j_sparse = SparseColMatRef::new(self.jc.sym.as_ref(), &self.jc.vals);
             let j_dense = j_sparse.to_dense();
@@ -109,20 +112,23 @@ impl Model<'_> {
                 "Jacobian was malformed, Adam messed something up here."
             );
             let svd = j_dense.svd().map_err(NonLinearSystemError::FaerSvd)?;
-            let v: Vec<_> = svd.S().column_vector().iter().copied().collect();
-            v
+            svd.S().column_vector().iter().copied().collect()
         } else {
-            eprintln!("Sparse SVD");
+            eprintln!("Matrix is big, using sparse SVD");
             // Large, use dense SVD
             let j = SparseColMatRef::new(self.jc.sym.as_ref(), &self.jc.vals);
+            // SVD requires a matrix `a` with dimension N by N.
+            // Because `j` is rectangular MxN, we use
+            // A = JᵀJ + λI, as we do in the Newton-Gauss solver loop.
+            // This is square and with the right dimension.
             let jtj = j.transpose().to_col_major()? * j;
             let a = jtj + &self.lambda_i;
 
-            // Figure out the parameters
+            // Allocate scratch space for Faer with `u` and `v`.
             let mut u = faer::Mat::zeros(n, k);
             let mut v = faer::Mat::zeros(n, k);
+            // Faer will write the singular values into this.
             let mut singular_values = vec![0.0; k];
-            let par = get_global_parallelism();
 
             // Make a unit basis vector, with length n, it should be normalized (unit).
             // It's trivially normalized if we set all entries to 0 and the first one to 1.
@@ -130,18 +136,28 @@ impl Model<'_> {
             v0_buf[0] = 1.0;
             let v0 = faer::ColRef::from_slice(&v0_buf);
 
-            // Allocate the scratch space
+            // Tune subspace dims to stay below min(m, n).
+            let min_dim = usize::min(min_mn.saturating_sub(1), usize::max(2, k));
+            let params = PartialEigenParams {
+                max_restarts: 10,
+                min_dim,
+                max_dim: usize::min(min_mn.saturating_sub(1), usize::max(min_dim * 2, k)),
+                ..Default::default()
+            };
+
+            // Allocate scratch space for the algorithm.
+            let par = get_global_parallelism();
             let estimated_memory_needed =
-                partial_eigen_scratch(&a, n.max(m), par, Default::default());
+                partial_eigen_scratch(&a, params.max_dim * 10, par, params);
             let mut memory = faer::dyn_stack::MemBuffer::new(estimated_memory_needed);
-            let stack = faer::dyn_stack::MemStack::new(&mut memory);
+            let scratch_space = faer::dyn_stack::MemStack::new(&mut memory);
 
             let _svd_info = faer::matrix_free::eigen::partial_svd(
                 // Output matrix for U (n by k), the left_singular_rows
                 u.as_mut(),
                 // Output matrix for V (n by k), the right_singular_rows
                 v.as_mut(),
-                // length k, output sigma (largest first)
+                // Sigma, i.e. the K largest singular values.
                 &mut singular_values,
                 // square operator, n by n
                 &a,
@@ -150,10 +166,8 @@ impl Model<'_> {
                 // convergence threshold for residuals
                 self.config.convergence_tolerance,
                 par,
-                // scratch space
-                stack,
-                // Parameters
-                Default::default(),
+                scratch_space,
+                params,
             );
             singular_values
         };
@@ -161,14 +175,14 @@ impl Model<'_> {
         // The system is underconstrained if there's too many singular values
         // close to 0. How close to 0? The tolerance should be derived from
         // the largest singular value.
-        let largest_singular_value = sigma_col
+        let largest_singular_value = singular_values
             .iter()
             .copied()
             .reduce(f64::max)
             .ok_or(NonLinearSystemError::EmptySystemNotAllowed)?;
         let tolerance = 1e-8 * largest_singular_value;
 
-        let rank = sigma_col.iter().filter(|&&s| s > tolerance).count();
+        let rank = singular_values.iter().filter(|&&s| s > tolerance).count();
         let degrees_of_freedom = n - rank;
         Ok(degrees_of_freedom > 0)
     }

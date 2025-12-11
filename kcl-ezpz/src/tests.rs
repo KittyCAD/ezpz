@@ -138,12 +138,12 @@ fn coincident() {
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 3.0, y: 3.0 });
 }
 
-// #[test]
-// fn massive() {
-//     let solved = run("massive_parallel_system");
-//     assert!(solved.is_satisfied());
-//     assert!(!solved.analysis.is_underconstrained);
-// }
+#[test]
+fn massive() {
+    let solved = run("massive_parallel_system");
+    assert!(solved.is_satisfied());
+    assert!(!solved.analysis.is_underconstrained);
+}
 
 #[test]
 fn symmetric() {
