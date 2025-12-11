@@ -96,8 +96,10 @@ impl Model<'_> {
         let n = self.layout.num_variables;
         let m = self.layout.num_rows();
         let k = usize::min(n, m);
+        eprintln!("{n}, {m}, {k}");
 
         let sigma_col = if k <= 2 {
+            eprintln!("Dense SVD");
             // Small, use sparse SVD
             let j_sparse = SparseColMatRef::new(self.jc.sym.as_ref(), &self.jc.vals);
             let j_dense = j_sparse.to_dense();
@@ -110,6 +112,7 @@ impl Model<'_> {
             let v: Vec<_> = svd.S().column_vector().iter().copied().collect();
             v
         } else {
+            eprintln!("Sparse SVD");
             // Large, use dense SVD
             let j = SparseColMatRef::new(self.jc.sym.as_ref(), &self.jc.vals);
             let jtj = j.transpose().to_col_major()? * j;
