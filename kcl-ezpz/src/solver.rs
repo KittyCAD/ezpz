@@ -67,7 +67,7 @@ impl Layout {
         var as usize
     }
 
-    pub fn num_rows(&self) -> usize {
+    pub const fn num_rows(&self) -> usize {
         self.total_num_residuals
     }
 }
@@ -88,6 +88,7 @@ struct Jc {
 /// The problem to actually solve.
 /// Note that the initial values of each variable are required for Tikhonov regularization.
 pub(crate) struct Model<'c> {
+    config: Config,
     layout: Layout,
     jc: Jc,
     constraints: &'c [ConstraintEntry<'c>],
@@ -213,6 +214,7 @@ impl<'c> Model<'c> {
 
         // All done.
         Ok(Self {
+            config,
             warnings: Default::default(),
             layout,
             jc,

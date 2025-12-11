@@ -298,7 +298,7 @@ fn solve_inner<A: Analysis>(
     };
 
     let mut unsatisfied: Vec<usize> = Vec::new();
-    let outcome = model.solve_gauss_newton(&mut values, config);
+    let outcome = model.solve_gauss_newton(&mut values);
     warnings.extend(model.warnings.lock().unwrap().drain(..));
     let success = match outcome {
         Ok(o) => o,

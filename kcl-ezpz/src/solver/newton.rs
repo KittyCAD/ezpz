@@ -1,10 +1,11 @@
 use faer::{
-    ColRef,
+    ColRef, get_global_parallelism,
+    matrix_free::eigen::partial_eigen_scratch,
     prelude::Solve,
     sparse::{SparseColMatRef, linalg::solvers::Lu},
 };
 
-use crate::{Config, NonLinearSystemError};
+use crate::NonLinearSystemError;
 
 use super::Model;
 
@@ -18,13 +19,12 @@ impl Model<'_> {
     pub fn solve_gauss_newton(
         &mut self,
         current_values: &mut [f64],
-        config: Config,
     ) -> Result<SuccessfulSolve, NonLinearSystemError> {
         let m = self.layout.total_num_residuals;
 
         let mut global_residual = vec![0.0; m];
 
-        for this_iteration in 0..config.max_iterations {
+        for this_iteration in 0..self.config.max_iterations {
             // Assemble global residual and Jacobian
             // Re-evaluate the global residual.
             self.residual(current_values, &mut global_residual);
@@ -38,7 +38,7 @@ impl Model<'_> {
                 .map(|x| x.abs())
                 .reduce(f64::max)
                 .ok_or(NonLinearSystemError::EmptySystemNotAllowed)?;
-            if largest_absolute_elem <= config.convergence_tolerance {
+            if largest_absolute_elem <= self.config.convergence_tolerance {
                 return Ok(SuccessfulSolve {
                     iterations: this_iteration,
                 });
@@ -74,7 +74,8 @@ impl Model<'_> {
                 .for_each(|(curr_val, d)| {
                     *curr_val += d;
                 });
-            let step_threshold = config.step_tolerance * (current_inf_norm + config.step_tolerance);
+            let step_threshold =
+                self.config.step_tolerance * (current_inf_norm + self.config.step_tolerance);
 
             // Convergence check: if `d` is small enough,
             // then the system is at a local minimum. It might be inconsistent, and therefore
@@ -91,22 +92,56 @@ impl Model<'_> {
 
     pub fn is_underconstrained(&self) -> Result<bool, NonLinearSystemError> {
         // First step is to compute the SVD.
-        // Faer doesn't have a sparse SVD algorithm, so let's convert it to a dense matrix.
-        // This step is SLOW.
-        // Faer maintainer said she has a sparse SVD algorithm she hasn't published yet,
-        // so hopefully she will publish it soon and this slow step won't be necessary.
-        let j_sparse = SparseColMatRef::new(self.jc.sym.as_ref(), &self.jc.vals);
-        let j_dense = j_sparse.to_dense();
-        debug_assert_eq!(
-            self.layout.num_variables,
-            j_dense.ncols(),
-            "Jacobian was malformed, Adam messed something up here."
+        let j = SparseColMatRef::new(self.jc.sym.as_ref(), &self.jc.vals);
+        let jtj = j.transpose().to_col_major()? * j;
+        let a = jtj + &self.lambda_i;
+
+        // Figure out the parameters
+        let n = self.layout.num_variables;
+        let k = usize::min(self.layout.num_variables, self.layout.num_rows());
+        let mut u = faer::Mat::zeros(n, k);
+        let mut v = faer::Mat::zeros(n, k);
+        let mut singular_values = vec![0.0; k];
+        let par = get_global_parallelism();
+
+        // Make a unit basis vector, with length n, it should be normalized (unit).
+        // It's trivially normalized if we set all entries to 0 and the first one to 1.
+        let mut v0_buf = vec![0.0_f64; n];
+        v0_buf[0] = 1.0;
+        let v0 = faer::ColRef::from_slice(&v0_buf);
+
+        // Allocate the scratch space
+        let estimated_memory_needed = partial_eigen_scratch(
+            &a,
+            self.layout.num_variables.max(self.layout.num_rows()),
+            par,
+            Default::default(),
         );
-        let svd = j_dense.svd().map_err(NonLinearSystemError::FaerSvd)?;
-        let sigma_diags = svd.S();
+        let mut memory = faer::dyn_stack::MemBuffer::new(estimated_memory_needed);
+        let stack = faer::dyn_stack::MemStack::new(&mut memory);
+
+        let _svd_info = faer::matrix_free::eigen::partial_svd(
+            // Output matrix for U (n by k), the left_singular_rows
+            u.as_mut(),
+            // Output matrix for V (n by k), the right_singular_rows
+            v.as_mut(),
+            // length k, output sigma (largest first)
+            &mut singular_values,
+            // square operator, n by n
+            &a,
+            // length n start vector (normalized)
+            v0,
+            // convergence threshold for residuals
+            self.config.convergence_tolerance,
+            par,
+            // scratch space
+            stack,
+            // Parameters
+            Default::default(),
+        );
 
         // These are the 'singular values'.
-        let sigma_col = sigma_diags.column_vector();
+        let sigma_col = singular_values;
 
         // The system is underconstrained if there's too many singular values
         // close to 0. How close to 0? The tolerance should be derived from
