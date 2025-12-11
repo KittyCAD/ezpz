@@ -365,7 +365,13 @@ fn square() {
 #[test]
 fn parallelogram() {
     let solved = run("parallelogram");
+    // The paralallelogram has two vertical lines AB and CD.
+    // A and B are fully determined, but C and D are free.
     assert!(solved.analysis.is_underconstrained);
+    // A = 0 and 1
+    // B = 2 and 3
+    // CD are 4, 5, 6 and 7, and aren't constrained.
+    assert_eq!(solved.analysis.underconstrained, vec![4, 5, 6, 7]);
     assert_nearly_eq(
         solved.get_point("a").unwrap().y - solved.get_point("c").unwrap().y,
         solved.get_point("b").unwrap().y - solved.get_point("d").unwrap().y,
