@@ -124,7 +124,8 @@ impl Model<'_> {
         let degrees_of_freedom = self.layout.num_variables - rank;
         let is_underconstrained = degrees_of_freedom > 0;
 
-        // Fully constrained: no underconstrained variables.
+        // Early return if the system is fully constrained,
+        // i.e. has no underconstrained variables.
         if !is_underconstrained {
             return Ok(FreedomAnalysis {
                 underconstrained: Vec::new(),
@@ -134,12 +135,15 @@ impl Model<'_> {
 
         // 3. Degrees of freedom
         let nvars = self.layout.num_variables;
-        let dof = nvars - rank;
-        println!("rank = {rank}, dof = {dof}");
+        // The degrees of freedom = nvars - rank;
+        // The rank is a measure of how sensitive the Jacobian is in each direction.
+        // If there's any direction where the Jacobian is sensitive, then tweaking the values
+        // in that dimension will change the result. This is what we'd expect in a well-constrained system.
+        // On the other hand, if the Jacobian DOESN'T change along one direction, that implies the direction
+        // doesn't affect the residual at all. That's basically exactly what a degree of freedom means.
 
-        // 4. Nullspace column indices in V
-        let null_indices: Vec<usize> = (rank..nvars).collect();
-        println!("Null indices (columns of V): {:?}", null_indices);
+        // Nullspace column indices in V, as in J = U.sigma.V in the SVD decomposition.
+        let degrees_of_freedom: Vec<usize> = (rank..nvars).collect();
 
         // Compute participation norm for each variable.
         // If a variable's participation is basically zero, then it's constrained.
@@ -148,14 +152,14 @@ impl Model<'_> {
         for j in 0..nvars {
             let mut sum_sq = 0.0;
 
-            for &k in &null_indices {
-                // v[j, k] is the component of variable j for the k-th DOF.
+            for &k in &degrees_of_freedom {
+                // V[j, k] is the component of variable j for the k-th DOF.
                 let v_jk = svd.V().get(j, k);
                 sum_sq += v_jk * v_jk;
             }
             participation.push(sum_sq.sqrt());
         }
-        let max_participation = participation.iter().cloned().fold(0.0, f64::max);
+        let max_participation = participation.iter().cloned().fold(0.0, libm::fmax);
 
         // Relative threshold to classify variables
         let var_tol = 1e-3 * max_participation;
