@@ -129,7 +129,6 @@ impl Model<'_> {
         if !is_underconstrained {
             return Ok(FreedomAnalysis {
                 underconstrained: Vec::new(),
-                is_underconstrained,
             });
         }
 
@@ -169,9 +168,6 @@ impl Model<'_> {
             .map(|x| x as u32)
             .collect();
 
-        Ok(FreedomAnalysis {
-            underconstrained,
-            is_underconstrained,
-        })
+        Ok(FreedomAnalysis { underconstrained })
     }
 }
