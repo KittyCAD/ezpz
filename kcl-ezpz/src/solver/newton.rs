@@ -4,7 +4,7 @@ use faer::{
     sparse::{SparseColMatRef, linalg::solvers::Lu},
 };
 
-use crate::{Config, NonLinearSystemError};
+use crate::{Config, FreedomAnalysis, NonLinearSystemError};
 
 use super::Model;
 
@@ -89,7 +89,7 @@ impl Model<'_> {
         Err(NonLinearSystemError::DidNotConverge)
     }
 
-    pub fn is_underconstrained(&self) -> Result<bool, NonLinearSystemError> {
+    pub fn freedom_analysis(&self) -> Result<FreedomAnalysis, NonLinearSystemError> {
         // First step is to compute the SVD.
         // Faer doesn't have a sparse SVD algorithm, so let's convert it to a dense matrix.
         // This step is SLOW.
@@ -120,6 +120,10 @@ impl Model<'_> {
 
         let rank = sigma_col.iter().filter(|&&s| s > tolerance).count();
         let degrees_of_freedom = self.layout.num_variables - rank;
-        Ok(degrees_of_freedom > 0)
+        let is_underconstrained = degrees_of_freedom > 0;
+
+        Ok(FreedomAnalysis {
+            is_underconstrained,
+        })
     }
 }
