@@ -7,6 +7,7 @@ use crate::{
     constraints::JacobianVar, id::Id,
 };
 
+mod find_dof;
 mod newton;
 
 // Roughly. Most constraints will only involve roughly 4 variables.
