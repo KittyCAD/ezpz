@@ -25,16 +25,18 @@ impl Model<'_> {
 
         // These are the 'singular values'.
         let sigma_col = sigma_diags.column_vector();
+        let (m, n) = (j_dense.nrows(), j_dense.ncols());
 
         // The system is underconstrained if there's too many singular values
         // close to 0. How close to 0? The tolerance should be derived from
-        // the largest singular value.
+        // the largest singular value, scaled by machine epsilon and matrix size,
+        // mirroring LAPACK's recommended rank-revealing cutoff.
         let largest_singular_value = sigma_col
             .iter()
             .copied()
             .reduce(libm::fmax)
             .ok_or(NonLinearSystemError::EmptySystemNotAllowed)?;
-        let tolerance = 1e-8 * largest_singular_value;
+        let tolerance = f64::EPSILON * (m.max(n) as f64) * largest_singular_value;
 
         let rank = sigma_col.iter().filter(|&&s| s > tolerance).count();
 
@@ -45,9 +47,6 @@ impl Model<'_> {
         // On the other hand, if the Jacobian DOESN'T change along one direction, that implies the direction
         // doesn't affect the residual at all. That's basically exactly what a degree of freedom means.
 
-        // Nullspace column indices in V, as in J = U.sigma.V in the SVD decomposition.
-        let degrees_of_freedom: Vec<usize> = (rank..nvars).collect();
-
         // Compute participation norm for each variable.
         // If a variable's participation is basically zero, then it's constrained.
         // If it's nonzero, then it moves in some DOF and is unconstrained.
@@ -55,7 +54,7 @@ impl Model<'_> {
             .map(|j| {
                 let mut sum_sq = 0.0;
 
-                for &k in &degrees_of_freedom {
+                for k in rank..nvars {
                     // V[j, k] is the component of variable j for the k-th DOF.
                     let v_jk = svd.V().get(j, k);
                     sum_sq += v_jk * v_jk;
@@ -65,8 +64,10 @@ impl Model<'_> {
             .collect();
         let max_participation = participation.iter().cloned().fold(0.0, libm::fmax);
 
-        // Relative threshold to classify variables
-        let var_tol = 1e-3 * max_participation;
+        // Relative threshold to classify variables; also guard with an absolute floor tied to
+        // numerical noise so tiny leakage from near-null directions doesn't mark a variable.
+        let noise_floor = 10.0 * libm::sqrt(nvars as f64) * f64::EPSILON;
+        let var_tol = libm::fmax(1e-3 * max_participation, noise_floor);
 
         let underconstrained: Vec<crate::Id> = (0..nvars)
             .filter(|&j| participation[j] > var_tol)
