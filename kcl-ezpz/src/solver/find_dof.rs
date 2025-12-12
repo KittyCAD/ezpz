@@ -12,8 +12,9 @@ impl Model<'_> {
         // This is VERY SLOW for large matrices.
         let j_sparse = SparseColMatRef::new(self.jc.sym.as_ref(), &self.jc.vals);
         let j_dense = j_sparse.to_dense();
+        let nvars = self.layout.num_variables;
         debug_assert_eq!(
-            self.layout.num_variables,
+            nvars,
             j_dense.ncols(),
             "Jacobian was malformed, Adam messed something up here."
         );
@@ -36,19 +37,7 @@ impl Model<'_> {
         let tolerance = 1e-8 * largest_singular_value;
 
         let rank = sigma_col.iter().filter(|&&s| s > tolerance).count();
-        let degrees_of_freedom = self.layout.num_variables - rank;
-        let is_underconstrained = degrees_of_freedom > 0;
 
-        // Early return if the system is fully constrained,
-        // i.e. has no underconstrained variables.
-        if !is_underconstrained {
-            return Ok(FreedomAnalysis {
-                underconstrained: Vec::new(),
-            });
-        }
-
-        // 3. Degrees of freedom
-        let nvars = self.layout.num_variables;
         // The degrees of freedom = nvars - rank;
         // The rank is a measure of how sensitive the Jacobian is in each direction.
         // If there's any direction where the Jacobian is sensitive, then tweaking the values
@@ -62,17 +51,18 @@ impl Model<'_> {
         // Compute participation norm for each variable.
         // If a variable's participation is basically zero, then it's constrained.
         // If it's nonzero, then it moves in some DOF and is unconstrained.
-        let mut participation = Vec::with_capacity(nvars);
-        for j in 0..nvars {
-            let mut sum_sq = 0.0;
+        let participation: Vec<_> = (0..nvars)
+            .map(|j| {
+                let mut sum_sq = 0.0;
 
-            for &k in &degrees_of_freedom {
-                // V[j, k] is the component of variable j for the k-th DOF.
-                let v_jk = svd.V().get(j, k);
-                sum_sq += v_jk * v_jk;
-            }
-            participation.push(sum_sq.sqrt());
-        }
+                for &k in &degrees_of_freedom {
+                    // V[j, k] is the component of variable j for the k-th DOF.
+                    let v_jk = svd.V().get(j, k);
+                    sum_sq += v_jk * v_jk;
+                }
+                sum_sq.sqrt()
+            })
+            .collect();
         let max_participation = participation.iter().cloned().fold(0.0, libm::fmax);
 
         // Relative threshold to classify variables
