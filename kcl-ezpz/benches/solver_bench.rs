@@ -22,6 +22,22 @@ fn bench_case(c: &mut Criterion, test_case: &'static str) {
     });
 }
 
+/// Like [`bench_case`] but with freedom analysis.
+fn bench_case_analysis(c: &mut Criterion, test_case: &'static str) {
+    let txt = std::fs::read_to_string(format!("test_cases/{test_case}/problem.md")).unwrap();
+    c.bench_function(&format!("solve_{test_case}"), |b| {
+        let problem = Problem::from_str(txt.as_str()).unwrap();
+        let constraints = problem.to_constraint_system().unwrap();
+        b.iter(|| {
+            let _actual = black_box(
+                constraints
+                    .solve_with_config_analysis(Config::default())
+                    .unwrap(),
+            );
+        });
+    });
+}
+
 fn solve_inconsistent(c: &mut Criterion) {
     bench_case(c, "inconsistent")
 }
@@ -32,6 +48,10 @@ fn solve_two_rectangles(c: &mut Criterion) {
 
 fn solve_nonsquare(c: &mut Criterion) {
     bench_case(c, "nonsquare")
+}
+
+fn solve_nonsquare_analysis(c: &mut Criterion) {
+    bench_case_analysis(c, "nonsquare")
 }
 
 /// Just like `solve_two_rectangles`, except that the rectangles
@@ -174,6 +194,7 @@ criterion_group!(
     solve_two_rectangles,
     solve_two_rectangles_dependent,
     solve_massive,
+    solve_nonsquare_analysis,
     solve_massive_overconstrained,
 );
 criterion_main!(benches);
