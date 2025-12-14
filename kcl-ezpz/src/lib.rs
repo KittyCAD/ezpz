@@ -8,15 +8,13 @@ use crate::analysis::{Analysis, NoAnalysis, SolveOutcomeAnalysis};
 pub use crate::constraint_request::ConstraintRequest;
 pub use crate::constraints::Constraint;
 use crate::constraints::ConstraintEntry;
+pub use crate::error::*;
 pub use crate::solver::Config;
 // Only public for now so that I can benchmark it.
 // TODO: Replace this with an end-to-end benchmark,
 // or find a different way to structure modules.
 pub use crate::id::{Id, IdGenerator};
 use crate::solver::Model;
-use faer::linalg::svd::SvdError;
-use faer::sparse::linalg::LuError;
-use faer::sparse::{CreationError, FaerError};
 pub use warnings::{Warning, WarningContent};
 
 mod analysis;
@@ -25,6 +23,7 @@ mod constraint_request;
 mod constraints;
 /// Geometric data (lines, points, etc).
 pub mod datatypes;
+mod error;
 /// IDs of various entities, points, scalars etc.
 mod id;
 /// Numeric solver using sparse matrices.
@@ -38,57 +37,6 @@ mod vector;
 mod warnings;
 
 const EPSILON: f64 = 1e-4;
-
-#[derive(thiserror::Error, Debug)]
-#[non_exhaustive]
-pub enum Error {
-    #[error("{0}")]
-    NonLinearSystemError(#[from] NonLinearSystemError),
-    #[error("Solver error {0}")]
-    Solver(Box<dyn std::error::Error>),
-    #[error("No guess was given for point {label}")]
-    MissingGuess { label: String },
-    #[error("You gave a guess for points which weren't defined: {labels:?}")]
-    UnusedGuesses { labels: Vec<String> },
-    #[error("You referred to the point {label} but it was never defined")]
-    UndefinedPoint { label: String },
-}
-
-#[derive(thiserror::Error, Debug)]
-#[non_exhaustive]
-pub enum NonLinearSystemError {
-    #[error("ID {0} not found")]
-    NotFound(Id),
-    #[error(
-        "There should be exactly 1 guess per variable, but you supplied {labels} variables and must {guesses} guesses"
-    )]
-    WrongNumberGuesses { labels: usize, guesses: usize },
-    #[error(
-        "Constraint {constraint_id} references variable {variable} but no such variable appears in your initial guesses."
-    )]
-    MissingGuess { constraint_id: usize, variable: Id },
-    #[error("Could not create matrix: {error}")]
-    FaerMatrix {
-        #[from]
-        error: CreationError,
-    },
-    #[error("Something went wrong in faer: {error}")]
-    Faer {
-        #[from]
-        error: FaerError,
-    },
-    #[error("Something went wrong doing matrix solves in faer: {error}")]
-    FaerSolve {
-        #[from]
-        error: LuError,
-    },
-    #[error("Something went wrong doing SVD in faer")]
-    FaerSvd(SvdError),
-    #[error("Could not find a solution in the allowed number of iterations")]
-    DidNotConverge,
-    #[error("Cannot solve an empty system")]
-    EmptySystemNotAllowed,
-}
 
 #[derive(Debug)]
 pub struct SolveOutcome {

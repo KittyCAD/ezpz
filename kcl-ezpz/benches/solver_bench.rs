@@ -1,3 +1,4 @@
+//! Benchmarks for the ezpz solver.
 use std::{hint::black_box, str::FromStr};
 
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
