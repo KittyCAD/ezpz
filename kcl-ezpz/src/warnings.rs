@@ -4,19 +4,30 @@ use crate::{
     datatypes::{Angle, AngleKind},
 };
 
+/// Something bad that users should know about.
 #[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct Warning {
+    /// If this warning is about a particular constraint, which constraint?
+    /// Refers to each constraint by ID.
     pub about_constraint: Option<usize>,
+    /// What went wrong, or should be done differently.
     pub content: WarningContent,
 }
 
+/// What went wrong, or should be done differently.
 #[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
 #[non_exhaustive]
 pub enum WarningContent {
+    /// The constraint was satisfied, but only by a degenerate solution,
+    /// e.g. making a line where both points are the same.
     Degenerate,
+    /// This constraint used a specific angle measurement, but
+    /// it would be more accurate to use the Parallel constraint.
     ShouldBeParallel(Angle),
+    /// This constraint used a specific angle measurement, but
+    /// it would be more accurate to use the Perpendicular constraint.
     ShouldBePerpendicular(Angle),
 }
 
