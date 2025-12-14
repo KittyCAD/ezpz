@@ -38,6 +38,7 @@ mod warnings;
 
 const EPSILON: f64 = 1e-4;
 
+/// Data from a successful solved system.
 #[derive(Debug)]
 pub struct SolveOutcome {
     /// Which constraints couldn't be satisfied
@@ -84,11 +85,17 @@ impl SolveOutcome {
     }
 }
 
+/// Returned when ezpz could not solve a system.
 #[derive(Debug)]
 pub struct FailureOutcome {
+    /// The error that stopped the system from being solved.
     pub error: Error,
+    /// Other warnings which might have contributed,
+    /// or might be suboptimal for other reasons.
     pub warnings: Vec<Warning>,
+    /// Size of the system.
     pub num_vars: usize,
+    /// Size of the system.
     pub num_eqs: usize,
 }
 
