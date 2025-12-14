@@ -121,10 +121,10 @@ fn too_many_variables() {
         .error;
     assert!(matches!(
         err,
-        Error::NonLinearSystemError(NonLinearSystemError::MissingGuess {
+        NonLinearSystemError::MissingGuess {
             constraint_id: 0,
             variable: 0
-        })
+        }
     ));
 }
 

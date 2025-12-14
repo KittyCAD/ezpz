@@ -38,6 +38,7 @@ mod warnings;
 
 const EPSILON: f64 = 1e-4;
 
+/// Data from a successful solved system.
 #[derive(Debug)]
 pub struct SolveOutcome {
     /// Which constraints couldn't be satisfied
@@ -84,11 +85,17 @@ impl SolveOutcome {
     }
 }
 
+/// Returned when ezpz could not solve a system.
 #[derive(Debug)]
 pub struct FailureOutcome {
-    pub error: Error,
+    /// The error that stopped the system from being solved.
+    pub error: NonLinearSystemError,
+    /// Other warnings which might have contributed,
+    /// or might be suboptimal for other reasons.
     pub warnings: Vec<Warning>,
+    /// Size of the system.
     pub num_vars: usize,
+    /// Size of the system.
     pub num_eqs: usize,
 }
 
@@ -235,9 +242,9 @@ fn solve_inner<A: Analysis>(
 
     let mut model = match Model::new(constraints, all_variables, initial_values, config) {
         Ok(o) => o,
-        Err(e) => {
+        Err(error) => {
             return Err(FailureOutcome {
-                error: e.into(),
+                error,
                 warnings,
                 num_vars,
                 num_eqs,
@@ -250,9 +257,9 @@ fn solve_inner<A: Analysis>(
     warnings.extend(model.warnings.lock().unwrap().drain(..));
     let success = match outcome {
         Ok(o) => o,
-        Err(e) => {
+        Err(error) => {
             return Err(FailureOutcome {
-                error: e.into(),
+                error,
                 warnings,
                 num_vars,
                 num_eqs,
@@ -285,9 +292,9 @@ fn solve_inner<A: Analysis>(
     }
     let analysis = match A::analyze(model) {
         Ok(o) => o,
-        Err(e) => {
+        Err(error) => {
             return Err(FailureOutcome {
-                error: e.into(),
+                error,
                 warnings,
                 num_vars,
                 num_eqs,

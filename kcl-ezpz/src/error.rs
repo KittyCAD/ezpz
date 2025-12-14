@@ -5,18 +5,28 @@ use faer::{
 
 use crate::Id;
 
-/// All errors that could occur when solving a system.
+/// Errors from parsing and executing ezpz's textual representation.
 #[derive(thiserror::Error, Debug)]
 #[non_exhaustive]
-pub enum Error {
-    #[error("{0}")]
-    NonLinearSystemError(#[from] NonLinearSystemError),
+pub enum TextualError {
+    /// No initial guess was given for this label.
     #[error("No guess was given for point {label}")]
-    MissingGuess { label: String },
+    MissingGuess {
+        /// The entity that didn't have any guesses
+        label: String,
+    },
+    /// No initial guess was given for this label.
     #[error("You gave a guess for points which weren't defined: {labels:?}")]
-    UnusedGuesses { labels: Vec<String> },
+    UnusedGuesses {
+        /// The entities you gave guesses for which weren't defined.
+        labels: Vec<String>,
+    },
+    /// You referred to an entity that was never defined.
     #[error("You referred to the point {label} but it was never defined")]
-    UndefinedPoint { label: String },
+    UndefinedPoint {
+        /// The undefined point.
+        label: String,
+    },
 }
 
 /// Errors that could occur when running the core Newton-Gauss solve.
