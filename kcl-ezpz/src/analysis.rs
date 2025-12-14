@@ -42,7 +42,7 @@ impl FreedomAnalysis {
 }
 
 #[derive(Debug)]
-pub struct SolveOutcomeAnalysis<A> {
+pub(crate) struct SolveOutcomeAnalysis<A> {
     /// Extra analysis for the system.
     pub analysis: A,
     /// Other data.

@@ -3,7 +3,7 @@ use crate::datatypes::Angle;
 use super::{Component, Label};
 
 #[derive(Debug)]
-pub enum Instruction {
+pub(crate) enum Instruction {
     DeclarePoint(DeclarePoint),
     DeclareCircle(DeclareCircle),
     DeclareArc(DeclareArc),

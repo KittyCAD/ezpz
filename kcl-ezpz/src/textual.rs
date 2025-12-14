@@ -5,6 +5,7 @@ mod parser;
 
 use std::str::FromStr;
 
+pub use executor::ConstraintSystem;
 pub use executor::Outcome;
 pub use executor::OutcomeAnalysis;
 use instruction::Instruction;
@@ -26,13 +27,13 @@ pub struct ScalarGuess {
 
 #[derive(Debug)]
 pub struct Problem {
-    pub instructions: Vec<Instruction>,
-    pub inner_points: Vec<Label>,
-    pub inner_circles: Vec<Label>,
-    pub inner_arcs: Vec<Label>,
-    pub inner_lines: Vec<(Label, Label)>,
-    pub point_guesses: Vec<PointGuess>,
-    pub scalar_guesses: Vec<ScalarGuess>,
+    instructions: Vec<Instruction>,
+    inner_points: Vec<Label>,
+    inner_circles: Vec<Label>,
+    inner_arcs: Vec<Label>,
+    inner_lines: Vec<(Label, Label)>,
+    point_guesses: Vec<PointGuess>,
+    scalar_guesses: Vec<ScalarGuess>,
 }
 
 impl FromStr for Problem {

@@ -37,8 +37,8 @@ fn empty() {
     ))];
     // We don't pass any variables, so this should return an error,
     // because the constraint requires variable 0, and it's not given.
-    let _e = crate::solve_with_priority(constraints.as_slice(), Vec::new(), Default::default())
-        .unwrap_err();
+    let _e =
+        solve_with_priority(constraints.as_slice(), Vec::new(), Default::default()).unwrap_err();
 }
 
 #[test]
@@ -58,8 +58,7 @@ fn it_returns_best_satisfied_solution() {
     ];
     let initial_guesses = vec![(var, 0.5)];
     let solved =
-        crate::solve_with_priority_analysis(&constraints, initial_guesses, Config::default())
-            .unwrap();
+        solve_with_priority_analysis(&constraints, initial_guesses, Config::default()).unwrap();
     assert!(solved.outcome.is_satisfied());
     assert_eq!(solved.as_ref().priority_solved, high_priority);
 }
@@ -76,8 +75,7 @@ fn initials_become_finals_if_no_constraints() {
     let initial_guess = 0.5;
     let initial_guesses = vec![(var, initial_guess)];
     let solved =
-        crate::solve_with_priority_analysis(&constraints, initial_guesses, Config::default())
-            .unwrap();
+        solve_with_priority_analysis(&constraints, initial_guesses, Config::default()).unwrap();
     assert!(solved.as_ref().is_satisfied());
     assert_eq!(solved.as_ref().final_values, vec![initial_guess]);
 }
@@ -100,8 +98,7 @@ fn priority_solver_reports_original_indices() {
     let initial_guess = vec![(var, 0.5)];
 
     let solved =
-        crate::solve_with_priority_analysis(&constraints, initial_guess, Config::default())
-            .unwrap();
+        solve_with_priority_analysis(&constraints, initial_guess, Config::default()).unwrap();
     assert_eq!(solved.as_ref().unsatisfied, vec![1, 2]);
     assert_eq!(solved.as_ref().priority_solved, high_priority);
 }
@@ -116,7 +113,7 @@ fn too_many_variables() {
     ))];
     let initial_guess = vec![];
 
-    let err = crate::solve_with_priority_analysis(&constraints, initial_guess, Config::default())
+    let err = solve_with_priority_analysis(&constraints, initial_guess, Config::default())
         .unwrap_err()
         .error;
     assert!(matches!(
@@ -486,8 +483,8 @@ fn strange_nonconvergence() {
         ConstraintRequest::highest_priority(Constraint::PointsCoincident(r, s)),
         ConstraintRequest::highest_priority(Constraint::PointsCoincident(q, p)),
         ConstraintRequest::highest_priority(Constraint::LinesEqualLength(
-            crate::datatypes::LineSegment { p0: q, p1: r },
-            crate::datatypes::LineSegment { p0: s, p1: t },
+            datatypes::LineSegment { p0: q, p1: r },
+            datatypes::LineSegment { p0: s, p1: t },
         )),
     ];
     let initial_guesses = vec![
@@ -502,7 +499,7 @@ fn strange_nonconvergence() {
         (8, -1.15),
         (9, 2.75),
     ];
-    let outcome = crate::solve_with_priority(
+    let outcome = solve_with_priority(
         &requests,
         initial_guesses,
         Config {

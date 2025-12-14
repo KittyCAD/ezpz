@@ -41,7 +41,7 @@ impl Default for Config {
 }
 
 #[derive(Debug)]
-pub struct Layout {
+pub(crate) struct Layout {
     /// Equivalent to number of rows in the matrix being solved.
     pub total_num_residuals: usize,
     /// One variable per column of the matrix.
@@ -49,7 +49,7 @@ pub struct Layout {
 }
 
 impl Layout {
-    pub fn new(all_variables: &[Id], constraints: &[&Constraint], _config: Config) -> Self {
+    pub(crate) fn new(all_variables: &[Id], constraints: &[&Constraint], _config: Config) -> Self {
         // We'll have different numbers of rows in the system depending on whether
         // or not regularization is enabled.
         let num_residuals_constraints: usize = constraints.iter().map(|c| c.residual_dim()).sum();
@@ -64,11 +64,11 @@ impl Layout {
         }
     }
 
-    pub fn index_of(&self, var: Id) -> usize {
+    pub(crate) fn index_of(&self, var: Id) -> usize {
         var as usize
     }
 
-    pub fn num_rows(&self) -> usize {
+    fn num_rows(&self) -> usize {
         self.total_num_residuals
     }
 }
@@ -137,7 +137,7 @@ fn validate_variables(
 }
 
 impl<'c> Model<'c> {
-    pub fn new(
+    pub(crate) fn new(
         constraints: &'c [ConstraintEntry<'c>],
         all_variables: Vec<Id>,
         initial_values: Vec<f64>,
@@ -395,9 +395,9 @@ mod tests {
         let all_variables = vec![0, 2]; // Only X components, missing Y components.
         let initial_values = vec![0.0, 0.0];
 
-        let err = match Model::new(&[entry], all_variables, initial_values, Config::default()) {
-            Ok(_) => panic!("expected missing guess error"),
-            Err(e) => e,
+        let Err(err) = Model::new(&[entry], all_variables, initial_values, Config::default())
+        else {
+            panic!("expected missing guess error");
         };
 
         match err {
