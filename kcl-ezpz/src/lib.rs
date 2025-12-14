@@ -242,9 +242,9 @@ fn solve_inner<A: Analysis>(
 
     let mut model = match Model::new(constraints, all_variables, initial_values, config) {
         Ok(o) => o,
-        Err(e) => {
+        Err(error) => {
             return Err(FailureOutcome {
-                error: e.into(),
+                error,
                 warnings,
                 num_vars,
                 num_eqs,
@@ -257,9 +257,9 @@ fn solve_inner<A: Analysis>(
     warnings.extend(model.warnings.lock().unwrap().drain(..));
     let success = match outcome {
         Ok(o) => o,
-        Err(e) => {
+        Err(error) => {
             return Err(FailureOutcome {
-                error: e.into(),
+                error,
                 warnings,
                 num_vars,
                 num_eqs,
@@ -292,9 +292,9 @@ fn solve_inner<A: Analysis>(
     }
     let analysis = match A::analyze(model) {
         Ok(o) => o,
-        Err(e) => {
+        Err(error) => {
             return Err(FailureOutcome {
-                error: e.into(),
+                error,
                 warnings,
                 num_vars,
                 num_eqs,
