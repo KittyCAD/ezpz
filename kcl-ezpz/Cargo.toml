@@ -25,3 +25,6 @@ proptest = "1.9.0"
 [[bench]]
 name = "solver_bench"
 harness = false
+
+# [lints.rust]
+# missing_docs = "warn"

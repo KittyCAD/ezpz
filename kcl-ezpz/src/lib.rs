@@ -89,7 +89,7 @@ impl SolveOutcome {
 #[derive(Debug)]
 pub struct FailureOutcome {
     /// The error that stopped the system from being solved.
-    pub error: Error,
+    pub error: NonLinearSystemError,
     /// Other warnings which might have contributed,
     /// or might be suboptimal for other reasons.
     pub warnings: Vec<Warning>,

@@ -6,7 +6,6 @@ use crate::Analysis;
 use crate::Config;
 use crate::Constraint;
 use crate::ConstraintRequest;
-use crate::Error;
 use crate::FailureOutcome;
 use crate::FreedomAnalysis;
 use crate::IdGenerator;
@@ -20,6 +19,7 @@ use crate::datatypes::CircularArc;
 use crate::datatypes::DatumDistance;
 use crate::datatypes::DatumPoint;
 use crate::datatypes::LineSegment;
+use crate::error::TextualError;
 use crate::textual::Arc;
 use crate::textual::geometry_variables::DoneState;
 use crate::textual::geometry_variables::GeometryVariables;
@@ -32,7 +32,7 @@ use super::Instruction;
 use super::Problem;
 
 impl Problem {
-    pub fn to_constraint_system(&self) -> Result<ConstraintSystem<'_>, Error> {
+    pub fn to_constraint_system(&self) -> Result<ConstraintSystem<'_>, TextualError> {
         let mut id_generator = IdGenerator::default();
         // First, construct the list of initial guesses,
         // and assign them to solver variables.
@@ -46,7 +46,7 @@ impl Problem {
         );
         for point in &self.inner_points {
             let Some(guess) = guessmap_points.remove(&point.0) else {
-                return Err(Error::MissingGuess {
+                return Err(TextualError::MissingGuess {
                     label: point.0.clone(),
                 });
             };
@@ -64,14 +64,14 @@ impl Problem {
             // First, find the guess for its center:
             let center_label = format!("{}.center", circle.0);
             let Some(center_guess) = guessmap_points.remove(&center_label) else {
-                return Err(Error::MissingGuess {
+                return Err(TextualError::MissingGuess {
                     label: center_label,
                 });
             };
             // Now, find the guess for its radius.
             let radius_label = format!("{}.radius", circle.0);
             let Some(radius_guess) = guessmap_scalars.remove(&radius_label) else {
-                return Err(Error::MissingGuess {
+                return Err(TextualError::MissingGuess {
                     label: radius_label,
                 });
             };
@@ -87,33 +87,33 @@ impl Problem {
             // Each arc should have a guess for its 3 points (p, q, and center).
             let center_label = format!("{}.center", arc.0);
             let Some(center_guess) = guessmap_points.remove(&center_label) else {
-                return Err(Error::MissingGuess {
+                return Err(TextualError::MissingGuess {
                     label: center_label,
                 });
             };
             let a_label = format!("{}.a", arc.0);
             let Some(a_guess) = guessmap_points.remove(&a_label) else {
-                return Err(Error::MissingGuess { label: a_label });
+                return Err(TextualError::MissingGuess { label: a_label });
             };
             let b_label = format!("{}.b", arc.0);
             let Some(b_guess) = guessmap_points.remove(&b_label) else {
-                return Err(Error::MissingGuess { label: b_label });
+                return Err(TextualError::MissingGuess { label: b_label });
             };
             initial_guesses.push_arc(&mut id_generator, a_guess, b_guess, center_guess);
         }
         if !guessmap_points.is_empty() {
             let labels: Vec<String> = guessmap_points.keys().cloned().collect();
-            return Err(Error::UnusedGuesses { labels });
+            return Err(TextualError::UnusedGuesses { labels });
         }
         if !guessmap_scalars.is_empty() {
             let labels: Vec<String> = guessmap_scalars.keys().cloned().collect();
-            return Err(Error::UnusedGuesses { labels });
+            return Err(TextualError::UnusedGuesses { labels });
         }
 
         // Good. Now we can define all the constraints, referencing the solver variables that
         // were defined in the previous step.
         let mut constraints = Vec::new();
-        let datum_point_for_label = |label: &Label| -> Result<DatumPoint, crate::Error> {
+        let datum_point_for_label = |label: &Label| -> Result<DatumPoint, crate::TextualError> {
             // Is the point a single geometric point?
             if let Some(point_id) = self.inner_points.iter().position(|p| p == &label.0) {
                 let ids = initial_guesses.point_ids(point_id);
@@ -163,23 +163,24 @@ impl Problem {
                 return Ok(b.into());
             }
             // Well, it wasn't any of the geometries we recognize.
-            Err(Error::UndefinedPoint {
+            Err(TextualError::UndefinedPoint {
                 label: label.0.clone(),
             })
         };
-        let datum_distance_for_label = |label: &Label| -> Result<DatumDistance, crate::Error> {
-            if let Some(circle_id) = self
-                .inner_circles
-                .iter()
-                .position(|circ| format!("{}.radius", circ.0) == label.0.as_str())
-            {
-                let ids = initial_guesses.circle_ids(circle_id);
-                return Ok(DatumDistance { id: ids.radius });
-            }
-            Err(Error::UndefinedPoint {
-                label: label.0.clone(),
-            })
-        };
+        let datum_distance_for_label =
+            |label: &Label| -> Result<DatumDistance, crate::TextualError> {
+                if let Some(circle_id) = self
+                    .inner_circles
+                    .iter()
+                    .position(|circ| format!("{}.radius", circ.0) == label.0.as_str())
+                {
+                    let ids = initial_guesses.circle_ids(circle_id);
+                    return Ok(DatumDistance { id: ids.radius });
+                }
+                Err(TextualError::UndefinedPoint {
+                    label: label.0.clone(),
+                })
+            };
 
         for instr in &self.instructions {
             match instr {
@@ -276,7 +277,7 @@ impl Problem {
                             constraints.push(Constraint::Fixed(id, *value))
                         }
                     } else {
-                        return Err(Error::UndefinedPoint {
+                        return Err(TextualError::UndefinedPoint {
                             label: point.0.clone(),
                         });
                     }
@@ -307,7 +308,7 @@ impl Problem {
                         };
                         constraints.push(Constraint::Fixed(id, *value));
                     } else {
-                        return Err(Error::UndefinedPoint {
+                        return Err(TextualError::UndefinedPoint {
                             label: object.0.clone(),
                         });
                     }
@@ -637,7 +638,7 @@ mod tests {
             .to_constraint_system()
             .err()
             .expect("expected missing guess");
-        assert!(matches!(err, Error::MissingGuess { label } if label == "p"));
+        assert!(matches!(err, TextualError::MissingGuess { label } if label == "p"));
     }
 
     #[test]
@@ -653,7 +654,7 @@ mod tests {
             .err()
             .expect("expected unused guess error");
         match err {
-            Error::UnusedGuesses { labels } => {
+            TextualError::UnusedGuesses { labels } => {
                 assert_eq!(labels.len(), 1);
                 assert_eq!(labels[0], "ghost");
             }
@@ -681,6 +682,6 @@ mod tests {
             .to_constraint_system()
             .err()
             .expect("expected undefined point error");
-        assert!(matches!(err, Error::UndefinedPoint { label } if label == "missing"));
+        assert!(matches!(err, TextualError::UndefinedPoint { label } if label == "missing"));
     }
 }

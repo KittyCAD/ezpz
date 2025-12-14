@@ -5,13 +5,10 @@ use faer::{
 
 use crate::Id;
 
-/// All errors that could occur when solving a system.
+/// Errors from parsing and executing ezpz's textual representation.
 #[derive(thiserror::Error, Debug)]
 #[non_exhaustive]
-pub enum Error {
-    /// Errors that could occur when running the core Newton-Gauss solve.
-    #[error("{0}")]
-    NonLinearSystemError(#[from] NonLinearSystemError),
+pub enum TextualError {
     /// No initial guess was given for this label.
     #[error("No guess was given for point {label}")]
     MissingGuess {
