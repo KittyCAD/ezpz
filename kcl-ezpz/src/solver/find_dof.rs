@@ -63,7 +63,7 @@ impl Model<'_> {
                 sum_sq.sqrt()
             })
             .collect();
-        let max_participation = participation.iter().cloned().fold(0.0, libm::fmax);
+        let max_participation = participation.iter().copied().fold(0.0, libm::fmax);
 
         // Relative threshold to classify variables
         let var_tol = 1e-3 * max_participation;

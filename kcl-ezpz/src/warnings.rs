@@ -31,7 +31,7 @@ pub enum WarningContent {
     ShouldBePerpendicular(Angle),
 }
 
-pub fn lint(constraints: &[ConstraintEntry]) -> Vec<Warning> {
+pub(crate) fn lint(constraints: &[ConstraintEntry<'_>]) -> Vec<Warning> {
     let mut warnings = Vec::default();
     for constraint in constraints.iter() {
         match constraint.constraint {
@@ -62,17 +62,17 @@ pub fn lint(constraints: &[ConstraintEntry]) -> Vec<Warning> {
 impl std::fmt::Display for WarningContent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            WarningContent::Degenerate => write!(
+            Self::Degenerate => write!(
                 f,
                 "This geometry is degenerate, meaning two points are so close together that they practically overlap. This is probably unintentional, you probably should place your initial guesses further apart or choose different constraints."
             ),
-            WarningContent::ShouldBeParallel(angle) => {
+            Self::ShouldBeParallel(angle) => {
                 write!(
                     f,
                     "Instead of constraining to {angle}, constrain to Parallel"
                 )
             }
-            WarningContent::ShouldBePerpendicular(angle) => {
+            Self::ShouldBePerpendicular(angle) => {
                 write!(
                     f,
                     "Instead of constraining to {angle}, constraint to Perpendicular"

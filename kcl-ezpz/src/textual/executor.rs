@@ -113,7 +113,7 @@ impl Problem {
         // Good. Now we can define all the constraints, referencing the solver variables that
         // were defined in the previous step.
         let mut constraints = Vec::new();
-        let datum_point_for_label = |label: &Label| -> Result<DatumPoint, crate::TextualError> {
+        let datum_point_for_label = |label: &Label| -> Result<DatumPoint, TextualError> {
             // Is the point a single geometric point?
             if let Some(point_id) = self.inner_points.iter().position(|p| p == &label.0) {
                 let ids = initial_guesses.point_ids(point_id);
@@ -167,20 +167,19 @@ impl Problem {
                 label: label.0.clone(),
             })
         };
-        let datum_distance_for_label =
-            |label: &Label| -> Result<DatumDistance, crate::TextualError> {
-                if let Some(circle_id) = self
-                    .inner_circles
-                    .iter()
-                    .position(|circ| format!("{}.radius", circ.0) == label.0.as_str())
-                {
-                    let ids = initial_guesses.circle_ids(circle_id);
-                    return Ok(DatumDistance { id: ids.radius });
-                }
-                Err(TextualError::UndefinedPoint {
-                    label: label.0.clone(),
-                })
-            };
+        let datum_distance_for_label = |label: &Label| -> Result<DatumDistance, TextualError> {
+            if let Some(circle_id) = self
+                .inner_circles
+                .iter()
+                .position(|circ| format!("{}.radius", circ.0) == label.0.as_str())
+            {
+                let ids = initial_guesses.circle_ids(circle_id);
+                return Ok(DatumDistance { id: ids.radius });
+            }
+            Err(TextualError::UndefinedPoint {
+                label: label.0.clone(),
+            })
+        };
 
         for instr in &self.instructions {
             match instr {

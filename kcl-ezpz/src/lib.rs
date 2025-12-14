@@ -175,7 +175,7 @@ pub(crate) fn solve_with_priority_inner<A: Analysis>(
     // Try solving, starting with only the highest priority constraints,
     // adding more and more until we eventually either finish all constraints,
     // or cannot find a solution that satisfies all of them.
-    let mut constraint_subset: Vec<ConstraintEntry> = Vec::with_capacity(total_constraints);
+    let mut constraint_subset: Vec<ConstraintEntry<'_>> = Vec::with_capacity(total_constraints);
 
     for curr_max_priority in priorities {
         constraint_subset.clear();
@@ -227,7 +227,7 @@ pub(crate) fn solve_with_priority_inner<A: Analysis>(
 }
 
 fn solve_inner<A: Analysis>(
-    constraints: &[ConstraintEntry],
+    constraints: &[ConstraintEntry<'_>],
     initial_guesses: Vec<(Id, f64)>,
     config: Config,
 ) -> Result<SolveOutcomeAnalysis<A>, FailureOutcome> {
@@ -267,7 +267,7 @@ fn solve_inner<A: Analysis>(
         }
     };
     let cs: Vec<_> = constraints.iter().map(|c| c.constraint).collect();
-    let layout = crate::solver::Layout::new(&Vec::new(), cs.as_slice(), config);
+    let layout = solver::Layout::new(&Vec::new(), cs.as_slice(), config);
     for constraint in constraints.iter() {
         let mut residual0 = 0.0;
         let mut residual1 = 0.0;

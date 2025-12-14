@@ -69,7 +69,7 @@ pub enum Constraint {
 
 /// Describes one value in one row of the Jacobian matrix.
 #[derive(Clone, Copy)]
-pub struct JacobianVar {
+pub(crate) struct JacobianVar {
     /// Which variable are we talking about?
     /// Corresponds to one column in the row.
     pub id: Id,
@@ -85,7 +85,7 @@ impl std::fmt::Debug for JacobianVar {
 
 impl Constraint {
     /// For each row of the Jacobian matrix, which variables are involved in them?
-    pub fn nonzeroes(&self, row0: &mut Vec<Id>, row1: &mut Vec<Id>) {
+    pub(crate) fn nonzeroes(&self, row0: &mut Vec<Id>, row1: &mut Vec<Id>) {
         match self {
             Constraint::LineTangentToCircle(line, circle) => {
                 row0.extend(line.all_variables());
@@ -164,7 +164,7 @@ impl Constraint {
     /// Most constraints have a residual measured as a single number (scalar),
     /// but some constraints have two residuals (e.g. one for the X axis and one for the Y axis).
     /// That's why there's two possible residuals to calculate (and therefore, two &mut residual to write into).
-    pub fn residual(
+    pub(crate) fn residual(
         &self,
         layout: &Layout,
         current_assignments: &[f64],
@@ -409,7 +409,7 @@ impl Constraint {
 
     /// How many equations does this constraint correspond to?
     /// Each equation is a residual function (a measure of error)
-    pub fn residual_dim(&self) -> usize {
+    pub(crate) fn residual_dim(&self) -> usize {
         match self {
             Constraint::LineTangentToCircle(..) => 1,
             Constraint::Distance(..) => 1,
@@ -438,7 +438,7 @@ impl Constraint {
     /// `Vec<JacobianVar>` for each Jacobian row, instead takes the output rows as
     /// mutable arguments and writes out all nonzero variables for each row to
     /// one of them.
-    pub fn jacobian_rows(
+    pub(crate) fn jacobian_rows(
         &self,
         layout: &Layout,
         current_assignments: &[f64],

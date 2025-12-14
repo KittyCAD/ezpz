@@ -435,7 +435,7 @@ fn assign_point(i: &mut &str) -> WResult<Vec<Instruction>> {
             value: pt.x,
         }),
         Instruction::FixPointComponent(FixPointComponent {
-            point: label.clone(),
+            point: label,
             component: Component::Y,
             value: pt.y,
         }),
