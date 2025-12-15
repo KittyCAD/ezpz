@@ -18,8 +18,12 @@ impl Analysis for NoAnalysis {
     }
 }
 
+/// Results from analyzing the freedom of each variable.
 #[derive(Default, Debug)]
 pub struct FreedomAnalysis {
+    /// These variables are underconstrained, and the user could (probably should)
+    /// add more constraints so that their positions are properly specified and don't
+    /// depend on the initial guesses.
     pub underconstrained: Vec<crate::Id>,
 }
 
@@ -36,6 +40,7 @@ impl Analysis for FreedomAnalysis {
 }
 
 impl FreedomAnalysis {
+    /// Is any variable in the system underconstrained?
     pub fn is_underconstrained(&self) -> bool {
         !self.underconstrained.is_empty()
     }

@@ -40,27 +40,40 @@ pub enum NonLinearSystemError {
     #[error(
         "There should be exactly 1 guess per variable, but you supplied {labels} variables and must {guesses} guesses"
     )]
-    WrongNumberGuesses { labels: usize, guesses: usize },
+    WrongNumberGuesses {
+        /// How many variables/labels were given.
+        labels: usize,
+        /// How many guesses were given.
+        guesses: usize,
+    },
     /// Constraint references a variable that doesn't appear in the initial guesses.
     #[error(
         "Constraint {constraint_id} references variable {variable} but no such variable appears in your initial guesses."
     )]
-    MissingGuess { constraint_id: usize, variable: Id },
+    MissingGuess {
+        /// Which constraint ID referenced a missing variable.
+        constraint_id: usize,
+        /// Which variable was missing.
+        variable: Id,
+    },
     /// Faer: could not create a matrix.
     #[error("Could not create matrix: {error}")]
     FaerMatrix {
+        /// Underlying error.
         #[from]
         error: CreationError,
     },
     /// Faer: general error.
     #[error("Something went wrong in faer: {error}")]
     Faer {
+        /// Underlying error.
         #[from]
         error: FaerError,
     },
     /// Faer: could not solve the matrix in the Newton-Gauss loop.
     #[error("Something went wrong doing matrix solves in faer: {error}")]
     FaerSolve {
+        /// Underlying error.
         #[from]
         error: LuError,
     },
