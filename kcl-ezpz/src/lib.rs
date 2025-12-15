@@ -302,9 +302,14 @@ fn solve_inner<A: Analysis>(
         }
     };
 
+    let lowest_priority = constraints
+        .iter()
+        .map(|c| c.priority)
+        .max()
+        .unwrap_or_default();
     Ok(SolveOutcomeAnalysis {
         outcome: SolveOutcome {
-            priority_solved: 0,
+            priority_solved: lowest_priority,
             unsatisfied,
             final_values: values,
             iterations: success.iterations,
