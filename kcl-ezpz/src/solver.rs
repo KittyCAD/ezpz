@@ -186,7 +186,7 @@ impl<'c> Model<'c> {
             for row in rows.iter().take(constraint.constraint.residual_dim()) {
                 let this_row = row_num;
                 row_num += 1;
-                for var in row.iter() {
+                for var in *row {
                     let col = layout.index_of(*var);
                     nonzero_cells_j.push(Pair { row: this_row, col });
                 }

@@ -107,12 +107,8 @@ impl GeometryVariables<PointsState> {
     /// Add variables for a 2D point.
     /// Must be called before `push_circle`.
     pub fn push_point(&mut self, id_generator: &mut IdGenerator, x: f64, y: f64) {
-        if self.num_circles > 0 {
-            panic!("You must add points before circles");
-        }
-        if self.num_arcs > 0 {
-            panic!("You must add points before arcs");
-        }
+        assert!(self.num_circles <= 0, "You must add points before circles");
+        assert!(self.num_arcs <= 0, "You must add points before arcs");
         self.num_points += 1;
         self.push_scalar(id_generator, x);
         self.push_scalar(id_generator, y);
@@ -138,9 +134,7 @@ impl GeometryVariables<CirclesState> {
         center_y: f64,
         radius: f64,
     ) {
-        if self.num_arcs > 0 {
-            panic!("You must add circles before arcs");
-        }
+        assert!(self.num_arcs <= 0, "You must add circles before arcs");
         self.num_circles += 1;
         self.variables.push((id_generator.next_id(), center_x));
         self.variables.push((id_generator.next_id(), center_y));

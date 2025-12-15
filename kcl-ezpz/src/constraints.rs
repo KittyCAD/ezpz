@@ -1571,8 +1571,6 @@ mod tests {
     #[track_caller]
     fn assert_close(actual: f64, expected: f64) {
         let delta = actual - expected;
-        if (delta).abs() > 0.00001 {
-            panic!("Delta is {}", delta);
-        }
+        assert!((delta).abs() <= 0.00001, "Delta is {}", delta)
     }
 }

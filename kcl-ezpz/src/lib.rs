@@ -268,7 +268,7 @@ fn solve_inner<A: Analysis>(
     };
     let cs: Vec<_> = constraints.iter().map(|c| c.constraint).collect();
     let layout = solver::Layout::new(&Vec::new(), cs.as_slice(), config);
-    for constraint in constraints.iter() {
+    for constraint in constraints {
         let mut residual0 = 0.0;
         let mut residual1 = 0.0;
         let mut degenerate = false;
