@@ -37,6 +37,10 @@ unused_import_braces = "warn"
 unused_qualifications = "warn"
 
 [lints.clippy]
+manual_assert = "warn"
+float_cmp = "warn"
+needless_collect = "warn"
+explicit_iter_loop = "warn"
 # alloc_instead_of_core = "warn"
 assertions_on_result_states = "warn"
 cloned_instead_of_copied = "warn"
