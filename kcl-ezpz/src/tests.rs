@@ -549,7 +549,7 @@ fn assert_points_eq(l: Point, r: Point) {
 }
 
 #[track_caller]
-fn assert_nearly_eq(l: f64, r: f64) {
+pub fn assert_nearly_eq(l: f64, r: f64) {
     let diff = (l - r).abs();
     assert!(
         diff < EPSILON,
