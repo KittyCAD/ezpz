@@ -13,18 +13,21 @@ use winnow::Parser;
 
 use crate::textual::parser::parse_problem;
 
+#[allow(missing_docs)]
 #[derive(Debug, PartialEq)]
 pub struct PointGuess {
     pub point: Label,
     pub guess: Point,
 }
 
+#[allow(missing_docs)]
 #[derive(Debug, PartialEq)]
 pub struct ScalarGuess {
     pub scalar: Label,
     pub guess: f64,
 }
 
+#[allow(missing_docs)]
 #[derive(Debug)]
 pub struct Problem {
     instructions: Vec<Instruction>,
@@ -44,22 +47,34 @@ impl FromStr for Problem {
     }
 }
 
+/// A 2D point that ezpz solved for, i.e. found values for all its variables.
 #[derive(Clone, Copy, PartialEq, Debug, Default)]
 pub struct Point {
+    #[allow(missing_docs)]
     pub x: f64,
+    #[allow(missing_docs)]
     pub y: f64,
 }
 
+/// A 2D circle that ezpz solved for, i.e. found values for all its variables.
 #[derive(Clone, Copy, PartialEq, Debug, Default)]
 pub struct Circle {
+    /// Radius of the circle.
     pub radius: f64,
+    /// Center of the circle.
     pub center: Point,
 }
 
+/// A 2D circular arc that ezpz solved for, i.e. found values for all its variables.
 #[derive(Clone, Copy, PartialEq, Debug, Default)]
 pub struct Arc {
+    /// A point at one end of the arc.
+    /// This doesn't specifically mean the start or end or anything.
     pub a: Point,
+    /// A point at one end of the arc.
+    /// This doesn't specifically mean the start or end or anything.
     pub b: Point,
+    /// Center of the arc.
     pub center: Point,
 }
 
@@ -70,18 +85,24 @@ impl std::fmt::Display for Point {
 }
 
 impl Point {
+    /// Euclidean distance between two points.
     pub fn euclidean_distance(&self, r: Point) -> f64 {
         use crate::vector::V;
         V::new(self.x, self.y).euclidean_distance(V::new(r.x, r.y))
     }
 }
 
+/// Component of a 2D point.
 #[derive(Debug)]
 pub enum Component {
+    #[allow(missing_docs)]
     X,
+    #[allow(missing_docs)]
     Y,
 }
 
+/// The label of a variable being solved for in the system.
+/// E.g. `p.x` or `p.y` or `arc.center`.
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct Label(String);
 

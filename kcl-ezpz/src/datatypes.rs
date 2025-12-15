@@ -1,6 +1,6 @@
 use crate::{IdGenerator, id::Id};
 
-pub trait Datum {
+pub(crate) trait Datum {
     fn all_variables(&self) -> impl IntoIterator<Item = Id>;
 }
 
@@ -9,11 +9,15 @@ pub trait Datum {
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub enum AngleKind {
+    /// The two lines should be parallel to each other.
     Parallel,
+    /// The two lines should be perpendicular to each other.
     Perpendicular,
+    /// The two lines should meet at this angle.
     Other(Angle),
 }
 
+/// A measurement of a particular angle, could be degrees or radians.
 #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct Angle {
@@ -32,6 +36,7 @@ impl std::fmt::Display for Angle {
 }
 
 impl Angle {
+    /// Create an angle of this many degrees.
     pub fn from_degrees(degrees: f64) -> Self {
         Self {
             val: degrees,
@@ -39,6 +44,7 @@ impl Angle {
         }
     }
 
+    /// Create an angle of this many radians.
     pub fn from_radians(radians: f64) -> Self {
         Self {
             val: radians,
@@ -46,6 +52,7 @@ impl Angle {
         }
     }
 
+    /// How large is this angle, in degrees?
     pub fn to_degrees(self) -> f64 {
         if self.degrees {
             self.val
@@ -54,6 +61,7 @@ impl Angle {
         }
     }
 
+    /// How large is this angle, in radians?
     pub fn to_radians(self) -> f64 {
         if self.degrees {
             self.val.to_radians()
@@ -63,13 +71,16 @@ impl Angle {
     }
 }
 
+/// A distance that can be found by the constraint solver.
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct DatumDistance {
+    /// ID of the variable for this distance.
     pub id: Id,
 }
 
 impl DatumDistance {
+    /// Create a new DatumDistance.
     pub fn new(id: Id) -> Self {
         Self { id }
     }
@@ -85,11 +96,14 @@ impl Datum for DatumDistance {
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct DatumPoint {
+    /// ID of the variable for this point's X component.
     pub x_id: Id,
+    /// ID of the variable for this point's Y component.
     pub y_id: Id,
 }
 
 impl DatumPoint {
+    /// Create a new DatumPoint from an ID generator.
     pub fn new(id_generator: &mut IdGenerator) -> Self {
         Self {
             x_id: id_generator.next_id(),
@@ -97,6 +111,7 @@ impl DatumPoint {
         }
     }
 
+    /// Create a new DatumPoint with these specific IDs.
     pub fn new_xy(x: Id, y: Id) -> Self {
         Self { x_id: x, y_id: y }
     }
@@ -124,11 +139,14 @@ impl Datum for DatumPoint {
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct LineSegment {
+    /// Point for one end of this line.
     pub p0: DatumPoint,
+    /// Point for the other end of this line.
     pub p1: DatumPoint,
 }
 
 impl LineSegment {
+    /// Create a new LineSegment.
     pub fn new(p0: DatumPoint, p1: DatumPoint) -> Self {
         Self { p0, p1 }
     }
@@ -149,7 +167,9 @@ impl Datum for LineSegment {
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct Circle {
+    /// Center of the circle.
     pub center: DatumPoint,
+    /// Radius distance of the circle.
     pub radius: DatumDistance,
 }
 

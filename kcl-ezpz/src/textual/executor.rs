@@ -32,6 +32,9 @@ use super::Instruction;
 use super::Problem;
 
 impl Problem {
+    /// Build a [ConstraintSystem] which models the system in this problem.
+    /// Error means this problem was not properly specified, e.g. it could be
+    /// missing a variable used in a constraint.
     pub fn to_constraint_system(&self) -> Result<ConstraintSystem<'_>, TextualError> {
         let mut id_generator = IdGenerator::default();
         // First, construct the list of initial guesses,
@@ -419,8 +422,11 @@ impl Problem {
     }
 }
 
+/// A constraint system that ezpz could solve,
+/// built from the ezpz text format.
 #[derive(Clone)]
 pub struct ConstraintSystem<'a> {
+    /// Constraints from the text input.
     pub constraints: Vec<ConstraintRequest>,
     initial_guesses: GeometryVariables<DoneState>,
     inner_points: &'a [Label],
@@ -430,6 +436,7 @@ pub struct ConstraintSystem<'a> {
 }
 
 impl ConstraintSystem<'_> {
+    /// Solve, without carrying through metadata about the solve.
     pub fn solve_no_metadata(&self, config: Config) -> Result<SolveOutcome, FailureOutcome> {
         crate::solve_with_priority(&self.constraints, self.initial_guesses.variables(), config)
     }
@@ -445,10 +452,12 @@ impl ConstraintSystem<'_> {
         )
     }
 
+    /// Solve, with metadata about the solve.
     pub fn solve(&self) -> Result<Outcome, FailureOutcome> {
         self.solve_with_config(Default::default())
     }
 
+    /// Solve, and analyze the degrees of freedom.
     pub fn solve_with_config_analysis(
         &self,
         config: Config,
@@ -457,6 +466,7 @@ impl ConstraintSystem<'_> {
         Ok(OutcomeAnalysis { analysis, outcome })
     }
 
+    /// Solve, but give a non-default config.
     pub fn solve_with_config(&self, config: Config) -> Result<Outcome, FailureOutcome> {
         let (NoAnalysis, outcome) = self.solve_with_config_inner::<NoAnalysis>(config)?;
         Ok(outcome)
@@ -548,37 +558,56 @@ impl ConstraintSystem<'_> {
     }
 }
 
+/// Outcome of successfully solving a constraint system.
 #[derive(Debug)]
 pub struct Outcome {
+    /// All constraint IDs which couldn't be satisfied.
     pub unsatisfied: Vec<usize>,
+    /// How many iterations of the core Newton-Gauss loop this system required.
     pub iterations: usize,
+    /// Anything bad that users should know about.
     pub warnings: Vec<Warning>,
+    /// Points the user defined, with their final solved values.
     pub points: IndexMap<String, Point>,
+    /// Circles the user defined, with their final solved values.
     pub circles: IndexMap<String, Circle>,
+    /// Arcs the user defined, with their final solved values.
     pub arcs: IndexMap<String, Arc>,
+    /// Lines the user defined, with labels for their two points.
     pub lines: Vec<(Label, Label)>,
+    /// Size of the constraint system. Number of variables being solved for.
     pub num_vars: usize,
+    /// Size of the constraint system. Number of residual equations.
     pub num_eqs: usize,
+    /// The lowest priority solved before the constraint solver stopped.
+    /// The constraint solver stops when it cannot solve any more constraints, i.e.
+    /// got an error.
     pub priority_solved: u32,
 }
 
+/// Outcome of solving an ezpz system, and degrees-of-freedom analysis.
 #[derive(Debug)]
 pub struct OutcomeAnalysis {
+    /// Degrees of freedom analysis
     pub analysis: FreedomAnalysis,
+    /// Outcome of solving the constraint system.
     pub outcome: Outcome,
 }
 
 impl Outcome {
+    /// Look up a point by its label.
     #[cfg(test)]
     pub fn get_point(&self, label: &str) -> Option<Point> {
         self.points.get(label).copied()
     }
 
+    /// Look up a circle by its label.
     #[cfg(test)]
     pub fn get_circle(&self, label: &str) -> Option<Circle> {
         self.circles.get(label).copied()
     }
 
+    /// Look up an arc by its label.
     #[cfg(test)]
     pub fn get_arc(&self, label: &str) -> Option<Arc> {
         self.arcs.get(label).copied()
@@ -586,26 +615,31 @@ impl Outcome {
 }
 
 impl OutcomeAnalysis {
+    /// Look up a point by its label.
     #[cfg(test)]
     pub fn get_point(&self, label: &str) -> Option<Point> {
         self.outcome.get_point(label)
     }
 
+    /// Look up a circle by its label.
     #[cfg(test)]
     pub fn get_circle(&self, label: &str) -> Option<Circle> {
         self.outcome.get_circle(label)
     }
 
+    /// Look up an arc by its label.
     #[cfg(test)]
     pub fn get_arc(&self, label: &str) -> Option<Arc> {
         self.outcome.get_arc(label)
     }
 
+    /// Are all constraints satisfied?
     #[cfg(test)]
     pub fn is_satisfied(&self) -> bool {
         !self.is_unsatisfied()
     }
 
+    /// Are any constraints not satisfied?
     #[cfg(test)]
     pub fn is_unsatisfied(&self) -> bool {
         !self.outcome.unsatisfied.is_empty()

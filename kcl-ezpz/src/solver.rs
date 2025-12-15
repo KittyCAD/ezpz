@@ -19,6 +19,7 @@ const NONZEROES_PER_ROW: usize = 8;
 // Ref: https://people.csail.mit.edu/jsolomon/share/book/numerical_book.pdf, 4.1.3
 const REGULARIZATION_LAMBDA: f64 = 1e-9;
 
+/// Configuration for how to solve a system.
 #[derive(Debug, Clone, Copy)]
 pub struct Config {
     /// How many iteration rounds before the solver gives up?
