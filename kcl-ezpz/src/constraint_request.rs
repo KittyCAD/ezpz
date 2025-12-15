@@ -41,6 +41,8 @@ impl AsRef<Constraint> for ConstraintRequest {
 
 #[cfg(test)]
 mod tests {
+    use crate::tests::assert_nearly_eq;
+
     use super::*;
 
     fn demo_constraint() -> Constraint {
@@ -67,7 +69,7 @@ mod tests {
             panic!();
         };
         assert_eq!(id, 42);
-        assert_eq!(value, 3.1);
+        assert_nearly_eq(value, 3.1);
 
         let req = ConstraintRequest::new(constraint, 1);
         assert!(matches!(req.as_ref(), Constraint::Fixed(_, _)));

@@ -1355,6 +1355,8 @@ fn inner_equation_of_line(px: f64, py: f64, qx: f64, qy: f64) -> (f64, f64, f64)
 mod tests {
     use std::f64::consts::SQRT_2;
 
+    use crate::tests::assert_nearly_eq;
+
     use super::*;
 
     #[test]
@@ -1446,12 +1448,12 @@ mod tests {
 
     #[test]
     fn test_geometry() {
-        assert_eq!(V::new(-1.0, 0.0).euclidean_distance(V::new(2.0, 4.0)), 5.0);
-        assert_eq!(V::new(1.0, 2.0).dot(&V::new(4.0, -5.0)), 4.0 - 10.0);
-        assert_eq!(V::new(1.0, 0.0).cross_2d(&V::new(0.0, 1.0)), 1.0);
-        assert_eq!(V::new(0.0, 1.0).cross_2d(&V::new(1.0, 0.0)), -1.0);
-        assert_eq!(V::new(2.0, 2.0).cross_2d(&V::new(4.0, 4.0)), 0.0);
-        assert_eq!(V::new(3.0, 4.0).cross_2d(&V::new(5.0, 6.0)), -2.0);
+        assert_nearly_eq(V::new(-1.0, 0.0).euclidean_distance(V::new(2.0, 4.0)), 5.0);
+        assert_nearly_eq(V::new(1.0, 2.0).dot(&V::new(4.0, -5.0)), 4.0 - 10.0);
+        assert_nearly_eq(V::new(1.0, 0.0).cross_2d(&V::new(0.0, 1.0)), 1.0);
+        assert_nearly_eq(V::new(0.0, 1.0).cross_2d(&V::new(1.0, 0.0)), -1.0);
+        assert_nearly_eq(V::new(2.0, 2.0).cross_2d(&V::new(4.0, 4.0)), 0.0);
+        assert_nearly_eq(V::new(3.0, 4.0).cross_2d(&V::new(5.0, 6.0)), -2.0);
     }
 
     #[test]
@@ -1571,8 +1573,6 @@ mod tests {
     #[track_caller]
     fn assert_close(actual: f64, expected: f64) {
         let delta = actual - expected;
-        if (delta).abs() > 0.00001 {
-            panic!("Delta is {}", delta);
-        }
+        assert!((delta).abs() <= 0.00001, "Delta is {}", delta)
     }
 }

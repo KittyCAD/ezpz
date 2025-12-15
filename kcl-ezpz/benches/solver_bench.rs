@@ -156,7 +156,7 @@ fn run_massive(c: &mut Criterion, overconstrained: bool) {
             ""
         }
     ));
-    for num_lines in [50, 150].iter() {
+    for num_lines in &[50, 150] {
         // Each line has 2 points, each point has two variables (x and y)
         // So each line is 4 variables, and that is the relevant throughput metric.
         let size = num_lines * 4;

@@ -33,7 +33,7 @@ pub enum WarningContent {
 
 pub(crate) fn lint(constraints: &[ConstraintEntry<'_>]) -> Vec<Warning> {
     let mut warnings = Vec::default();
-    for constraint in constraints.iter() {
+    for constraint in constraints {
         match constraint.constraint {
             Constraint::LinesAtAngle(_, _, AngleKind::Other(theta))
                 if nearly_eq(theta.to_degrees(), 0.0)

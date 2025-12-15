@@ -528,12 +528,14 @@ fn parse_number_expr(i: &mut &str) -> WResult<f64> {
 
 #[cfg(test)]
 mod tests {
+    use crate::tests::assert_nearly_eq;
+
     use super::*;
 
     #[test]
     fn test_parse_angle() {
         let i = parse_angle(&mut "0deg").unwrap();
         let j = parse_angle(&mut "0rad").unwrap();
-        assert_eq!(i.to_degrees(), j.to_degrees());
+        assert_nearly_eq(i.to_degrees(), j.to_degrees());
     }
 }
