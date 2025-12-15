@@ -5,6 +5,8 @@ edition = "2024"
 description = "A constraint solver for KCL and Zoo Design Studio"
 repository = "https://github.com/KittyCAD/ezpz"
 readme = "../README.md"
+keywords = ["constraint-solver", "cad", "geometry"]
+categories = ["algorithm", "math"]
 license = "MIT"
 
 [features]
