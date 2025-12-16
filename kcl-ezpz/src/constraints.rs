@@ -1,17 +1,6 @@
 use crate::{EPSILON, datatypes::*, id::Id, solver::Layout, vector::V};
 use std::f64::consts::PI;
 
-fn wrap_angle_delta(delta: f64) -> f64 {
-    if delta > -PI && delta <= PI {
-        // If inside our interval, return unchanged.
-        delta
-    } else {
-        // Wrap; see: https://stackoverflow.com/a/11181951
-        let (sin, cos) = libm::sincos(delta);
-        libm::atan2(sin, cos)
-    }
-}
-
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct ConstraintEntry<'c> {
     /// The constraint itself.
@@ -48,6 +37,9 @@ pub enum Constraint {
     LinesAtAngle(LineSegment, LineSegment, AngleKind),
     /// Some scalar value is fixed.
     Fixed(Id, f64),
+    /// These two scalar values are the same.
+    /// E.g. set two circles to have the same radius.
+    ScalarEqual(Id, Id),
     /// These two points must coincide.
     PointsCoincident(DatumPoint, DatumPoint),
     /// Constraint radius of a circle
@@ -102,6 +94,7 @@ impl Constraint {
                 row0.extend(line1.all_variables());
             }
             Constraint::Fixed(id, _scalar) => row0.push(*id),
+            Constraint::ScalarEqual(x, y) => row0.extend([x, y]),
             Constraint::PointsCoincident(p0, p1) => {
                 row0.push(p0.id_x());
                 row0.push(p1.id_x());
@@ -231,6 +224,11 @@ impl Constraint {
             Constraint::Fixed(id, expected) => {
                 let actual = current_assignments[layout.index_of(*id)];
                 *residual0 = actual - expected;
+            }
+            Constraint::ScalarEqual(x, y) => {
+                let vx = current_assignments[layout.index_of(*x)];
+                let vy = current_assignments[layout.index_of(*y)];
+                *residual0 = vx - vy;
             }
             Constraint::LinesAtAngle(line0, line1, expected_angle) => {
                 // Get direction vectors for both lines.
@@ -416,6 +414,7 @@ impl Constraint {
             Constraint::Vertical(..) => 1,
             Constraint::Horizontal(..) => 1,
             Constraint::Fixed(..) => 1,
+            Constraint::ScalarEqual(_, _) => 1,
             Constraint::LinesAtAngle(..) => 1,
             Constraint::PointsCoincident(..) => 2,
             Constraint::CircleRadius(..) => 1,
@@ -425,11 +424,6 @@ impl Constraint {
             Constraint::Midpoint(..) => 2,
             Constraint::PointLineDistance(..) => 1,
             Constraint::Symmetric(..) => 2,
-            // STOP: If you're adding a new dim besides 1 or 2, you will
-            // have to modify a lot of other solver code!
-            // There are many places where the solver assumes dimension 1
-            // or 2. E.g. the solver methods take mutable input vars called `row0` and `row1`.
-            // Modify those to accept `row2` etc.
         }
     }
 
@@ -622,6 +616,21 @@ impl Constraint {
                     }]
                     .as_slice(),
                 );
+            }
+            Constraint::ScalarEqual(x, y) => {
+                // Residual equation: x-y=0
+                // dR/dx: 1
+                // dR/dy: -1
+                let vx = current_assignments[layout.index_of(*x)];
+                let vy = current_assignments[layout.index_of(*y)];
+                row0.push(JacobianVar {
+                    id: *x,
+                    partial_derivative: vx,
+                });
+                row0.push(JacobianVar {
+                    id: *y,
+                    partial_derivative: -vy,
+                });
             }
             Constraint::LinesAtAngle(line0, line1, expected_angle) => {
                 // Residual: R = atan2(v1×v2, v1·v2) - α
@@ -1058,6 +1067,7 @@ impl Constraint {
             Constraint::Midpoint(..) => "Midpoint",
             Constraint::PointLineDistance(..) => "PointLineDistance",
             Constraint::Symmetric(..) => "Symmetric",
+            Constraint::ScalarEqual(..) => "ScalarEqual",
         }
     }
 }
@@ -1349,6 +1359,17 @@ fn inner_equation_of_line(px: f64, py: f64, qx: f64, qy: f64) -> (f64, f64, f64)
     let b = qx - px;
     let c = (px * qy) - (qx * py);
     (a, b, c)
+}
+
+fn wrap_angle_delta(delta: f64) -> f64 {
+    if delta > -PI && delta <= PI {
+        // If inside our interval, return unchanged.
+        delta
+    } else {
+        // Wrap; see: https://stackoverflow.com/a/11181951
+        let (sin, cos) = libm::sincos(delta);
+        libm::atan2(sin, cos)
+    }
 }
 
 #[cfg(test)]
