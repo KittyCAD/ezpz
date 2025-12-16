@@ -117,4 +117,45 @@ proptest! {
         let solved_y1 = outcome.final_values[p1.id_y() as usize];
         assert_nearly_eq(solved_y0 - solved_y1, desired_distance);
     }
+
+    #[test]
+    fn horizontal_distance(
+        guess_x0 in -100.0..100.0f64,
+        guess_x1 in -100.0..100.0f64,
+        guess_y0 in -100.0..100.0f64,
+        guess_y1 in -100.0..100.0f64,
+        desired_distance in 0.0..100.0f64,
+    ) {
+        let mut ids = IdGenerator::default();
+        let p0 = DatumPoint::new(&mut ids);
+        let p1 = DatumPoint::new(&mut ids);
+
+        let initial_guesses = vec![
+            (p0.id_x(), guess_x0),
+            (p0.id_y(), guess_y0),
+            (p1.id_x(), guess_x1),
+            (p1.id_y(), guess_y1),
+        ];
+
+        let requests = [
+            ConstraintRequest::highest_priority(Constraint::HorizontalDistance(
+                p0,
+                p1,
+                desired_distance,
+            )),
+        ];
+
+        let outcome = solve_with_priority(&requests, initial_guesses, Config::default())
+            .expect("this constraint system should converge and be solvable");
+
+        assert!(outcome.is_satisfied(), "the horizontal distance constraint should be satisfied");
+        assert!(
+            outcome.warnings.is_empty(),
+            "this simple system should not emit warnings"
+        );
+
+        let solved_x0 = outcome.final_values[p0.id_x() as usize];
+        let solved_x1 = outcome.final_values[p1.id_x() as usize];
+        assert_nearly_eq(solved_x0 - solved_x1, desired_distance);
+    }
 }

@@ -31,6 +31,8 @@ pub enum Constraint {
     Distance(DatumPoint, DatumPoint, f64),
     /// These two points should be a given vertical distance apart.
     VerticalDistance(DatumPoint, DatumPoint, f64),
+    /// These two points should be a given horizontal distance apart.
+    HorizontalDistance(DatumPoint, DatumPoint, f64),
     /// These two points have the same Y value.
     Vertical(LineSegment),
     /// These two points have the same X value.
@@ -91,6 +93,9 @@ impl Constraint {
             }
             Constraint::VerticalDistance(p0, p1, _dist) => {
                 row0.extend([p0.id_y(), p1.id_y()]);
+            }
+            Constraint::HorizontalDistance(p0, p1, _dist) => {
+                row0.extend([p0.id_x(), p1.id_x()]);
             }
             Constraint::Vertical(line) => row0.extend([line.p0.id_x(), line.p1.id_x()]),
             Constraint::Horizontal(line) => row0.extend([line.p0.id_y(), line.p1.id_y()]),
@@ -223,6 +228,11 @@ impl Constraint {
                 // p0.y - p1.y = d
                 // p0.y - p1.y - d = 0
                 *residual0 = (p0_y - p1_y) - expected_distance;
+            }
+            Constraint::HorizontalDistance(p0, p1, expected_distance) => {
+                let p0_x = current_assignments[layout.index_of(p0.id_x())];
+                let p1_x = current_assignments[layout.index_of(p1.id_x())];
+                *residual0 = (p0_x - p1_x) - expected_distance;
             }
             Constraint::Vertical(line) => {
                 let p0_x = current_assignments[layout.index_of(line.p0.id_x())];
@@ -426,6 +436,7 @@ impl Constraint {
             Constraint::LineTangentToCircle(..) => 1,
             Constraint::Distance(..) => 1,
             Constraint::VerticalDistance(..) => 1,
+            Constraint::HorizontalDistance(..) => 1,
             Constraint::Vertical(..) => 1,
             Constraint::Horizontal(..) => 1,
             Constraint::Fixed(..) => 1,
@@ -587,6 +598,24 @@ impl Constraint {
                         },
                         JacobianVar {
                             id: p1.id_y(),
+                            partial_derivative: -1.0,
+                        },
+                    ]
+                    .as_slice(),
+                );
+            }
+            Constraint::HorizontalDistance(p0, p1, _expected_distance) => {
+                // Residual: p0x - p1x - d = 0
+                // ∂R/∂x0 = 1
+                // ∂R/∂x1 = -1
+                row0.extend(
+                    [
+                        JacobianVar {
+                            id: p0.id_x(),
+                            partial_derivative: 1.0,
+                        },
+                        JacobianVar {
+                            id: p1.id_x(),
                             partial_derivative: -1.0,
                         },
                     ]
@@ -1087,6 +1116,7 @@ impl Constraint {
             Constraint::LineTangentToCircle(..) => "LineTangentToCircle",
             Constraint::Distance(..) => "Distance",
             Constraint::VerticalDistance(..) => "VerticalDistance",
+            Constraint::HorizontalDistance(..) => "HorizontalDistance",
             Constraint::Vertical(..) => "Vertical",
             Constraint::Horizontal(..) => "Horizontal",
             Constraint::Fixed(..) => "Fixed",
