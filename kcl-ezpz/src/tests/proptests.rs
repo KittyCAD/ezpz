@@ -1,5 +1,7 @@
 use proptest::prelude::*;
 
+use crate::{Config, Constraint, ConstraintRequest, solve_with_priority, tests::assert_nearly_eq};
+
 fn run(txt: &str) -> crate::textual::Outcome {
     let problem = super::parse_problem(txt);
     let system = problem.to_constraint_system().unwrap();
@@ -42,5 +44,35 @@ proptest! {
         );
         let solved = run(&problem);
         assert!(solved.unsatisfied.is_empty());
+    }
+
+    #[test]
+    fn scalar_eq(
+        guess_x in -10.0..10.0,
+        guess_y in -10.0..10.0,
+    ) {
+
+        // One constraint, that solver variables x and y should be equal.
+        let requests = [
+            ConstraintRequest::highest_priority(Constraint::ScalarEqual(0, 1)),
+        ];
+        // Set their initial values to random, given by the property test harness.
+        let initial_guesses = vec![
+            (0, guess_x),
+            (1, guess_y),
+        ];
+
+        // Invariant: solve should succeed.
+        let outcome = solve_with_priority(
+            &requests,
+            initial_guesses,
+            Config::default(),
+        ).expect("this constraint system should converge and be solvable");
+        // Invariant: solve should satisfy all (i.e. the only) constraint,
+        // without warnings, i.e. make x and y equal.
+        assert!(outcome.is_satisfied(), "this constraint system should have been easily, fully satisfiable");
+        assert!(outcome.warnings.is_empty(), "this constraint system shouldn't produce any warnings");
+        let [solved_x, solved_y] = outcome.final_values.try_into().expect("There should be exactly two variables, x and y");
+        assert_nearly_eq(solved_x, solved_y);
     }
 }

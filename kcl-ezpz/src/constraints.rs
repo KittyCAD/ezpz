@@ -226,6 +226,7 @@ impl Constraint {
                 *residual0 = actual - expected;
             }
             Constraint::ScalarEqual(x, y) => {
+                // Residual equation R: x-y=0
                 let vx = current_assignments[layout.index_of(*x)];
                 let vy = current_assignments[layout.index_of(*y)];
                 *residual0 = vx - vy;
@@ -618,18 +619,16 @@ impl Constraint {
                 );
             }
             Constraint::ScalarEqual(x, y) => {
-                // Residual equation: x-y=0
+                // Residual equation R: x-y=0
                 // dR/dx: 1
                 // dR/dy: -1
-                let vx = current_assignments[layout.index_of(*x)];
-                let vy = current_assignments[layout.index_of(*y)];
                 row0.push(JacobianVar {
                     id: *x,
-                    partial_derivative: vx,
+                    partial_derivative: 1.0,
                 });
                 row0.push(JacobianVar {
                     id: *y,
-                    partial_derivative: -vy,
+                    partial_derivative: -1.0,
                 });
             }
             Constraint::LinesAtAngle(line0, line1, expected_angle) => {
