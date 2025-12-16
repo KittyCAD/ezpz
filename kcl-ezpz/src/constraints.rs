@@ -409,9 +409,13 @@ impl Constraint {
                 let residual = actual_distance - target_distance;
                 *residual0 = residual;
             }
-            Constraint::VerticalPointLineDistance(point, line, distance) => {
+            Constraint::VerticalPointLineDistance(point, line, desired_distance) => {
                 // See notebook:
-                // <https://colab.research.google.com/drive/1Rxi7zsB3yY8Q5rMjoqfAvIxxAt92G6yM>
+                // https://github.com/KittyCAD/ezpz-sympy/blob/main/main.py
+                // Residual:
+                // m = (qy-py)/(qx-px)
+                // actual = ay - (m * (ax - px) + py)
+                // residual = actual - desired_distance
                 let ax = current_assignments[layout.index_of(point.id_x())];
                 let ay = current_assignments[layout.index_of(point.id_y())];
                 let px = current_assignments[layout.index_of(line.p0.id_x())];
@@ -425,7 +429,8 @@ impl Constraint {
                     *degenerate = true;
                     return;
                 }
-                let residual = ay - distance - py - ax - px * -py + qy * (-px + qx).recip();
+                let residual =
+                    ay - desired_distance - py - (ax - px) * (-py + qy) * (-px + qx).recip();
                 *residual0 = residual;
             }
             Constraint::Symmetric(line, a, b) => {
@@ -1042,6 +1047,8 @@ impl Constraint {
                 row0.extend(partial_derivatives);
             }
             Constraint::VerticalPointLineDistance(point, line, _distance) => {
+                // See notebook:
+                // https://github.com/KittyCAD/ezpz-sympy/blob/main/main.py
                 let id_ax = point.id_x();
                 let id_ay = point.id_y();
                 let id_px = line.p0.id_x();
@@ -1049,7 +1056,7 @@ impl Constraint {
                 let id_qx = line.p1.id_x();
                 let id_qy = line.p1.id_y();
                 let ax = current_assignments[layout.index_of(id_ax)];
-                // let ay = current_assignments[layout.index_of(id_ay)];
+                // `ay` is not used in the math, because partial derivative of ay is 1.
                 let px = current_assignments[layout.index_of(id_px)];
                 let py = current_assignments[layout.index_of(id_py)];
                 let qx = current_assignments[layout.index_of(id_qx)];
@@ -1061,11 +1068,11 @@ impl Constraint {
                     *degenerate = true;
                     return;
                 }
-                let dpx = ax - qx * py - qy * (px - qx).powi(-2);
-                let dpy = -ax + qx * (px - qx).recip();
-                let dqx = -ax - px * py - qy * (px - qx).powi(-2);
-                let dqy = ax - px * (px - qx).recip();
-                let dax = -py + qy * (px - qx).recip();
+                let dpx = (ax - qx) * (py - qy) * (px - qx).powi(-2);
+                let dpy = (-ax + qx) * (px - qx).recip();
+                let dqx = -(ax - px) * (py - qy) * (px - qx).powi(-2);
+                let dqy = (ax - px) * (px - qx).recip();
+                let dax = (-py + qy) * (px - qx).recip();
                 let day = 1.0;
                 row0.extend([
                     JacobianVar {

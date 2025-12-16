@@ -244,11 +244,11 @@ fn test_vertical_pld(
     let solved_p1y = outcome.final_values[line.p1.id_y() as usize];
 
     // Vertical distance is measured as the signed difference between the point's Y
-    // and the line's Y at the same X coordinate.
+    // and the line's Y at the same X coordinate. Here we take point_y - line_y.
     let dx = solved_p1x - solved_p0x;
     // Avoid degenerate/vertical lines; the test harness should reject those via prop_assume.
     let slope = (solved_p1y - solved_p0y) / dx;
     let line_y_at_point = solved_p0y + slope * (solved_x - solved_p0x);
 
-    assert_nearly_eq(line_y_at_point - solved_y, desired_distance);
+    assert_nearly_eq(solved_y - line_y_at_point, desired_distance);
 }
