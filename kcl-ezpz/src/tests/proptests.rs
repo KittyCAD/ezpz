@@ -5,7 +5,6 @@ use crate::{
     datatypes::{DatumPoint, LineSegment},
     solve_with_priority,
     tests::assert_nearly_eq,
-    textual::Point,
 };
 
 fn run(txt: &str) -> crate::textual::Outcome {
@@ -172,6 +171,9 @@ proptest! {
         guess_point_y in -100.0..100.0f64,
         desired_distance in 0.0..100.0f64,
     ) {
+        // Avoid vertical/degenerate lines so the vertical distance is well-defined.
+        prop_assume!((guess_line_p1x - guess_line_p0x).abs() > 1e-6);
+
         let mut ids = IdGenerator::default();
         let point = DatumPoint::new(&mut ids);
         let line = LineSegment::new(
@@ -190,14 +192,40 @@ proptest! {
     }
 }
 
+/// `desired_distance` is a SIGNED distance, so 1 and -1 are opposite sides of the line.
 fn test_vertical_pld(
     initial_guesses: Vec<(Id, f64)>,
     line: LineSegment,
     point: DatumPoint,
     desired_distance: f64,
 ) {
-    let constraint = Constraint::VerticalPointLineDistance(point, line, desired_distance);
-    let requests = [ConstraintRequest::highest_priority(constraint)];
+    // Fix the line endpoints and the point's X so the only degree of freedom left
+    // is the point's position, which the constraint will solve.
+    let requests = [
+        // Fix the line endpoints
+        ConstraintRequest::highest_priority(Constraint::Fixed(
+            line.p0.id_x(),
+            initial_guesses[2].1,
+        )),
+        ConstraintRequest::highest_priority(Constraint::Fixed(
+            line.p0.id_y(),
+            initial_guesses[3].1,
+        )),
+        ConstraintRequest::highest_priority(Constraint::Fixed(
+            line.p1.id_x(),
+            initial_guesses[4].1,
+        )),
+        ConstraintRequest::highest_priority(Constraint::Fixed(
+            line.p1.id_y(),
+            initial_guesses[5].1,
+        )),
+        // Constraint we're testing.
+        ConstraintRequest::highest_priority(Constraint::VerticalPointLineDistance(
+            point,
+            line,
+            desired_distance,
+        )),
+    ];
 
     let outcome = solve_with_priority(&requests, initial_guesses, Config::default())
         .expect("this constraint system should converge and be solvable");
@@ -210,44 +238,17 @@ fn test_vertical_pld(
 
     let solved_x = outcome.final_values[point.id_x() as usize];
     let solved_y = outcome.final_values[point.id_y() as usize];
-    let solved_point = Point {
-        x: solved_x,
-        y: solved_y,
-    };
     let solved_p0x = outcome.final_values[line.p0.id_x() as usize];
     let solved_p0y = outcome.final_values[line.p0.id_y() as usize];
     let solved_p1x = outcome.final_values[line.p1.id_x() as usize];
     let solved_p1y = outcome.final_values[line.p1.id_y() as usize];
-    let solved_line = (
-        Point {
-            x: solved_p0x,
-            y: solved_p0y,
-        },
-        Point {
-            x: solved_p1x,
-            y: solved_p1y,
-        },
-    );
 
-    assert!(point_on_line(solved_line, solved_point));
-}
+    // Vertical distance is measured as the signed difference between the point's Y
+    // and the line's Y at the same X coordinate.
+    let dx = solved_p1x - solved_p0x;
+    // Avoid degenerate/vertical lines; the test harness should reject those via prop_assume.
+    let slope = (solved_p1y - solved_p0y) / dx;
+    let line_y_at_point = solved_p0y + slope * (solved_x - solved_p0x);
 
-fn point_on_line(line: (Point, Point), a: Point) -> bool {
-    // Cross product (PQ x PA)
-    let p = line.0;
-    let q = line.1;
-    let cross = (q.x - p.x) * (a.y - p.y) - (q.y - p.y) * (a.x - p.x);
-
-    let eps = Config::default().convergence_tolerance;
-    if cross.abs() > eps {
-        return false;
-    }
-
-    // Bounding box check
-    let min_x = p.x.min(q.x) - eps;
-    let max_x = p.x.max(q.x) + eps;
-    let min_y = p.y.min(q.y) - eps;
-    let max_y = p.y.max(q.y) + eps;
-
-    a.x >= min_x && a.x <= max_x && a.y >= min_y && a.y <= max_y
+    assert_nearly_eq(line_y_at_point - solved_y, desired_distance);
 }
