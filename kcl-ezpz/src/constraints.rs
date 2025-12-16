@@ -57,8 +57,10 @@ pub enum Constraint {
     Arc(CircularArc),
     /// The given point should be the midpoint along the given line.
     Midpoint(LineSegment, DatumPoint),
-    /// The given point should be the given (perpendicular) distance away from the line.
+    /// The given point should be the given (perpendicular, i.e. minimum Euclidean) distance away from the line.
     PointLineDistance(DatumPoint, LineSegment, f64),
+    /// The given point should be the given (vertical) distance away from the line.
+    VerticalPointLineDistance(DatumPoint, LineSegment, f64),
     /// These two points should be symmetric across the given line.
     Symmetric(LineSegment, DatumPoint, DatumPoint),
 }
@@ -137,6 +139,7 @@ impl Constraint {
                 row0.extend(point.all_variables());
                 row0.extend(line.all_variables());
             }
+            Constraint::VerticalPointLineDistance(_point, _line, _distance) => todo!(),
             Constraint::Symmetric(line, a, b) => {
                 // Equation: rej(A - P, Q - P) + rej(B - P, Q - P) = 0
                 row0.extend(line.all_variables());
@@ -403,6 +406,7 @@ impl Constraint {
                 let residual = actual_distance - target_distance;
                 *residual0 = residual;
             }
+            Constraint::VerticalPointLineDistance(_point, _line, _distance) => todo!(),
             Constraint::Symmetric(line, a, b) => {
                 // Equation: reflect(a - p, q - p) - b + p
                 // See notebook:
@@ -449,6 +453,7 @@ impl Constraint {
             Constraint::Arc(..) => 1,
             Constraint::Midpoint(..) => 2,
             Constraint::PointLineDistance(..) => 1,
+            Constraint::VerticalPointLineDistance(_point, _line, _distance) => todo!(),
             Constraint::Symmetric(..) => 2,
         }
     }
@@ -1015,6 +1020,7 @@ impl Constraint {
 
                 row0.extend(partial_derivatives);
             }
+            Constraint::VerticalPointLineDistance(_point, _line, _distance) => todo!(),
             Constraint::Symmetric(line, a, b) => {
                 let id_px = line.p0.id_x();
                 let id_py = line.p0.id_y();
@@ -1128,6 +1134,9 @@ impl Constraint {
             Constraint::Arc(..) => "Arc",
             Constraint::Midpoint(..) => "Midpoint",
             Constraint::PointLineDistance(..) => "PointLineDistance",
+            Constraint::VerticalPointLineDistance(_point, _line, _distance) => {
+                "VerticalPointLineDistance"
+            }
             Constraint::Symmetric(..) => "Symmetric",
             Constraint::ScalarEqual(..) => "ScalarEqual",
         }
