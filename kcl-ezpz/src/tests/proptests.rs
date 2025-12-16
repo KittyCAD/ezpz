@@ -188,7 +188,7 @@ proptest! {
             (line.p1.id_x(), guess_line_p1x),
             (line.p1.id_y(), guess_line_p1y),
         ];
-        test_vertical_pld(initial_guesses,line,point,desired_distance);
+        test_vertical_pld(initial_guesses, line, point, desired_distance);
     }
 }
 
