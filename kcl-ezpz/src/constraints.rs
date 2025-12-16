@@ -139,7 +139,10 @@ impl Constraint {
                 row0.extend(point.all_variables());
                 row0.extend(line.all_variables());
             }
-            Constraint::VerticalPointLineDistance(_point, _line, _distance) => todo!(),
+            Constraint::VerticalPointLineDistance(point, line, _distance) => {
+                row0.extend(line.all_variables());
+                row0.extend(point.all_variables());
+            }
             Constraint::Symmetric(line, a, b) => {
                 // Equation: rej(A - P, Q - P) + rej(B - P, Q - P) = 0
                 row0.extend(line.all_variables());
@@ -406,7 +409,25 @@ impl Constraint {
                 let residual = actual_distance - target_distance;
                 *residual0 = residual;
             }
-            Constraint::VerticalPointLineDistance(_point, _line, _distance) => todo!(),
+            Constraint::VerticalPointLineDistance(point, line, distance) => {
+                // See notebook:
+                // <https://colab.research.google.com/drive/1Rxi7zsB3yY8Q5rMjoqfAvIxxAt92G6yM>
+                let ax = current_assignments[layout.index_of(point.id_x())];
+                let ay = current_assignments[layout.index_of(point.id_y())];
+                let px = current_assignments[layout.index_of(line.p0.id_x())];
+                let py = current_assignments[layout.index_of(line.p0.id_y())];
+                let qx = current_assignments[layout.index_of(line.p1.id_x())];
+                let qy = current_assignments[layout.index_of(line.p1.id_y())];
+                let dx = qx - px;
+                let dy = qy - py;
+                if dx.abs() < EPSILON || (dx * dx + dy * dy) < EPSILON {
+                    // vertical or zero-length line
+                    *degenerate = true;
+                    return;
+                }
+                let residual = ay - distance - py - ax - px * -py + qy * (-px + qx).recip();
+                *residual0 = residual;
+            }
             Constraint::Symmetric(line, a, b) => {
                 // Equation: reflect(a - p, q - p) - b + p
                 // See notebook:
@@ -453,7 +474,7 @@ impl Constraint {
             Constraint::Arc(..) => 1,
             Constraint::Midpoint(..) => 2,
             Constraint::PointLineDistance(..) => 1,
-            Constraint::VerticalPointLineDistance(_point, _line, _distance) => todo!(),
+            Constraint::VerticalPointLineDistance(..) => 1,
             Constraint::Symmetric(..) => 2,
         }
     }
@@ -1020,7 +1041,59 @@ impl Constraint {
 
                 row0.extend(partial_derivatives);
             }
-            Constraint::VerticalPointLineDistance(_point, _line, _distance) => todo!(),
+            Constraint::VerticalPointLineDistance(point, line, _distance) => {
+                let id_ax = point.id_x();
+                let id_ay = point.id_y();
+                let id_px = line.p0.id_x();
+                let id_py = line.p0.id_y();
+                let id_qx = line.p1.id_x();
+                let id_qy = line.p1.id_y();
+                let ax = current_assignments[layout.index_of(id_ax)];
+                // let ay = current_assignments[layout.index_of(id_ay)];
+                let px = current_assignments[layout.index_of(id_px)];
+                let py = current_assignments[layout.index_of(id_py)];
+                let qx = current_assignments[layout.index_of(id_qx)];
+                let qy = current_assignments[layout.index_of(id_qy)];
+                let dx = qx - px;
+                let dy = qy - py;
+                if dx.abs() < EPSILON || (dx * dx + dy * dy) < EPSILON {
+                    // vertical or zero-length line
+                    *degenerate = true;
+                    return;
+                }
+                let dpx = ax - qx * py - qy * (px - qx).powi(-2);
+                let dpy = -ax + qx * (px - qx).recip();
+                let dqx = -ax - px * py - qy * (px - qx).powi(-2);
+                let dqy = ax - px * (px - qx).recip();
+                let dax = -py + qy * (px - qx).recip();
+                let day = 1.0;
+                row0.extend([
+                    JacobianVar {
+                        id: id_ax,
+                        partial_derivative: dax,
+                    },
+                    JacobianVar {
+                        id: id_ay,
+                        partial_derivative: day,
+                    },
+                    JacobianVar {
+                        id: id_px,
+                        partial_derivative: dpx,
+                    },
+                    JacobianVar {
+                        id: id_py,
+                        partial_derivative: dpy,
+                    },
+                    JacobianVar {
+                        id: id_qx,
+                        partial_derivative: dqx,
+                    },
+                    JacobianVar {
+                        id: id_qy,
+                        partial_derivative: dqy,
+                    },
+                ]);
+            }
             Constraint::Symmetric(line, a, b) => {
                 let id_px = line.p0.id_x();
                 let id_py = line.p0.id_y();
