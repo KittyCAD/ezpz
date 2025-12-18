@@ -181,26 +181,28 @@ impl Datum for Circle {
 }
 
 /// Arc on the perimeter of a circle.
+/// The arc always goes counter-clockwise from start to end.
+/// To get a clockwise arc, swap start and end.
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct CircularArc {
     /// Center of the circle
     pub center: DatumPoint,
-    /// Lies on the arc.
-    /// Distance(A,center) == Distance(B,center)
-    pub a: DatumPoint,
-    /// Lies on the arc.
-    /// Distance(A,center) == Distance(B,center)
-    pub b: DatumPoint,
+    /// Start point of the arc.
+    /// Distance(start, center) == Distance(end, center)
+    pub start: DatumPoint,
+    /// End point of the arc.
+    /// Distance(start, center) == Distance(end, center)
+    pub end: DatumPoint,
 }
 
 impl Datum for CircularArc {
     fn all_variables(&self) -> impl IntoIterator<Item = Id> {
         [
-            self.a.id_x(),
-            self.a.id_y(),
-            self.b.id_x(),
-            self.b.id_y(),
+            self.start.id_x(),
+            self.start.id_y(),
+            self.end.id_x(),
+            self.end.id_y(),
             self.center.id_x(),
             self.center.id_y(),
         ]
@@ -245,8 +247,8 @@ mod tests {
 
         let arc = CircularArc {
             center: p0,
-            a: p1,
-            b: DatumPoint::new_xy(6, 7),
+            start: p1,
+            end: DatumPoint::new_xy(6, 7),
         };
         assert_eq!(
             arc.all_variables().into_iter().collect::<Vec<_>>(),

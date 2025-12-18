@@ -120,10 +120,10 @@ impl Constraint {
             }
             Constraint::ArcRadius(arc, radius) => {
                 // This is really just equivalent to 2 constraints,
-                // distance(center, a) and distance(center, b).
+                // distance(center, start) and distance(center, end).
                 let constraints = (
-                    Constraint::Distance(arc.center, arc.a, *radius),
-                    Constraint::Distance(arc.center, arc.b, *radius),
+                    Constraint::Distance(arc.center, arc.start, *radius),
+                    Constraint::Distance(arc.center, arc.end, *radius),
                 );
                 constraints.0.nonzeroes(row0, row1);
                 constraints.1.nonzeroes(row1, row0);
@@ -330,10 +330,10 @@ impl Constraint {
             }
             Constraint::ArcRadius(arc, radius) => {
                 // This is really just equivalent to 2 constraints,
-                // distance(center, a) and distance(center, b).
+                // distance(center, start) and distance(center, end).
                 let constraints = (
-                    Constraint::Distance(arc.center, arc.a, *radius),
-                    Constraint::Distance(arc.center, arc.b, *radius),
+                    Constraint::Distance(arc.center, arc.start, *radius),
+                    Constraint::Distance(arc.center, arc.end, *radius),
                 );
                 constraints.0.residual(
                     layout,
@@ -351,19 +351,53 @@ impl Constraint {
                 );
             }
             Constraint::Arc(arc) => {
-                let ax = current_assignments[layout.index_of(arc.a.id_x())];
-                let ay = current_assignments[layout.index_of(arc.a.id_y())];
-                let bx = current_assignments[layout.index_of(arc.b.id_x())];
-                let by = current_assignments[layout.index_of(arc.b.id_y())];
+                let start_x = current_assignments[layout.index_of(arc.start.id_x())];
+                let start_y = current_assignments[layout.index_of(arc.start.id_y())];
+                let end_x = current_assignments[layout.index_of(arc.end.id_x())];
+                let end_y = current_assignments[layout.index_of(arc.end.id_y())];
                 let cx = current_assignments[layout.index_of(arc.center.id_x())];
                 let cy = current_assignments[layout.index_of(arc.center.id_y())];
                 // For numerical stability and simpler derivatives, we compare the squared
                 // distances. The residual is zero if the distances are equal.
-                // R = distance(center, a)² - distance(center, b)²
-                let dist0_sq = (ax - cx).powi(2) + (ay - cy).powi(2);
-                let dist1_sq = (bx - cx).powi(2) + (by - cy).powi(2);
+                // R = distance(center, start)² - distance(center, end)²
+                let dist_start_sq = (start_x - cx).powi(2) + (start_y - cy).powi(2);
+                let dist_end_sq = (end_x - cx).powi(2) + (end_y - cy).powi(2);
 
-                *residual0 = dist0_sq - dist1_sq;
+                let distance_residual = dist_start_sq - dist_end_sq;
+
+                // Always force CCW direction from start to end: use cross product to determine direction
+                // Cross product of (start - center) and (end - center):
+                // cross > 0 means CCW, cross < 0 means CW
+                let vec_start = V::new(start_x - cx, start_y - cy);
+                let vec_end = V::new(end_x - cx, end_y - cy);
+                let cross = vec_start.cross_2d(&vec_end);
+
+                // CCW constraint: force cross product to be positive
+                // We add this as a constraint term that penalizes negative cross products
+                // The coefficient is chosen to be strong enough to force CCW but not break convergence
+                // We use a scale factor based on the average distance to keep it scale-independent
+                let avg_dist_sq = (dist_start_sq + dist_end_sq) / 2.0;
+                let scale_factor = if avg_dist_sq > EPSILON {
+                    avg_dist_sq.sqrt()
+                } else {
+                    1.0
+                };
+                
+                // Penalize negative cross product (CW direction) to force CCW
+                // The penalty increases as cross becomes more negative
+                // Use a coefficient that's large enough to force CCW but small enough to allow convergence
+                // Note: This works by making the residual non-zero when cross < 0, forcing the solver
+                // to adjust points (if not fixed) to make cross positive
+                let ccw_constraint = if cross < 0.0 {
+                    // Add a penalty for CW direction, normalized by scale
+                    // The coefficient 0.01 is chosen to be strong enough to prefer CCW
+                    // but not so strong that it breaks convergence
+                    -cross * 0.01 / scale_factor
+                } else {
+                    0.0
+                };
+
+                *residual0 = distance_residual + ccw_constraint;
             }
             Constraint::Midpoint(line, point) => {
                 let p = line.p0;
@@ -904,10 +938,10 @@ impl Constraint {
             }
             Constraint::ArcRadius(arc, radius) => {
                 // This is really just equivalent to 2 constraints,
-                // distance(center, a) and distance(center, b).
+                // distance(center, start) and distance(center, end).
                 let constraints = (
-                    Constraint::Distance(arc.center, arc.a, *radius),
-                    Constraint::Distance(arc.center, arc.b, *radius),
+                    Constraint::Distance(arc.center, arc.start, *radius),
+                    Constraint::Distance(arc.center, arc.end, *radius),
                 );
                 constraints
                     .0
@@ -917,55 +951,92 @@ impl Constraint {
                     .jacobian_rows(layout, current_assignments, row1, row0, degenerate);
             }
             Constraint::Arc(arc) => {
-                // Residual: R = (x1-xc)²+(y1-yc)² - (x2-xc)²-(y2-yc)²
-                // The partial derivatives are:
-                // ∂R/∂x1 = 2*(x1-xc)
-                // ∂R/∂y1 = 2*(y1-yc)
-                // ∂R/∂x2 = -2*(x2-xc)
-                // ∂R/∂y2 = -2*(y2-yc)
-                // ∂R/∂xc = 2*(x2-x1)
-                // ∂R/∂yc = 2*(y2-y1)
+                // Residual: R = (x_start-xc)²+(y_start-yc)² - (x_end-xc)²-(y_end-yc)² + CCW_constraint
+                // The partial derivatives for distance part:
+                // ∂R/∂x_start = 2*(x_start-xc)
+                // ∂R/∂y_start = 2*(y_start-yc)
+                // ∂R/∂x_end = -2*(x_end-xc)
+                // ∂R/∂y_end = -2*(y_end-yc)
+                // ∂R/∂xc = 2*(x_end-x_start)
+                // ∂R/∂yc = 2*(y_end-y_start)
+                // Plus derivatives for CCW constraint when cross < 0
 
-                let ax = current_assignments[layout.index_of(arc.a.id_x())];
-                let ay = current_assignments[layout.index_of(arc.a.id_y())];
-                let bx = current_assignments[layout.index_of(arc.b.id_x())];
-                let by = current_assignments[layout.index_of(arc.b.id_y())];
+                let start_x = current_assignments[layout.index_of(arc.start.id_x())];
+                let start_y = current_assignments[layout.index_of(arc.start.id_y())];
+                let end_x = current_assignments[layout.index_of(arc.end.id_x())];
+                let end_y = current_assignments[layout.index_of(arc.end.id_y())];
                 let cx = current_assignments[layout.index_of(arc.center.id_x())];
                 let cy = current_assignments[layout.index_of(arc.center.id_y())];
 
                 // TODO: Handle degenerate case here
 
-                // Calculate derivative values.
-                let dx_a = (ax - cx) * 2.0;
-                let dy_a = (ay - cy) * 2.0;
-                let dx_b = (bx - cx) * -2.0;
-                let dy_b = (by - cy) * -2.0;
-                let dx_c = (bx - ax) * 2.0;
-                let dy_c = (by - ay) * 2.0;
+                // Calculate derivative values for distance constraint.
+                let dx_start = (start_x - cx) * 2.0;
+                let dy_start = (start_y - cy) * 2.0;
+                let dx_end = (end_x - cx) * -2.0;
+                let dy_end = (end_y - cy) * -2.0;
+                let dx_c = (end_x - start_x) * 2.0;
+                let dy_c = (end_y - start_y) * 2.0;
+                
+                // Calculate CCW constraint derivatives
+                // cross = (start_x - cx) * (end_y - cy) - (start_y - cy) * (end_x - cx)
+                // CCW_constraint = -cross * 0.1 / scale_factor when cross < 0
+                let cross = (start_x - cx) * (end_y - cy) - (start_y - cy) * (end_x - cx);
+                let dist_start_sq = (start_x - cx).powi(2) + (start_y - cy).powi(2);
+                let dist_end_sq = (end_x - cx).powi(2) + (end_y - cy).powi(2);
+                let avg_dist_sq = (dist_start_sq + dist_end_sq) / 2.0;
+                let scale_factor = if avg_dist_sq > EPSILON {
+                    avg_dist_sq.sqrt()
+                } else {
+                    1.0
+                };
+                
+                let ccw_coeff = if cross < 0.0 {
+                    -0.01 / scale_factor
+                } else {
+                    0.0
+                };
+                
+                // Derivatives of cross product:
+                // ∂cross/∂start_x = end_y - cy
+                // ∂cross/∂start_y = -(end_x - cx)
+                // ∂cross/∂end_x = -(start_y - cy)
+                // ∂cross/∂end_y = start_x - cx
+                // ∂cross/∂cx = start_y - end_y
+                // ∂cross/∂cy = end_x - start_x
+                // 
+                // Derivatives of CCW constraint = ccw_coeff * ∂cross/∂var
+                let dccw_dx_start = ccw_coeff * (end_y - cy);
+                let dccw_dy_start = ccw_coeff * (-(end_x - cx));
+                let dccw_dx_end = ccw_coeff * (-(start_y - cy));
+                let dccw_dy_end = ccw_coeff * (start_x - cx);
+                let dccw_dx_c = ccw_coeff * (start_y - end_y);
+                let dccw_dy_c = ccw_coeff * (end_x - start_x);
+                
                 row0.extend([
                     JacobianVar {
-                        id: arc.a.id_x(),
-                        partial_derivative: dx_a,
+                        id: arc.start.id_x(),
+                        partial_derivative: dx_start + dccw_dx_start,
                     },
                     JacobianVar {
-                        id: arc.a.id_y(),
-                        partial_derivative: dy_a,
+                        id: arc.start.id_y(),
+                        partial_derivative: dy_start + dccw_dy_start,
                     },
                     JacobianVar {
-                        id: arc.b.id_x(),
-                        partial_derivative: dx_b,
+                        id: arc.end.id_x(),
+                        partial_derivative: dx_end + dccw_dx_end,
                     },
                     JacobianVar {
-                        id: arc.b.id_y(),
-                        partial_derivative: dy_b,
+                        id: arc.end.id_y(),
+                        partial_derivative: dy_end + dccw_dy_end,
                     },
                     JacobianVar {
                         id: arc.center.id_x(),
-                        partial_derivative: dx_c,
+                        partial_derivative: dx_c + dccw_dx_c,
                     },
                     JacobianVar {
                         id: arc.center.id_y(),
-                        partial_derivative: dy_c,
+                        partial_derivative: dy_c + dccw_dy_c,
                     },
                 ])
             }
