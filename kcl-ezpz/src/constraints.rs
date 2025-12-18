@@ -61,6 +61,8 @@ pub enum Constraint {
     PointLineDistance(DatumPoint, LineSegment, f64),
     /// The given point should be the given (vertical) distance away from the line.
     VerticalPointLineDistance(DatumPoint, LineSegment, f64),
+    /// The given point should be the given (horizontal) distance away from the line.
+    HorizontalPointLineDistance(DatumPoint, LineSegment, f64),
     /// These two points should be symmetric across the given line.
     Symmetric(LineSegment, DatumPoint, DatumPoint),
 }
@@ -140,6 +142,10 @@ impl Constraint {
                 row0.extend(line.all_variables());
             }
             Constraint::VerticalPointLineDistance(point, line, _distance) => {
+                row0.extend(line.all_variables());
+                row0.extend(point.all_variables());
+            }
+            Constraint::HorizontalPointLineDistance(point, line, _distance) => {
                 row0.extend(line.all_variables());
                 row0.extend(point.all_variables());
             }
@@ -433,6 +439,29 @@ impl Constraint {
                     ay - desired_distance - py - (ax - px) * (-py + qy) * (-px + qx).recip();
                 *residual0 = residual;
             }
+            Constraint::HorizontalPointLineDistance(point, line, d) => {
+                // See notebook:
+                // https://github.com/KittyCAD/ezpz-sympy/blob/main/main.py
+                // Residual:
+                // m = (qy-py)/(qx-px)
+                // actual = ay - (m * (ax - px) + py)
+                // residual = actual - desired_distance
+                let ax = current_assignments[layout.index_of(point.id_x())];
+                let ay = current_assignments[layout.index_of(point.id_y())];
+                let px = current_assignments[layout.index_of(line.p0.id_x())];
+                let py = current_assignments[layout.index_of(line.p0.id_y())];
+                let qx = current_assignments[layout.index_of(line.p1.id_x())];
+                let qy = current_assignments[layout.index_of(line.p1.id_y())];
+                let dx = qx - px;
+                let dy = qy - py;
+                if dy.abs() < EPSILON || (dx * dx + dy * dy) < EPSILON {
+                    // horizontal or zero-length line
+                    *degenerate = true;
+                    return;
+                }
+                let residual = ax - d - px - (ay - py) * (-px + qx) * (-py + qy).recip();
+                *residual0 = residual;
+            }
             Constraint::Symmetric(line, a, b) => {
                 // Equation: reflect(a - p, q - p) - b + p
                 // See notebook:
@@ -480,6 +509,7 @@ impl Constraint {
             Constraint::Midpoint(..) => 2,
             Constraint::PointLineDistance(..) => 1,
             Constraint::VerticalPointLineDistance(..) => 1,
+            Constraint::HorizontalPointLineDistance(..) => 1,
             Constraint::Symmetric(..) => 2,
         }
     }
@@ -1103,6 +1133,61 @@ impl Constraint {
                     },
                 ]);
             }
+            Constraint::HorizontalPointLineDistance(point, line, _distance) => {
+                // See notebook:
+                // https://github.com/KittyCAD/ezpz-sympy/blob/main/main.py
+                let id_ax = point.id_x();
+                let id_ay = point.id_y();
+                let id_px = line.p0.id_x();
+                let id_py = line.p0.id_y();
+                let id_qx = line.p1.id_x();
+                let id_qy = line.p1.id_y();
+                // let ax = current_assignments[layout.index_of(id_ax)];
+                let ay = current_assignments[layout.index_of(id_ay)];
+                let px = current_assignments[layout.index_of(id_px)];
+                let py = current_assignments[layout.index_of(id_py)];
+                let qx = current_assignments[layout.index_of(id_qx)];
+                let qy = current_assignments[layout.index_of(id_qy)];
+                let dx = qx - px;
+                let dy = qy - py;
+                if dy.abs() < EPSILON || (dx * dx + dy * dy) < EPSILON {
+                    // vertical or zero-length line
+                    *degenerate = true;
+                    return;
+                }
+                let dpx = (-ay + qy) * (py - qy).recip();
+                let dpy = (ay - qy) * (px - qx) * (py - qy).powi(-2);
+                let dqx = (ay - py) * (py - qy).recip();
+                let dqy = -(ay - py) * (px - qx) * (py - qy).powi(-2);
+                let dax = 1.0;
+                let day = (-px + qx) * (py - qy).recip();
+                row0.extend([
+                    JacobianVar {
+                        id: id_ax,
+                        partial_derivative: dax,
+                    },
+                    JacobianVar {
+                        id: id_ay,
+                        partial_derivative: day,
+                    },
+                    JacobianVar {
+                        id: id_px,
+                        partial_derivative: dpx,
+                    },
+                    JacobianVar {
+                        id: id_py,
+                        partial_derivative: dpy,
+                    },
+                    JacobianVar {
+                        id: id_qx,
+                        partial_derivative: dqx,
+                    },
+                    JacobianVar {
+                        id: id_qy,
+                        partial_derivative: dqy,
+                    },
+                ]);
+            }
             Constraint::Symmetric(line, a, b) => {
                 let id_px = line.p0.id_x();
                 let id_py = line.p0.id_y();
@@ -1218,6 +1303,9 @@ impl Constraint {
             Constraint::PointLineDistance(..) => "PointLineDistance",
             Constraint::VerticalPointLineDistance(_point, _line, _distance) => {
                 "VerticalPointLineDistance"
+            }
+            Constraint::HorizontalPointLineDistance(_point, _line, _distance) => {
+                "HorizontalPointLineDistance"
             }
             Constraint::Symmetric(..) => "Symmetric",
             Constraint::ScalarEqual(..) => "ScalarEqual",

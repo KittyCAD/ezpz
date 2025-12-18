@@ -190,6 +190,36 @@ proptest! {
         ];
         test_vertical_pld(initial_guesses, line, point, desired_distance);
     }
+
+    #[test]
+    fn horizontal_point_line_dist(
+        guess_line_p0x in -100.0..100.0f64,
+        guess_line_p0y in -100.0..100.0f64,
+        guess_line_p1x in -100.0..100.0f64,
+        guess_line_p1y in -100.0..100.0f64,
+        guess_point_x in -100.0..100.0f64,
+        guess_point_y in -100.0..100.0f64,
+        desired_distance in 0.0..100.0f64,
+    ) {
+        // Avoid horizontal/degenerate lines so the horizontal distance is well-defined.
+        prop_assume!((guess_line_p1y - guess_line_p0y).abs() > 1e-6);
+
+        let mut ids = IdGenerator::default();
+        let point = DatumPoint::new(&mut ids);
+        let line = LineSegment::new(
+            DatumPoint::new(&mut ids),
+            DatumPoint::new(&mut ids),
+        );
+        let initial_guesses = vec![
+            (point.id_x(), guess_point_x),
+            (point.id_y(), guess_point_y),
+            (line.p0.id_x(), guess_line_p0x),
+            (line.p0.id_y(), guess_line_p0y),
+            (line.p1.id_x(), guess_line_p1x),
+            (line.p1.id_y(), guess_line_p1y),
+        ];
+        test_horizontal_pld(initial_guesses, line, point, desired_distance);
+    }
 }
 
 /// `desired_distance` is a SIGNED distance, so 1 and -1 are opposite sides of the line.
@@ -199,8 +229,6 @@ fn test_vertical_pld(
     point: DatumPoint,
     desired_distance: f64,
 ) {
-    // Fix the line endpoints and the point's X so the only degree of freedom left
-    // is the point's position, which the constraint will solve.
     let requests = [
         // Fix the line endpoints
         ConstraintRequest::highest_priority(Constraint::Fixed(
@@ -251,4 +279,62 @@ fn test_vertical_pld(
     let line_y_at_point = solved_p0y + slope * (solved_x - solved_p0x);
 
     assert_nearly_eq(solved_y - line_y_at_point, desired_distance);
+}
+
+fn test_horizontal_pld(
+    initial_guesses: Vec<(Id, f64)>,
+    line: LineSegment,
+    point: DatumPoint,
+    desired_distance: f64,
+) {
+    let requests = [
+        // Fix the line endpoints
+        ConstraintRequest::highest_priority(Constraint::Fixed(
+            line.p0.id_x(),
+            initial_guesses[2].1,
+        )),
+        ConstraintRequest::highest_priority(Constraint::Fixed(
+            line.p0.id_y(),
+            initial_guesses[3].1,
+        )),
+        ConstraintRequest::highest_priority(Constraint::Fixed(
+            line.p1.id_x(),
+            initial_guesses[4].1,
+        )),
+        ConstraintRequest::highest_priority(Constraint::Fixed(
+            line.p1.id_y(),
+            initial_guesses[5].1,
+        )),
+        // Constraint we're testing.
+        ConstraintRequest::highest_priority(Constraint::HorizontalPointLineDistance(
+            point,
+            line,
+            desired_distance,
+        )),
+    ];
+
+    let outcome = solve_with_priority(&requests, initial_guesses, Config::default())
+        .expect("this constraint system should converge and be solvable");
+
+    assert!(outcome.is_satisfied(), "the constraint should be satisfied");
+    assert!(
+        outcome.warnings.is_empty(),
+        "this simple system should not emit warnings"
+    );
+
+    let solved_x = outcome.final_values[point.id_x() as usize];
+    let solved_y = outcome.final_values[point.id_y() as usize];
+    let solved_p0x = outcome.final_values[line.p0.id_x() as usize];
+    let solved_p0y = outcome.final_values[line.p0.id_y() as usize];
+    let solved_p1x = outcome.final_values[line.p1.id_x() as usize];
+    let solved_p1y = outcome.final_values[line.p1.id_y() as usize];
+
+    // Horizontal distance is measured as the signed difference between the point's X
+    // and the line's X at the same Y coordinate. Here we take point_x - line_x.
+    let dy = solved_p1y - solved_p0y;
+    // Avoid degenerate/horizontal lines; the test harness should reject those via prop_assume.
+    let slope = (solved_p1x - solved_p0x) / dy;
+    let line_x_at_point = solved_p0x + slope * (solved_y - solved_p0y);
+
+    assert_nearly_eq(solved_x - line_x_at_point, desired_distance);
 }
