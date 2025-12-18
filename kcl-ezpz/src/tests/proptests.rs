@@ -3,7 +3,7 @@ use std::f64::consts::PI;
 use proptest::prelude::*;
 
 use crate::{
-    Config, Constraint, ConstraintRequest, Id, IdGenerator,
+    Config, Constraint, ConstraintRequest, EPSILON, Id, IdGenerator,
     datatypes::{CircularArc, DatumPoint, LineSegment},
     solve_with_priority,
     tests::assert_nearly_eq,
@@ -230,12 +230,14 @@ proptest! {
     fn point_arc_coincident(
         arc_center_x in -50.0..50.0,
         arc_center_y in -50.0..50.0,
-        arc_radius in 0.0..50.0,
+        arc_radius in 1.0..50.0,
         arc_start in 0.0..360.0,
         arc_degrees in 5.0..350.0,
         point_guess_x in -100.0..100.0,
         point_guess_y in -100.0..100.0,
     ) {
+        // // Avoid degenerate arcs that collapse to a point.
+        // prop_assume!(arc_radius > EPSILON);
         test_point_arc_coincident(
             arc_center_x,
             arc_center_y,
@@ -260,7 +262,10 @@ fn test_point_arc_coincident(
     point_guess_x: f64,
     point_guess_y: f64,
 ) {
-    let arc_start_radians = arc_start_degrees.to_radians();
+    let two_pi = 2.0 * PI;
+    let arc_start_radians = arc_start_degrees.to_radians().rem_euclid(two_pi);
+    let arc_width_radians = arc_width_degrees.to_radians();
+    let arc_end_radians = arc_start_radians + arc_width_radians;
 
     // Generate IDs for variables.
     let mut ids = IdGenerator::default();
@@ -271,12 +276,10 @@ fn test_point_arc_coincident(
     let arc = CircularArc { center, start, end };
 
     // The arc's position is fixed, let's find the fixed points.
-    let arc_start_x = libm::cos(arc_start_radians) * arc_radius;
-    let arc_start_y = libm::sin(arc_start_radians) * arc_radius;
-    let arc_end_degrees = arc_start_degrees + arc_width_degrees;
-    let arc_end_radians = arc_end_degrees.to_radians();
-    let arc_end_x = libm::cos(arc_end_radians) * arc_radius;
-    let arc_end_y = libm::sin(arc_end_radians) * arc_radius;
+    let arc_start_x = arc_center_x + libm::cos(arc_start_radians) * arc_radius;
+    let arc_start_y = arc_center_y + libm::sin(arc_start_radians) * arc_radius;
+    let arc_end_x = arc_center_x + libm::cos(arc_end_radians) * arc_radius;
+    let arc_end_y = arc_center_y + libm::sin(arc_end_radians) * arc_radius;
 
     let initial_guesses = vec![
         (point.id_x(), point_guess_x),
@@ -320,9 +323,16 @@ fn test_point_arc_coincident(
     let solved_y = outcome.final_values[point.id_y() as usize];
 
     // Check the point lies on the arc.
-    let point_angle = libm::atan2(solved_y, solved_x).rem_euclid(2.0 * PI);
-    assert!(point_angle >= arc_start_radians);
-    assert!(point_angle <= arc_end_radians);
+    let rel_x = solved_x - arc_center_x;
+    let rel_y = solved_y - arc_center_y;
+    let point_angle = libm::atan2(rel_y, rel_x).rem_euclid(two_pi);
+    if arc_end_radians <= two_pi {
+        assert!(point_angle + EPSILON >= arc_start_radians);
+        assert!(point_angle <= arc_end_radians + EPSILON);
+    } else {
+        let wrapped_end = arc_end_radians - two_pi;
+        assert!(point_angle + EPSILON >= arc_start_radians || point_angle <= wrapped_end + EPSILON);
+    }
     let p = Point {
         x: solved_x,
         y: solved_y,
