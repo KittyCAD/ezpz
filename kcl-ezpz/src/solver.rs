@@ -95,6 +95,7 @@ pub(crate) struct Model<'c> {
     constraints: &'c [ConstraintEntry<'c>],
     row0_scratch: Vec<JacobianVar>,
     row1_scratch: Vec<JacobianVar>,
+    row2_scratch: Vec<JacobianVar>,
     pub(crate) warnings: Mutex<Vec<Warning>>,
     lambda_i: faer::sparse::SparseColMat<usize, f64>,
     lu_symbolic: SymbolicLu<usize>,
@@ -113,10 +114,14 @@ fn validate_variables(
     }
     let mut row0 = Vec::with_capacity(NONZEROES_PER_ROW);
     let mut row1 = Vec::with_capacity(NONZEROES_PER_ROW);
+    let mut row2 = Vec::with_capacity(NONZEROES_PER_ROW);
     for constraint in constraints {
         row0.clear();
         row1.clear();
-        constraint.constraint.nonzeroes(&mut row0, &mut row1);
+        row2.clear();
+        constraint
+            .constraint
+            .nonzeroes(&mut row0, &mut row1, &mut row2);
         for v in &row0 {
             if !all_variables.contains(v) {
                 return Err(NonLinearSystemError::MissingGuess {
@@ -126,6 +131,14 @@ fn validate_variables(
             }
         }
         for v in &row1 {
+            if !all_variables.contains(v) {
+                return Err(NonLinearSystemError::MissingGuess {
+                    constraint_id: constraint.id,
+                    variable: *v,
+                });
+            }
+        }
+        for v in &row2 {
             if !all_variables.contains(v) {
                 return Err(NonLinearSystemError::MissingGuess {
                     constraint_id: constraint.id,
@@ -175,14 +188,22 @@ impl<'c> Model<'c> {
         let mut row_num = 0;
         let mut nonzeroes_scratch0 = Vec::with_capacity(NONZEROES_PER_ROW);
         let mut nonzeroes_scratch1 = Vec::with_capacity(NONZEROES_PER_ROW);
+        let mut nonzeroes_scratch2 = Vec::with_capacity(NONZEROES_PER_ROW);
         for constraint in constraints {
             nonzeroes_scratch0.clear();
             nonzeroes_scratch1.clear();
-            constraint
-                .constraint
-                .nonzeroes(&mut nonzeroes_scratch0, &mut nonzeroes_scratch1);
+            nonzeroes_scratch2.clear();
+            constraint.constraint.nonzeroes(
+                &mut nonzeroes_scratch0,
+                &mut nonzeroes_scratch1,
+                &mut nonzeroes_scratch2,
+            );
 
-            let rows = [&nonzeroes_scratch0, &nonzeroes_scratch1];
+            let rows = [
+                &nonzeroes_scratch0,
+                &nonzeroes_scratch1,
+                &nonzeroes_scratch2,
+            ];
             for row in rows.iter().take(constraint.constraint.residual_dim()) {
                 let this_row = row_num;
                 row_num += 1;
@@ -221,6 +242,7 @@ impl<'c> Model<'c> {
             constraints,
             row0_scratch: Vec::with_capacity(NONZEROES_PER_ROW),
             row1_scratch: Vec::with_capacity(NONZEROES_PER_ROW),
+            row2_scratch: Vec::with_capacity(NONZEROES_PER_ROW),
             lambda_i,
             lu_symbolic,
         })
@@ -264,17 +286,20 @@ impl Model<'_> {
         let mut row_num = 0;
         let mut residuals0;
         let mut residuals1;
+        let mut residuals2;
 
         // Compute constraint residuals.
         for (i, constraint) in self.constraints.iter().enumerate() {
             let mut degenerate = false;
             residuals0 = 0.0;
             residuals1 = 0.0;
+            residuals2 = 0.0;
             constraint.constraint.residual(
                 &self.layout,
                 current_assignments,
                 &mut residuals0,
                 &mut residuals1,
+                &mut residuals2,
                 &mut degenerate,
             );
             if degenerate {
@@ -284,7 +309,7 @@ impl Model<'_> {
                     content: WarningContent::Degenerate,
                 })
             }
-            for row in [&residuals0, &residuals1]
+            for row in [&residuals0, &residuals1, &residuals2]
                 .iter()
                 .take(constraint.constraint.residual_dim())
             {
@@ -313,11 +338,13 @@ impl Model<'_> {
             let mut degenerate = false;
             self.row0_scratch.clear();
             self.row1_scratch.clear();
+            self.row2_scratch.clear();
             constraint.constraint.jacobian_rows(
                 &self.layout,
                 current_assignments,
                 &mut self.row0_scratch,
                 &mut self.row1_scratch,
+                &mut self.row2_scratch,
                 &mut degenerate,
             );
             if degenerate {
@@ -329,7 +356,7 @@ impl Model<'_> {
             }
 
             // For each variable in this constraint's set of partial derivatives (Jacobian slice).
-            for row in [&self.row0_scratch, &self.row1_scratch]
+            for row in [&self.row0_scratch, &self.row1_scratch, &self.row2_scratch]
                 .into_iter()
                 .take(constraint.constraint.residual_dim())
             {
