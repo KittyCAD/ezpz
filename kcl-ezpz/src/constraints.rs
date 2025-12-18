@@ -360,44 +360,10 @@ impl Constraint {
                 // For numerical stability and simpler derivatives, we compare the squared
                 // distances. The residual is zero if the distances are equal.
                 // R = distance(center, start)² - distance(center, end)²
-                let dist_start_sq = (start_x - cx).powi(2) + (start_y - cy).powi(2);
-                let dist_end_sq = (end_x - cx).powi(2) + (end_y - cy).powi(2);
+                let dist0_sq = (start_x - cx).powi(2) + (start_y - cy).powi(2);
+                let dist1_sq = (end_x - cx).powi(2) + (end_y - cy).powi(2);
 
-                let distance_residual = dist_start_sq - dist_end_sq;
-
-                // Always force CCW direction from start to end: use cross product to determine direction
-                // Cross product of (start - center) and (end - center):
-                // cross > 0 means CCW, cross < 0 means CW
-                let vec_start = V::new(start_x - cx, start_y - cy);
-                let vec_end = V::new(end_x - cx, end_y - cy);
-                let cross = vec_start.cross_2d(&vec_end);
-
-                // CCW constraint: force cross product to be positive
-                // We add this as a constraint term that penalizes negative cross products
-                // The coefficient is chosen to be strong enough to force CCW but not break convergence
-                // We use a scale factor based on the average distance to keep it scale-independent
-                let avg_dist_sq = (dist_start_sq + dist_end_sq) / 2.0;
-                let scale_factor = if avg_dist_sq > EPSILON {
-                    avg_dist_sq.sqrt()
-                } else {
-                    1.0
-                };
-
-                // Penalize negative cross product (CW direction) to force CCW
-                // The penalty increases as cross becomes more negative
-                // Use a coefficient that's large enough to force CCW but small enough to allow convergence
-                // Note: This works by making the residual non-zero when cross < 0, forcing the solver
-                // to adjust points (if not fixed) to make cross positive
-                let ccw_constraint = if cross < 0.0 {
-                    // Add a penalty for CW direction, normalized by scale
-                    // The coefficient 0.01 is chosen to be strong enough to prefer CCW
-                    // but not so strong that it breaks convergence
-                    -cross * 0.01 / scale_factor
-                } else {
-                    0.0
-                };
-
-                *residual0 = distance_residual + ccw_constraint;
+                *residual0 = dist0_sq - dist1_sq;
             }
             Constraint::Midpoint(line, point) => {
                 let p = line.p0;
@@ -978,65 +944,30 @@ impl Constraint {
                 let dx_c = (end_x - start_x) * 2.0;
                 let dy_c = (end_y - start_y) * 2.0;
 
-                // Calculate CCW constraint derivatives
-                // cross = (start_x - cx) * (end_y - cy) - (start_y - cy) * (end_x - cx)
-                // CCW_constraint = -cross * 0.1 / scale_factor when cross < 0
-                let cross = (start_x - cx) * (end_y - cy) - (start_y - cy) * (end_x - cx);
-                let dist_start_sq = (start_x - cx).powi(2) + (start_y - cy).powi(2);
-                let dist_end_sq = (end_x - cx).powi(2) + (end_y - cy).powi(2);
-                let avg_dist_sq = (dist_start_sq + dist_end_sq) / 2.0;
-                let scale_factor = if avg_dist_sq > EPSILON {
-                    avg_dist_sq.sqrt()
-                } else {
-                    1.0
-                };
-
-                let ccw_coeff = if cross < 0.0 {
-                    -0.01 / scale_factor
-                } else {
-                    0.0
-                };
-
-                // Derivatives of cross product:
-                // ∂cross/∂start_x = end_y - cy
-                // ∂cross/∂start_y = -(end_x - cx)
-                // ∂cross/∂end_x = -(start_y - cy)
-                // ∂cross/∂end_y = start_x - cx
-                // ∂cross/∂cx = start_y - end_y
-                // ∂cross/∂cy = end_x - start_x
-                //
-                // Derivatives of CCW constraint = ccw_coeff * ∂cross/∂var
-                let dccw_dx_start = ccw_coeff * (end_y - cy);
-                let dccw_dy_start = ccw_coeff * (-(end_x - cx));
-                let dccw_dx_end = ccw_coeff * (-(start_y - cy));
-                let dccw_dy_end = ccw_coeff * (start_x - cx);
-                let dccw_dx_c = ccw_coeff * (start_y - end_y);
-                let dccw_dy_c = ccw_coeff * (end_x - start_x);
-
                 row0.extend([
                     JacobianVar {
                         id: arc.start.id_x(),
-                        partial_derivative: dx_start + dccw_dx_start,
+                        partial_derivative: dx_start,
                     },
                     JacobianVar {
                         id: arc.start.id_y(),
-                        partial_derivative: dy_start + dccw_dy_start,
+                        partial_derivative: dy_start,
                     },
                     JacobianVar {
                         id: arc.end.id_x(),
-                        partial_derivative: dx_end + dccw_dx_end,
+                        partial_derivative: dx_end,
                     },
                     JacobianVar {
                         id: arc.end.id_y(),
-                        partial_derivative: dy_end + dccw_dy_end,
+                        partial_derivative: dy_end,
                     },
                     JacobianVar {
                         id: arc.center.id_x(),
-                        partial_derivative: dx_c + dccw_dx_c,
+                        partial_derivative: dx_c,
                     },
                     JacobianVar {
                         id: arc.center.id_y(),
-                        partial_derivative: dy_c + dccw_dy_c,
+                        partial_derivative: dy_c,
                     },
                 ])
             }
