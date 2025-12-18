@@ -160,7 +160,15 @@ impl Constraint {
                 row1.extend(a.all_variables());
                 row1.extend(b.all_variables());
             }
-            Constraint::PointArcCoincident(circular_arc, datum_point) => todo!(),
+            Constraint::PointArcCoincident(circular_arc, datum_point) => {
+                // Residual 0 is just distance between arc center and the point.
+                row0.extend(circular_arc.center.all_variables());
+                row0.extend(datum_point.all_variables());
+                // Residual 1 is ensuring the point lies between the arc's start/end degrees,
+                // on the circle with given center.
+                row1.extend(circular_arc.all_variables());
+                row1.extend(datum_point.all_variables());
+            }
         }
     }
 
@@ -518,7 +526,7 @@ impl Constraint {
             Constraint::VerticalPointLineDistance(..) => 1,
             Constraint::HorizontalPointLineDistance(..) => 1,
             Constraint::Symmetric(..) => 2,
-            Constraint::PointArcCoincident(circular_arc, datum_point) => todo!(),
+            Constraint::PointArcCoincident(..) => 2,
         }
     }
 
