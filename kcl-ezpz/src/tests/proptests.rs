@@ -273,7 +273,7 @@ fn specific_test_point_arc_coincident() {
 
 #[test]
 fn specific_test_point_arc_coincident_off_center() {
-    let arc_center = Point { x: -10.0, y: 0.0 };
+    let arc_center = Point { x: -10.0, y: 10.0 };
     let point = Point { x: 10.0, y: 10.0 };
     test_point_arc_coincident(
         arc_center.x,

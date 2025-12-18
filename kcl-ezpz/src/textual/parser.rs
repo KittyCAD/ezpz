@@ -5,7 +5,8 @@ use crate::{
         instruction::{
             AngleLine, ArcRadius, CircleRadius, DeclareArc, DeclareCircle, Distance,
             FixCenterPointComponent, IsArc, Line, LinesEqualLength, Midpoint, Parallel,
-            Perpendicular, PointLineDistance, PointsCoincident, Symmetric, Tangent,
+            Perpendicular, PointArcCoincident, PointLineDistance, PointsCoincident, Symmetric,
+            Tangent,
         },
     },
 };
@@ -162,6 +163,13 @@ pub fn parse_coincident(i: &mut &str) -> WResult<PointsCoincident> {
     ignore_ws(i);
     let [point0, point1] = inside_brackets(two_points, i)?;
     Ok(PointsCoincident { point0, point1 })
+}
+
+pub fn parse_point_arc_coincident(i: &mut &str) -> WResult<PointArcCoincident> {
+    let _ = "point_arc_coincident".parse_next(i)?;
+    ignore_ws(i);
+    let [point, arc] = inside_brackets(two_points, i)?;
+    Ok(PointArcCoincident { point, arc })
 }
 
 pub fn parse_midpoint(i: &mut &str) -> WResult<Midpoint> {
@@ -384,6 +392,9 @@ fn parse_instruction(i: &mut &str) -> WResult<Vec<Instruction>> {
         assign_point,
         parse_horizontal.map(Instruction::Horizontal).map(sv),
         parse_coincident.map(Instruction::PointsCoincident).map(sv),
+        parse_point_arc_coincident
+            .map(Instruction::PointArcCoincident)
+            .map(sv),
         parse_midpoint.map(Instruction::Midpoint).map(sv),
         parse_symmetric.map(Instruction::Symmetric).map(sv),
         parse_vertical.map(Instruction::Vertical).map(sv),

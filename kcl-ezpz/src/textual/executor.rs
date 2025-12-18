@@ -325,6 +325,16 @@ impl Problem {
                     let p1 = datum_point_for_label(point1)?;
                     constraints.push(Constraint::PointsCoincident(p0, p1));
                 }
+                Instruction::PointArcCoincident(PointArcCoincident { point, arc }) => {
+                    let p = datum_point_for_label(point)?;
+                    let arc_label = &arc.0;
+                    let datum_arc = CircularArc {
+                        center: datum_point_for_label(&Label(format!("{arc_label}.center")))?,
+                        start: datum_point_for_label(&Label(format!("{arc_label}.a")))?,
+                        end: datum_point_for_label(&Label(format!("{arc_label}.b")))?,
+                    };
+                    constraints.push(Constraint::PointArcCoincident(datum_arc, p));
+                }
                 Instruction::Midpoint(Midpoint { point0, point1, mp }) => {
                     let p0 = datum_point_for_label(point0)?;
                     let p1 = datum_point_for_label(point1)?;
