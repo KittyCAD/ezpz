@@ -160,14 +160,22 @@ impl Constraint {
                 row1.extend(a.all_variables());
                 row1.extend(b.all_variables());
             }
-            Constraint::PointArcCoincident(circular_arc, datum_point) => {
+            Constraint::PointArcCoincident(circular_arc, point) => {
                 // Residual 0 is just distance between arc center and the point.
-                row0.extend(circular_arc.center.all_variables());
-                row0.extend(datum_point.all_variables());
-                // Residual 1 is ensuring the point lies between the arc's start/end degrees,
-                // on the circle with given center.
-                row1.extend(circular_arc.all_variables());
-                row1.extend(datum_point.all_variables());
+                // We can use any arbitrary distance, as this parameter is ignored in the Distance constraint's
+                // nonzeroes above.
+                let arbitrary_dist = 12345.6;
+                let dist_constraint =
+                    Constraint::Distance(circular_arc.center, *point, arbitrary_dist);
+                dist_constraint.nonzeroes(row0, row1, row2);
+                // Residual 1 is ensuring the point is above the arc's start degrees.
+                row1.extend(circular_arc.center.all_variables());
+                row1.extend(circular_arc.start.all_variables());
+                row1.extend(point.all_variables());
+                // Residual 2 is ensuring the point is above the arc's end degrees.
+                row2.extend(circular_arc.center.all_variables());
+                row2.extend(circular_arc.end.all_variables());
+                row2.extend(point.all_variables());
             }
         }
     }
@@ -504,6 +512,10 @@ impl Constraint {
                 let cy = current_assignments[layout.index_of(circular_arc.center.id_y())];
                 let ax = current_assignments[layout.index_of(circular_arc.start.id_x())];
                 let ay = current_assignments[layout.index_of(circular_arc.start.id_y())];
+                let bx = current_assignments[layout.index_of(circular_arc.end.id_x())];
+                let by = current_assignments[layout.index_of(circular_arc.end.id_y())];
+                let px = current_assignments[layout.index_of(point.id_x())];
+                let py = current_assignments[layout.index_of(point.id_y())];
                 let arc_radius = libm::hypot(cx - ax, cy - ay);
                 let dist_constraint = Constraint::Distance(circular_arc.center, *point, arc_radius);
                 // Write the distance residual into residual0.
@@ -512,9 +524,20 @@ impl Constraint {
                     current_assignments,
                     residual0,
                     residual1,
+                    residual2,
                     degenerate,
                 );
-                // Calculate the angle residual.
+                // Calculate the angle residuals.
+                *residual1 = if (ax - cx) * (-cy + py) - (ay - cy) * (-cx + px) >= 0.0 {
+                    0.0
+                } else {
+                    (ax - cx) * (-cy + py) - (ay - cy) * (-cx + px)
+                };
+                *residual2 = if (bx - cx) * (-cy + py) - (by - cy) * (-cx + px) >= 0.0 {
+                    0.0
+                } else {
+                    (bx - cx) * (-cy + py) - (by - cy) * (-cx + px)
+                };
             }
         }
     }
@@ -542,7 +565,7 @@ impl Constraint {
             Constraint::VerticalPointLineDistance(..) => 1,
             Constraint::HorizontalPointLineDistance(..) => 1,
             Constraint::Symmetric(..) => 2,
-            Constraint::PointArcCoincident(..) => 2,
+            Constraint::PointArcCoincident(..) => 3,
         }
     }
 
@@ -1323,7 +1346,188 @@ impl Constraint {
                     },
                 ]);
             }
-            Constraint::PointArcCoincident(circular_arc, datum_point) => todo!(),
+            Constraint::PointArcCoincident(circular_arc, point) => {
+                let cx = current_assignments[layout.index_of(circular_arc.center.id_x())];
+                let cy = current_assignments[layout.index_of(circular_arc.center.id_y())];
+                let ax = current_assignments[layout.index_of(circular_arc.start.id_x())];
+                let ay = current_assignments[layout.index_of(circular_arc.start.id_y())];
+                let bx = current_assignments[layout.index_of(circular_arc.end.id_x())];
+                let by = current_assignments[layout.index_of(circular_arc.end.id_y())];
+                let px = current_assignments[layout.index_of(point.id_x())];
+                let py = current_assignments[layout.index_of(point.id_y())];
+                let arc_radius = libm::hypot(cx - ax, cy - ay);
+                let id_cx = circular_arc.center.id_x();
+                let id_cy = circular_arc.center.id_y();
+                let id_ax = circular_arc.start.id_x();
+                let id_ay = circular_arc.start.id_y();
+                let id_bx = circular_arc.end.id_x();
+                let id_by = circular_arc.end.id_y();
+                let id_px = point.id_x();
+                let id_py = point.id_y();
+                // The first residual is just the distance from the point to the circular arc's perimeter.
+                // i.e. it should be arc-radius from the center.
+                let dist_constraint = Constraint::Distance(circular_arc.center, *point, arc_radius);
+                dist_constraint.jacobian_rows(
+                    layout,
+                    current_assignments,
+                    row0,
+                    row1,
+                    row2,
+                    degenerate,
+                );
+                // Residual 1: the point should be above the start angle, on the circle.
+                // Partial derivatives
+                let r1dpx = -(ay - cy)
+                    * if ax - cx * (cy - py) - (ay - cy) * (cx - px) < 0.0 {
+                        0.0
+                    } else if (ax - cx) * (cy - py) - (ay - cy) * (cx - px) == 0.0 {
+                        1_f64 / 2.0
+                    } else {
+                        1.0
+                    };
+                let r1dpy = (ax - cx)
+                    * if (ax - cx) * (cy - py) - (ay - cy) * (cx - px) < 0.0 {
+                        0.0
+                    } else if (ax - cx) * (cy - py) - (ay - cy) * (cx - px) == 0.0 {
+                        1_f64 / 2.0
+                    } else {
+                        1.0
+                    };
+                let r1dax = -(cy - py)
+                    * if (ax - cx) * (cy - py) - (ay - cy) * (cx - px) < 0.0 {
+                        0.0
+                    } else if (ax - cx) * (cy - py) - (ay - cy) * (cx - px) == 0.0 {
+                        1_f64 / 2.0
+                    } else {
+                        1.0
+                    };
+                let r1day = (cx - px)
+                    * if (ax - cx) * (cy - py) - (ay - cy) * (cx - px) < 0.0 {
+                        0.0
+                    } else if (ax - cx) * (cy - py) - (ay - cy) * (cx - px) == 0.0 {
+                        1_f64 / 2.0
+                    } else {
+                        1.0
+                    };
+                let r1dcx = (ay - py)
+                    * if (ax - cx) * (cy - py) - (ay - cy) * (cx - px) < 0.0 {
+                        0.0
+                    } else if (ax - cx) * (cy - py) - (ay - cy) * (cx - px) == 0.0 {
+                        1_f64 / 2.0
+                    } else {
+                        1.0
+                    };
+                let r1dcy = -(ax - px)
+                    * if (ax - cx) * (cy - py) - (ay - cy) * (cx - px) < 0.0 {
+                        0.0
+                    } else if (ax - cx) * (cy - py) - (ay - cy) * (cx - px) == 0.0 {
+                        1_f64 / 2.0
+                    } else {
+                        1.0
+                    };
+                row1.extend([
+                    JacobianVar {
+                        id: id_cx,
+                        partial_derivative: r1dcx,
+                    },
+                    JacobianVar {
+                        id: id_cy,
+                        partial_derivative: r1dcy,
+                    },
+                    JacobianVar {
+                        id: id_ax,
+                        partial_derivative: r1dax,
+                    },
+                    JacobianVar {
+                        id: id_ay,
+                        partial_derivative: r1day,
+                    },
+                    JacobianVar {
+                        id: id_px,
+                        partial_derivative: r1dpx,
+                    },
+                    JacobianVar {
+                        id: id_py,
+                        partial_derivative: r1dpy,
+                    },
+                ]);
+                // Residual 2: the point should be below the end angle, on the circle.
+                // Partial derivatives, res2
+                let r2dpx = -(by - cy)
+                    * if (bx - cx) * (cy - py) - (by - cy) * (cx - px) < 0.0 {
+                        0.0
+                    } else if (bx - cx) * (cy - py) - (by - cy) * (cx - px) == 0.0 {
+                        1_f64 / 2.0
+                    } else {
+                        1.0
+                    };
+                let r2dpy = (bx - cx)
+                    * if (bx - cx) * (cy - py) - (by - cy) * (cx - px) < 0.0 {
+                        0.0
+                    } else if (bx - cx) * (cy - py) - (by - cy) * (cx - px) == 0.0 {
+                        1_f64 / 2.0
+                    } else {
+                        1.0
+                    };
+                let r2dbx = -(cy - py)
+                    * if (bx - cx) * (cy - py) - (by - cy) * (cx - px) < 0.0 {
+                        0.0
+                    } else if (bx - cx) * (cy - py) - (by - cy) * (cx - px) == 0.0 {
+                        1_f64 / 2.0
+                    } else {
+                        1.0
+                    };
+                let r2dby = (cx - px)
+                    * if (bx - cx) * (cy - py) - (by - cy) * (cx - px) < 0.0 {
+                        0.0
+                    } else if (bx - cx) * (cy - py) - (by - cy) * (cx - px) == 0.0 {
+                        1_f64 / 2.0
+                    } else {
+                        1.0
+                    };
+                let r2dcx = (by - py)
+                    * if (bx - cx) * (cy - py) - (by - cy) * (cx - px) < 0.0 {
+                        0.0
+                    } else if (bx - cx) * (cy - py) - (by - cy) * (cx - px) == 0.0 {
+                        1_f64 / 2.0
+                    } else {
+                        1.0
+                    };
+                let r2dcy = -(bx - px)
+                    * if (bx - cx) * (cy - py) - (by - cy) * (cx - px) < 0.0 {
+                        0.0
+                    } else if (bx - cx) * (cy - py) - (by - cy) * (cx - px) == 0.0 {
+                        1_f64 / 2.0
+                    } else {
+                        1.0
+                    };
+                row2.extend([
+                    JacobianVar {
+                        id: id_cx,
+                        partial_derivative: r2dcx,
+                    },
+                    JacobianVar {
+                        id: id_cy,
+                        partial_derivative: r2dcy,
+                    },
+                    JacobianVar {
+                        id: id_bx,
+                        partial_derivative: r2dbx,
+                    },
+                    JacobianVar {
+                        id: id_by,
+                        partial_derivative: r2dby,
+                    },
+                    JacobianVar {
+                        id: id_px,
+                        partial_derivative: r2dpx,
+                    },
+                    JacobianVar {
+                        id: id_py,
+                        partial_derivative: r2dpy,
+                    },
+                ]);
+            }
         }
     }
 
