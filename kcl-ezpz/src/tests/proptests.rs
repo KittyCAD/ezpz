@@ -1,10 +1,13 @@
+use std::f64::consts::PI;
+
 use proptest::prelude::*;
 
 use crate::{
     Config, Constraint, ConstraintRequest, Id, IdGenerator,
-    datatypes::{DatumPoint, LineSegment},
+    datatypes::{CircularArc, DatumPoint, LineSegment},
     solve_with_priority,
     tests::assert_nearly_eq,
+    textual::Point,
 };
 
 fn run(txt: &str) -> crate::textual::Outcome {
@@ -220,6 +223,115 @@ proptest! {
         ];
         test_horizontal_pld(initial_guesses, line, point, desired_distance);
     }
+
+    /// Given an arc, and a randomly-guessed point, constrain the point to lie on the arc.
+    /// Then check the constraint solver properly constrained it.
+    #[test]
+    fn point_arc_coincident(
+        arc_center_x in -50.0..50.0,
+        arc_center_y in -50.0..50.0,
+        arc_radius in 0.0..50.0,
+        arc_start in 0.0..360.0,
+        arc_degrees in 5.0..350.0,
+        point_guess_x in -100.0..100.0,
+        point_guess_y in -100.0..100.0,
+    ) {
+        test_point_arc_coincident(
+            arc_center_x,
+            arc_center_y,
+            arc_radius,
+            arc_start,
+            arc_degrees,
+            point_guess_x,
+            point_guess_y,
+        );
+    }
+
+}
+
+/// Given an arc, and a randomly-guessed point, constrain the point to lie on the arc.
+/// Then check the constraint solver properly constrained it.
+fn test_point_arc_coincident(
+    arc_center_x: f64,
+    arc_center_y: f64,
+    arc_radius: f64,
+    arc_start_degrees: f64,
+    arc_width_degrees: f64,
+    point_guess_x: f64,
+    point_guess_y: f64,
+) {
+    let arc_start_radians = arc_start_degrees.to_radians();
+
+    // Generate IDs for variables.
+    let mut ids = IdGenerator::default();
+    let point = DatumPoint::new(&mut ids);
+    let center = DatumPoint::new(&mut ids);
+    let start = DatumPoint::new(&mut ids);
+    let end = DatumPoint::new(&mut ids);
+    let arc = CircularArc { center, start, end };
+
+    // The arc's position is fixed, let's find the fixed points.
+    let arc_start_x = libm::cos(arc_start_radians) * arc_radius;
+    let arc_start_y = libm::sin(arc_start_radians) * arc_radius;
+    let arc_end_degrees = arc_start_degrees + arc_width_degrees;
+    let arc_end_radians = arc_end_degrees.to_radians();
+    let arc_end_x = libm::cos(arc_end_radians) * arc_radius;
+    let arc_end_y = libm::sin(arc_end_radians) * arc_radius;
+
+    let initial_guesses = vec![
+        (point.id_x(), point_guess_x),
+        (point.id_y(), point_guess_y),
+        (arc.center.id_x(), arc_center_x),
+        (arc.center.id_y(), arc_center_y),
+        (arc.start.id_x(), arc_start_x),
+        (arc.start.id_y(), arc_start_y),
+        (arc.end.id_x(), arc_end_x),
+        (arc.end.id_y(), arc_end_y),
+    ];
+
+    let requests: Vec<_> = vec![
+        // Fix the arc in place.
+        Constraint::Arc(arc),
+        Constraint::Fixed(arc.center.id_x(), arc_center_x),
+        Constraint::Fixed(arc.center.id_y(), arc_center_y),
+        Constraint::Fixed(arc.start.id_x(), arc_start_x),
+        Constraint::Fixed(arc.start.id_y(), arc_start_y),
+        Constraint::Fixed(arc.end.id_x(), arc_end_x),
+        Constraint::Fixed(arc.end.id_y(), arc_end_y),
+        // Point must lie on the arc, but don't constrain the point any further.
+        // It will be underconstrained, as it can lie anywhere on the arc.
+        Constraint::PointArcCoincident(arc, point),
+    ]
+    .into_iter()
+    .map(ConstraintRequest::highest_priority)
+    .collect();
+
+    // Solve it.
+    let outcome = solve_with_priority(&requests, initial_guesses, Config::default())
+        .expect("this constraint system should converge and be solvable");
+
+    assert!(outcome.is_satisfied(), "the constraint should be satisfied");
+    assert!(
+        outcome.warnings.is_empty(),
+        "this simple system should not emit warnings"
+    );
+
+    let solved_x = outcome.final_values[point.id_x() as usize];
+    let solved_y = outcome.final_values[point.id_y() as usize];
+
+    // Check the point lies on the arc.
+    let point_angle = libm::atan2(solved_y, solved_x).rem_euclid(2.0 * PI);
+    assert!(point_angle >= arc_start_radians);
+    assert!(point_angle <= arc_end_radians);
+    let p = Point {
+        x: solved_x,
+        y: solved_y,
+    };
+    let center = Point {
+        x: arc_center_x,
+        y: arc_center_y,
+    };
+    assert_nearly_eq(p.euclidean_distance(center), arc_radius);
 }
 
 /// `desired_distance` is a SIGNED distance, so 1 and -1 are opposite sides of the line.
