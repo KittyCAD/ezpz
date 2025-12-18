@@ -147,23 +147,23 @@ impl Problem {
                 let center = initial_guesses.arc_ids(arc_id).center;
                 return Ok(center.into());
             }
-            // Is it an arc's `p` point?
+            // Is it an arc's start point (labeled as `.a` in textual format)?
             if let Some(arc_id) = self
                 .inner_arcs
                 .iter()
                 .position(|arc| format!("{}.a", arc.0) == label.0.as_str())
             {
-                let a = initial_guesses.arc_ids(arc_id).a;
-                return Ok(a.into());
+                let start = initial_guesses.arc_ids(arc_id).start;
+                return Ok(start.into());
             }
-            // Is it an arc's `b` point?
+            // Is it an arc's end point (labeled as `.b` in textual format)?
             if let Some(arc_id) = self
                 .inner_arcs
                 .iter()
                 .position(|arc| format!("{}.b", arc.0) == label.0.as_str())
             {
-                let b = initial_guesses.arc_ids(arc_id).b;
-                return Ok(b.into());
+                let end = initial_guesses.arc_ids(arc_id).end;
+                return Ok(end.into());
             }
             // Well, it wasn't any of the geometries we recognize.
             Err(TextualError::UndefinedPoint {
@@ -206,8 +206,8 @@ impl Problem {
                     let arc_label = &arc_label.0;
                     let circular_arc = CircularArc {
                         center: datum_point_for_label(&Label(format!("{arc_label}.center")))?,
-                        a: datum_point_for_label(&Label(format!("{arc_label}.a")))?,
-                        b: datum_point_for_label(&Label(format!("{arc_label}.b")))?,
+                        start: datum_point_for_label(&Label(format!("{arc_label}.a")))?,
+                        end: datum_point_for_label(&Label(format!("{arc_label}.b")))?,
                     };
                     constraints.push(Constraint::ArcRadius(circular_arc, *radius));
                 }
@@ -215,8 +215,8 @@ impl Problem {
                     let arc_label = &arc_label.0;
                     let circular_arc = CircularArc {
                         center: datum_point_for_label(&Label(format!("{arc_label}.center")))?,
-                        a: datum_point_for_label(&Label(format!("{arc_label}.a")))?,
-                        b: datum_point_for_label(&Label(format!("{arc_label}.b")))?,
+                        start: datum_point_for_label(&Label(format!("{arc_label}.a")))?,
+                        end: datum_point_for_label(&Label(format!("{arc_label}.b")))?,
                     };
                     constraints.push(Constraint::Arc(circular_arc));
                 }

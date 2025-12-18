@@ -92,14 +92,14 @@ impl<S: State> GeometryVariables<S> {
         let start_of_arcs = VARS_PER_POINT * self.num_points;
         let ax = self.variables[start_of_arcs + VARS_PER_ARC * arc_id].0;
         let ay = self.variables[start_of_arcs + VARS_PER_ARC * arc_id + 1].0;
-        let a = PointVars { x: ax, y: ay };
+        let start = PointVars { x: ax, y: ay };
         let bx = self.variables[start_of_arcs + VARS_PER_ARC * arc_id + 2].0;
         let by = self.variables[start_of_arcs + VARS_PER_ARC * arc_id + 3].0;
-        let b = PointVars { x: bx, y: by };
+        let end = PointVars { x: bx, y: by };
         let cx = self.variables[start_of_arcs + VARS_PER_ARC * arc_id + 4].0;
         let cy = self.variables[start_of_arcs + VARS_PER_ARC * arc_id + 5].0;
         let center = PointVars { x: cx, y: cy };
-        ArcVars { a, b, center }
+        ArcVars { start, end, center }
     }
 }
 
@@ -197,7 +197,7 @@ pub struct CircleVars {
 }
 
 pub struct ArcVars {
-    pub a: PointVars,
-    pub b: PointVars,
+    pub start: PointVars,
+    pub end: PointVars,
     pub center: PointVars,
 }
