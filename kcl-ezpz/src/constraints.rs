@@ -528,16 +528,14 @@ impl Constraint {
                     degenerate,
                 );
                 // Calculate the angle residuals.
-                *residual1 = if (ax - cx) * (-cy + py) - (ay - cy) * (-cx + px) >= 0.0 {
+                let start_cross = (ax - cx) * (cy - py) - (ay - cy) * (cx - px);
+                *residual1 = if start_cross <= 0.0 {
                     0.0
                 } else {
-                    (ax - cx) * (-cy + py) - (ay - cy) * (-cx + px)
+                    -start_cross
                 };
-                *residual2 = if (bx - cx) * (-cy + py) - (by - cy) * (-cx + px) <= 0.0 {
-                    0.0
-                } else {
-                    -(bx - cx) * (-cy + py) + (by - cy) * (-cx + px)
-                };
+                let end_cross = (bx - cx) * (cy - py) - (by - cy) * (cx - px);
+                *residual2 = if end_cross >= 0.0 { 0.0 } else { end_cross };
             }
         }
     }
@@ -1376,55 +1374,21 @@ impl Constraint {
                     degenerate,
                 );
                 // Residual 1: the point should be above the start angle, on the circle.
+                let start_cross = (ax - cx) * (cy - py) - (ay - cy) * (cx - px);
+                let start_weight = if start_cross > 0.0 {
+                    1.0
+                } else if start_cross == 0.0 {
+                    0.5
+                } else {
+                    0.0
+                };
                 // Partial derivatives
-                let r1dpx = -(ay - cy)
-                    * if ax - cx * (cy - py) - (ay - cy) * (cx - px) < 0.0 {
-                        0.0
-                    } else if (ax - cx) * (cy - py) - (ay - cy) * (cx - px) == 0.0 {
-                        1_f64 / 2.0
-                    } else {
-                        1.0
-                    };
-                let r1dpy = (ax - cx)
-                    * if (ax - cx) * (cy - py) - (ay - cy) * (cx - px) < 0.0 {
-                        0.0
-                    } else if (ax - cx) * (cy - py) - (ay - cy) * (cx - px) == 0.0 {
-                        1_f64 / 2.0
-                    } else {
-                        1.0
-                    };
-                let r1dax = -(cy - py)
-                    * if (ax - cx) * (cy - py) - (ay - cy) * (cx - px) < 0.0 {
-                        0.0
-                    } else if (ax - cx) * (cy - py) - (ay - cy) * (cx - px) == 0.0 {
-                        1_f64 / 2.0
-                    } else {
-                        1.0
-                    };
-                let r1day = (cx - px)
-                    * if (ax - cx) * (cy - py) - (ay - cy) * (cx - px) < 0.0 {
-                        0.0
-                    } else if (ax - cx) * (cy - py) - (ay - cy) * (cx - px) == 0.0 {
-                        1_f64 / 2.0
-                    } else {
-                        1.0
-                    };
-                let r1dcx = (ay - py)
-                    * if (ax - cx) * (cy - py) - (ay - cy) * (cx - px) < 0.0 {
-                        0.0
-                    } else if (ax - cx) * (cy - py) - (ay - cy) * (cx - px) == 0.0 {
-                        1_f64 / 2.0
-                    } else {
-                        1.0
-                    };
-                let r1dcy = -(ax - px)
-                    * if (ax - cx) * (cy - py) - (ay - cy) * (cx - px) < 0.0 {
-                        0.0
-                    } else if (ax - cx) * (cy - py) - (ay - cy) * (cx - px) == 0.0 {
-                        1_f64 / 2.0
-                    } else {
-                        1.0
-                    };
+                let r1dpx = -(ay - cy) * start_weight;
+                let r1dpy = (ax - cx) * start_weight;
+                let r1dax = -(cy - py) * start_weight;
+                let r1day = (cx - px) * start_weight;
+                let r1dcx = (ay - py) * start_weight;
+                let r1dcy = -(ax - px) * start_weight;
                 row1.extend([
                     JacobianVar {
                         id: id_cx,
@@ -1453,56 +1417,22 @@ impl Constraint {
                 ]);
                 // Residual 2: the point should be below the end angle, on the circle.
                 // Partial derivatives, res2
-                let r2dpx = (by - cy)
-                    * if (bx - cx) * (cy - py) - (by - cy) * (cx - px) > 0.0 {
-                        0.0
-                    } else if (bx - cx) * (cy - py) - (by - cy) * (cx - px) == 0.0 {
-                        1_f64 / 2.0
-                    } else {
-                        1.0
-                    };
-                let r2dpy = -(bx - cx)
-                    * if (bx - cx) * (cy - py) - (by - cy) * (cx - px) > 0.0 {
-                        0.0
-                    } else if (bx - cx) * (cy - py) - (by - cy) * (cx - px) == 0.0 {
-                        1_f64 / 2.0
-                    } else {
-                        1.0
-                    };
+                let end_cross = (bx - cx) * (cy - py) - (by - cy) * (cx - px);
+                let end_weight = if end_cross > 0.0 {
+                    0.0
+                } else if end_cross == 0.0 {
+                    0.5
+                } else {
+                    1.0
+                };
+                let r2dpx = (by - cy) * end_weight;
+                let r2dpy = -(bx - cx) * end_weight;
                 let _r2dax = 0;
                 let _r2day = 0;
-                let r2dbx = (cy - py)
-                    * if (bx - cx) * (cy - py) - (by - cy) * (cx - px) > 0.0 {
-                        0.0
-                    } else if (bx - cx) * (cy - py) - (by - cy) * (cx - px) == 0.0 {
-                        1_f64 / 2.0
-                    } else {
-                        1.0
-                    };
-                let r2dby = -(cx - px)
-                    * if (bx - cx) * (cy - py) - (by - cy) * (cx - px) > 0.0 {
-                        0.0
-                    } else if (bx - cx) * (cy - py) - (by - cy) * (cx - px) == 0.0 {
-                        1_f64 / 2.0
-                    } else {
-                        1.0
-                    };
-                let r2dcx = -(by - py)
-                    * if (bx - cx) * (cy - py) - (by - cy) * (cx - px) > 0.0 {
-                        0.0
-                    } else if (bx - cx) * (cy - py) - (by - cy) * (cx - px) == 0.0 {
-                        1_f64 / 2.0
-                    } else {
-                        1.0
-                    };
-                let r2dcy = (bx - px)
-                    * if (bx - cx) * (cy - py) - (by - cy) * (cx - px) > 0.0 {
-                        0.0
-                    } else if (bx - cx) * (cy - py) - (by - cy) * (cx - px) == 0.0 {
-                        1_f64 / 2.0
-                    } else {
-                        1.0
-                    };
+                let r2dbx = (cy - py) * end_weight;
+                let r2dby = -(cx - px) * end_weight;
+                let r2dcx = -(by - py) * end_weight;
+                let r2dcy = (bx - px) * end_weight;
                 row2.extend([
                     JacobianVar {
                         id: id_cx,
