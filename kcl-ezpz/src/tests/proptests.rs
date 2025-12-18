@@ -266,6 +266,21 @@ fn specific_test_point_arc_coincident() {
     );
 }
 
+#[test]
+fn specific_test_point_arc_coincident_off_center() {
+    let arc_center = Point { x: -10.0, y: 0.0 };
+    let point = Point { x: 10.0, y: 10.0 };
+    test_point_arc_coincident(
+        arc_center.x,
+        arc_center.y,
+        5.0,
+        40.0,
+        10.0,
+        point.x,
+        point.y,
+    );
+}
+
 /// Given an arc, and a randomly-guessed point, constrain the point to lie on the arc.
 /// Then check the constraint solver properly constrained it.
 fn test_point_arc_coincident(
