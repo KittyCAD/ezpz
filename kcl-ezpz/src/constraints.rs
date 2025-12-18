@@ -382,7 +382,7 @@ impl Constraint {
                 } else {
                     1.0
                 };
-                
+
                 // Penalize negative cross product (CW direction) to force CCW
                 // The penalty increases as cross becomes more negative
                 // Use a coefficient that's large enough to force CCW but small enough to allow convergence
@@ -977,7 +977,7 @@ impl Constraint {
                 let dy_end = (end_y - cy) * -2.0;
                 let dx_c = (end_x - start_x) * 2.0;
                 let dy_c = (end_y - start_y) * 2.0;
-                
+
                 // Calculate CCW constraint derivatives
                 // cross = (start_x - cx) * (end_y - cy) - (start_y - cy) * (end_x - cx)
                 // CCW_constraint = -cross * 0.1 / scale_factor when cross < 0
@@ -990,13 +990,13 @@ impl Constraint {
                 } else {
                     1.0
                 };
-                
+
                 let ccw_coeff = if cross < 0.0 {
                     -0.01 / scale_factor
                 } else {
                     0.0
                 };
-                
+
                 // Derivatives of cross product:
                 // ∂cross/∂start_x = end_y - cy
                 // ∂cross/∂start_y = -(end_x - cx)
@@ -1004,7 +1004,7 @@ impl Constraint {
                 // ∂cross/∂end_y = start_x - cx
                 // ∂cross/∂cx = start_y - end_y
                 // ∂cross/∂cy = end_x - start_x
-                // 
+                //
                 // Derivatives of CCW constraint = ccw_coeff * ∂cross/∂var
                 let dccw_dx_start = ccw_coeff * (end_y - cy);
                 let dccw_dy_start = ccw_coeff * (-(end_x - cx));
@@ -1012,7 +1012,7 @@ impl Constraint {
                 let dccw_dy_end = ccw_coeff * (start_x - cx);
                 let dccw_dx_c = ccw_coeff * (start_y - end_y);
                 let dccw_dy_c = ccw_coeff * (end_x - start_x);
-                
+
                 row0.extend([
                     JacobianVar {
                         id: arc.start.id_x(),

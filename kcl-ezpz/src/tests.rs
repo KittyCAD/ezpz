@@ -468,18 +468,26 @@ fn verify_arc_direction(
     let vec_start = V::new(start.0 - center.0, start.1 - center.1);
     let vec_end = V::new(end.0 - center.0, end.1 - center.1);
     let cross = vec_start.cross_2d(&vec_end);
-    
+
     if expected_ccw {
         assert!(
             cross > 0.0,
             "Arc from ({}, {}) to ({}, {}) should be CCW, but cross product is {}",
-            start.0, start.1, end.0, end.1, cross
+            start.0,
+            start.1,
+            end.0,
+            end.1,
+            cross
         );
     } else {
         assert!(
             cross < 0.0,
             "Arc from ({}, {}) to ({}, {}) should be CW, but cross product is {}",
-            start.0, start.1, end.0, end.1, cross
+            start.0,
+            start.1,
+            end.0,
+            end.1,
+            cross
         );
     }
 }
@@ -487,14 +495,16 @@ fn verify_arc_direction(
 #[test]
 fn arc_direction_small_ccw() {
     // Test small arc (< 180°) CCW - center (0,0), start (0,1), end (-1,0)
-    // This should go CCW 
-    use crate::{Constraint, ConstraintRequest, solve_with_priority_analysis, Config, datatypes::*};
-    
+    // This should go CCW
+    use crate::{
+        Config, Constraint, ConstraintRequest, datatypes::*, solve_with_priority_analysis,
+    };
+
     let mut ids = IdGenerator::default();
     let center = DatumPoint::new(&mut ids);
     let start = DatumPoint::new(&mut ids);
     let end = DatumPoint::new(&mut ids);
-    
+
     let constraints = vec![
         ConstraintRequest::highest_priority(Constraint::Fixed(center.id_x(), 0.0)),
         ConstraintRequest::highest_priority(Constraint::Fixed(center.id_y(), 0.0)),
@@ -502,13 +512,9 @@ fn arc_direction_small_ccw() {
         ConstraintRequest::highest_priority(Constraint::Fixed(start.id_y(), 1.0)),
         ConstraintRequest::highest_priority(Constraint::Fixed(end.id_x(), -1.0)),
         ConstraintRequest::highest_priority(Constraint::Fixed(end.id_y(), 0.0)),
-        ConstraintRequest::highest_priority(Constraint::Arc(CircularArc {
-            center,
-            start,
-            end,
-        })),
+        ConstraintRequest::highest_priority(Constraint::Arc(CircularArc { center, start, end })),
     ];
-    
+
     let initial_guesses = vec![
         (center.id_x(), 0.0),
         (center.id_y(), 0.0),
@@ -517,12 +523,15 @@ fn arc_direction_small_ccw() {
         (end.id_x(), -1.0),
         (end.id_y(), 0.0),
     ];
-    
+
     let solved = solve_with_priority_analysis(&constraints, initial_guesses, Config::default())
         .expect("Large CCW arc constraint should be solvable");
-    
-    assert!(solved.outcome.is_satisfied(), "Large CCW arc should be satisfied");
-    
+
+    assert!(
+        solved.outcome.is_satisfied(),
+        "Large CCW arc should be satisfied"
+    );
+
     // Verify direction - should be CCW (cross > 0)
     verify_arc_direction((0.0, 0.0), (0.0, 1.0), (-1.0, 0.0), true);
 }
@@ -531,13 +540,15 @@ fn arc_direction_small_ccw() {
 fn arc_direction_large_ccw() {
     // Test large arc (> 180°) CW - center (0,0), start (-1,0), end (0,1)
     // This should go CCW the long way around (> 180°)
-    use crate::{Constraint, ConstraintRequest, solve_with_priority_analysis, Config, datatypes::*};
-    
+    use crate::{
+        Config, Constraint, ConstraintRequest, datatypes::*, solve_with_priority_analysis,
+    };
+
     let mut ids = IdGenerator::default();
     let center = DatumPoint::new(&mut ids);
     let start = DatumPoint::new(&mut ids);
     let end = DatumPoint::new(&mut ids);
-    
+
     let constraints = vec![
         ConstraintRequest::highest_priority(Constraint::Fixed(center.id_x(), 0.0)),
         ConstraintRequest::highest_priority(Constraint::Fixed(center.id_y(), 0.0)),
@@ -545,13 +556,9 @@ fn arc_direction_large_ccw() {
         ConstraintRequest::highest_priority(Constraint::Fixed(start.id_y(), 0.0)),
         ConstraintRequest::highest_priority(Constraint::Fixed(end.id_x(), 0.0)),
         ConstraintRequest::highest_priority(Constraint::Fixed(end.id_y(), 1.0)),
-        ConstraintRequest::highest_priority(Constraint::Arc(CircularArc {
-            center,
-            start,
-            end,
-        })),
+        ConstraintRequest::highest_priority(Constraint::Arc(CircularArc { center, start, end })),
     ];
-    
+
     let initial_guesses = vec![
         (center.id_x(), 0.0),
         (center.id_y(), 0.0),
@@ -560,12 +567,15 @@ fn arc_direction_large_ccw() {
         (end.id_x(), 0.0),
         (end.id_y(), 1.0),
     ];
-    
+
     let solved = solve_with_priority_analysis(&constraints, initial_guesses, Config::default())
         .expect("Large CW arc constraint should be solvable");
-    
-    assert!(solved.outcome.is_satisfied(), "Large CW arc should be satisfied");
-    
+
+    assert!(
+        solved.outcome.is_satisfied(),
+        "Large CW arc should be satisfied"
+    );
+
     // Verify direction - should be CW (cross < 0)
     verify_arc_direction((0.0, 0.0), (-1.0, 0.0), (0.0, 1.0), true);
 }
