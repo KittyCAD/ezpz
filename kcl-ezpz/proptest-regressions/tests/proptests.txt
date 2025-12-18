@@ -5,3 +5,4 @@
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
 cc 0348ec3503f22b38491b7d33573d30e4b2e958b48a9dbbc79a2e900f62a2a470 # shrinks to x = 0.0, y = 0.0, guess_x = 0.0, guess_y = 0.846792320291437
+cc 0b464017fae3d625e7ea66ef6aad13edaf9cafed376dad5d2ecd58c8c8170c9e # shrinks to arc_center_x = 0.0, arc_center_y = 0.0, arc_radius = 1.0, arc_start = 326.0065646718824, arc_degrees = 5.0, point_guess_x = 0.0, point_guess_y = 0.0

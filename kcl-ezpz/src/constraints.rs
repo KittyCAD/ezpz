@@ -533,10 +533,10 @@ impl Constraint {
                 } else {
                     (ax - cx) * (-cy + py) - (ay - cy) * (-cx + px)
                 };
-                *residual2 = if (bx - cx) * (-cy + py) - (by - cy) * (-cx + px) >= 0.0 {
+                *residual2 = if (bx - cx) * (-cy + py) - (by - cy) * (-cx + px) <= 0.0 {
                     0.0
                 } else {
-                    (bx - cx) * (-cy + py) - (by - cy) * (-cx + px)
+                    -(bx - cx) * (-cy + py) + (by - cy) * (-cx + px)
                 };
             }
         }
@@ -1453,48 +1453,50 @@ impl Constraint {
                 ]);
                 // Residual 2: the point should be below the end angle, on the circle.
                 // Partial derivatives, res2
-                let r2dpx = -(by - cy)
-                    * if (bx - cx) * (cy - py) - (by - cy) * (cx - px) < 0.0 {
+                let r2dpx = (by - cy)
+                    * if (bx - cx) * (cy - py) - (by - cy) * (cx - px) > 0.0 {
                         0.0
                     } else if (bx - cx) * (cy - py) - (by - cy) * (cx - px) == 0.0 {
                         1_f64 / 2.0
                     } else {
                         1.0
                     };
-                let r2dpy = (bx - cx)
-                    * if (bx - cx) * (cy - py) - (by - cy) * (cx - px) < 0.0 {
+                let r2dpy = -(bx - cx)
+                    * if (bx - cx) * (cy - py) - (by - cy) * (cx - px) > 0.0 {
                         0.0
                     } else if (bx - cx) * (cy - py) - (by - cy) * (cx - px) == 0.0 {
                         1_f64 / 2.0
                     } else {
                         1.0
                     };
-                let r2dbx = -(cy - py)
-                    * if (bx - cx) * (cy - py) - (by - cy) * (cx - px) < 0.0 {
+                let _r2dax = 0;
+                let _r2day = 0;
+                let r2dbx = (cy - py)
+                    * if (bx - cx) * (cy - py) - (by - cy) * (cx - px) > 0.0 {
                         0.0
                     } else if (bx - cx) * (cy - py) - (by - cy) * (cx - px) == 0.0 {
                         1_f64 / 2.0
                     } else {
                         1.0
                     };
-                let r2dby = (cx - px)
-                    * if (bx - cx) * (cy - py) - (by - cy) * (cx - px) < 0.0 {
+                let r2dby = -(cx - px)
+                    * if (bx - cx) * (cy - py) - (by - cy) * (cx - px) > 0.0 {
                         0.0
                     } else if (bx - cx) * (cy - py) - (by - cy) * (cx - px) == 0.0 {
                         1_f64 / 2.0
                     } else {
                         1.0
                     };
-                let r2dcx = (by - py)
-                    * if (bx - cx) * (cy - py) - (by - cy) * (cx - px) < 0.0 {
+                let r2dcx = -(by - py)
+                    * if (bx - cx) * (cy - py) - (by - cy) * (cx - px) > 0.0 {
                         0.0
                     } else if (bx - cx) * (cy - py) - (by - cy) * (cx - px) == 0.0 {
                         1_f64 / 2.0
                     } else {
                         1.0
                     };
-                let r2dcy = -(bx - px)
-                    * if (bx - cx) * (cy - py) - (by - cy) * (cx - px) < 0.0 {
+                let r2dcy = (bx - px)
+                    * if (bx - cx) * (cy - py) - (by - cy) * (cx - px) > 0.0 {
                         0.0
                     } else if (bx - cx) * (cy - py) - (by - cy) * (cx - px) == 0.0 {
                         1_f64 / 2.0

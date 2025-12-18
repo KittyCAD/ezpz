@@ -251,6 +251,21 @@ proptest! {
 
 }
 
+#[test]
+fn specific_test_point_arc_coincident() {
+    let arc_center = Point::default();
+    let point = Point { x: 10.0, y: 10.0 };
+    test_point_arc_coincident(
+        arc_center.x,
+        arc_center.y,
+        5.0,
+        40.0,
+        10.0,
+        point.x,
+        point.y,
+    );
+}
+
 /// Given an arc, and a randomly-guessed point, constrain the point to lie on the arc.
 /// Then check the constraint solver properly constrained it.
 fn test_point_arc_coincident(
@@ -321,6 +336,10 @@ fn test_point_arc_coincident(
 
     let solved_x = outcome.final_values[point.id_x() as usize];
     let solved_y = outcome.final_values[point.id_y() as usize];
+    let p = Point {
+        x: solved_x,
+        y: solved_y,
+    };
 
     // Check the point lies on the arc.
     let rel_x = solved_x - arc_center_x;
@@ -333,15 +352,14 @@ fn test_point_arc_coincident(
         let wrapped_end = arc_end_radians - two_pi;
         assert!(point_angle + EPSILON >= arc_start_radians || point_angle <= wrapped_end + EPSILON);
     }
-    let p = Point {
-        x: solved_x,
-        y: solved_y,
-    };
     let center = Point {
         x: arc_center_x,
         y: arc_center_y,
     };
-    assert_nearly_eq(p.euclidean_distance(center), arc_radius);
+    // The point's distance from the arc's center should be the arc's radius.
+    let actual_distance = p.euclidean_distance(center);
+    let expected_distance = arc_radius;
+    assert_nearly_eq(actual_distance, expected_distance);
 }
 
 /// `desired_distance` is a SIGNED distance, so 1 and -1 are opposite sides of the line.
