@@ -65,6 +65,8 @@ pub enum Constraint {
     HorizontalPointLineDistance(DatumPoint, LineSegment, f64),
     /// These two points should be symmetric across the given line.
     Symmetric(LineSegment, DatumPoint, DatumPoint),
+    /// This point should lie on this arc.
+    PointArcCoincident(CircularArc, DatumPoint),
 }
 
 /// Describes one value in one row of the Jacobian matrix.
@@ -158,6 +160,7 @@ impl Constraint {
                 row1.extend(a.all_variables());
                 row1.extend(b.all_variables());
             }
+            Constraint::PointArcCoincident(circular_arc, datum_point) => todo!(),
         }
     }
 
@@ -488,6 +491,7 @@ impl Constraint {
                 *residual0 = residual.x;
                 *residual1 = residual.y;
             }
+            Constraint::PointArcCoincident(circular_arc, datum_point) => todo!(),
         }
     }
 
@@ -514,6 +518,7 @@ impl Constraint {
             Constraint::VerticalPointLineDistance(..) => 1,
             Constraint::HorizontalPointLineDistance(..) => 1,
             Constraint::Symmetric(..) => 2,
+            Constraint::PointArcCoincident(circular_arc, datum_point) => todo!(),
         }
     }
 
@@ -1294,6 +1299,7 @@ impl Constraint {
                     },
                 ]);
             }
+            Constraint::PointArcCoincident(circular_arc, datum_point) => todo!(),
         }
     }
 
@@ -1323,6 +1329,7 @@ impl Constraint {
             }
             Constraint::Symmetric(..) => "Symmetric",
             Constraint::ScalarEqual(..) => "ScalarEqual",
+            Constraint::PointArcCoincident(..) => "PointArcCoincident",
         }
     }
 }
