@@ -499,7 +499,23 @@ impl Constraint {
                 *residual0 = residual.x;
                 *residual1 = residual.y;
             }
-            Constraint::PointArcCoincident(circular_arc, datum_point) => todo!(),
+            Constraint::PointArcCoincident(circular_arc, point) => {
+                let cx = current_assignments[layout.index_of(circular_arc.center.id_x())];
+                let cy = current_assignments[layout.index_of(circular_arc.center.id_y())];
+                let ax = current_assignments[layout.index_of(circular_arc.start.id_x())];
+                let ay = current_assignments[layout.index_of(circular_arc.start.id_y())];
+                let arc_radius = libm::hypot(cx - ax, cy - ay);
+                let dist_constraint = Constraint::Distance(circular_arc.center, *point, arc_radius);
+                // Write the distance residual into residual0.
+                dist_constraint.residual(
+                    layout,
+                    current_assignments,
+                    residual0,
+                    residual1,
+                    degenerate,
+                );
+                // Calculate the angle residual.
+            }
         }
     }
 
