@@ -67,6 +67,12 @@ new-test name:
     mkdir test_cases/{{name}}
     touch test_cases/{{name}}/problem.md
 
+publish version:
+    c publish -p kcl-ezpz --dry-run
+    g tag {{version}}
+    g push --tags
+    c publish -p kcl-ezpz
+
 [linux]
 [windows]
 fuzz:
