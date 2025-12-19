@@ -431,6 +431,21 @@ fn arc_radius() {
     assert_nearly_eq(5.0, arc.b.euclidean_distance(Default::default()));
 }
 
+/// Point-Arc coincident constraint.
+#[test]
+fn parc_coincident() {
+    let solved = run("parc_coincident");
+    assert!(solved.is_satisfied());
+    assert!(solved.analysis.is_underconstrained());
+    let arc = solved.get_arc("a").unwrap();
+    let origin = Point { x: 0.0, y: 0.0 };
+    assert_points_eq(arc.center, origin);
+    assert_nearly_eq(5.0, arc.a.euclidean_distance(origin));
+    assert_nearly_eq(5.0, arc.b.euclidean_distance(origin));
+    let point = solved.get_point("p").unwrap();
+    assert_nearly_eq(5.0, arc.center.euclidean_distance(point));
+}
+
 #[test]
 fn arc_equidistant() {
     let solved = run("arc_equidistant");

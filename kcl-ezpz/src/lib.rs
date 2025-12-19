@@ -271,17 +271,23 @@ fn solve_inner<A: Analysis>(
     for constraint in constraints {
         let mut residual0 = 0.0;
         let mut residual1 = 0.0;
+        let mut residual2 = 0.0;
         let mut degenerate = false;
         constraint.constraint.residual(
             &layout,
             &values,
             &mut residual0,
             &mut residual1,
+            &mut residual2,
             &mut degenerate,
         );
+        let sat0 = residual0.abs() < EPSILON;
+        let sat1 = residual1.abs() < EPSILON;
+        let sat2 = residual2.abs() < EPSILON;
         let satisfied = match constraint.constraint.residual_dim() {
-            1 => residual0.abs() < EPSILON,
-            2 => residual0.abs() < EPSILON && residual1.abs() < EPSILON,
+            1 => sat0,
+            2 => sat0 && sat1,
+            3 => sat0 && sat1 && sat2,
             other => unreachable!(
                 "Unsupported number of residuals {other}, the `residual` method must be modified."
             ),

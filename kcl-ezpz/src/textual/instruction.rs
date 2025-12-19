@@ -15,6 +15,7 @@ pub(crate) enum Instruction {
     Perpendicular(Perpendicular),
     AngleLine(AngleLine),
     PointsCoincident(PointsCoincident),
+    PointArcCoincident(PointArcCoincident),
     Midpoint(Midpoint),
     Symmetric(Symmetric),
     CircleRadius(CircleRadius),
@@ -92,6 +93,12 @@ pub struct AngleLine {
 pub struct PointsCoincident {
     pub point0: Label,
     pub point1: Label,
+}
+
+#[derive(Debug)]
+pub struct PointArcCoincident {
+    pub point: Label,
+    pub arc: Label,
 }
 
 #[derive(Debug)]
