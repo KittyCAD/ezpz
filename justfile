@@ -68,10 +68,10 @@ new-test name:
     touch test_cases/{{name}}/problem.md
 
 publish version:
-    c publish -p kcl-ezpz --dry-run
-    g tag {{version}}
-    g push --tags
-    c publish -p kcl-ezpz
+    cargo publish -p kcl-ezpz --dry-run
+    git tag {{version}}
+    git push --tags
+    cargo publish -p kcl-ezpz
 
 [linux]
 [windows]
