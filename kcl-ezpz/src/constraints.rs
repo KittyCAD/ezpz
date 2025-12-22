@@ -544,20 +544,43 @@ impl Constraint {
                 *residual2 = if end_cross >= 0.0 { 0.0 } else { end_cross };
             }
             Constraint::ArcLength(circular_arc, d) => {
+                // Residual math, see ezpz-sympy for notebook.
+                // u = a - c
+                // v = b - c
+                // ux = u[0]
+                // uy = u[1]
+                // vx = v[0]
+                // vy = v[1]
+                //
+                // r = u.norm()
+                //
+                // cos_theta = u.dot(v) / (r**2)
+                // sin_theta = ux * vy - uy * vx
+                // # Target angle
+                // alpha = d / r
+                //
+                // # Residuals
+                // res0 = cos_theta - sp.cos(alpha)
+                // res1 = sin_theta - sp.sin(alpha)
+
                 let cx = current_assignments[layout.index_of(circular_arc.center.id_x())];
                 let cy = current_assignments[layout.index_of(circular_arc.center.id_y())];
                 let ax = current_assignments[layout.index_of(circular_arc.start.id_x())];
                 let ay = current_assignments[layout.index_of(circular_arc.start.id_y())];
                 let bx = current_assignments[layout.index_of(circular_arc.end.id_x())];
                 let by = current_assignments[layout.index_of(circular_arc.end.id_y())];
+                eprintln!("A: ({},{})", ax, ay);
+                eprintln!("B: ({},{})", bx, by);
+                eprintln!("C: ({},{})", cx, cy);
                 let res0 = ((ax - cx) * (bx - cx) + (ay - cy) * (by - cy))
                     * ((ax - cx).powi(2) + (ay - cy).powi(2)).recip()
-                    - libm::cos(d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip());
+                    - (d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()).cos();
                 let res1 = (ax - cx) * (by - cy)
-                    - (ay - cy) * (bx - cx)
-                    - libm::sin(d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip());
-                *residual0 = res0;
-                *residual1 = res1;
+                    - (ay - cy) * (bx - cx) * ((ax - cx).powi(2) + (ay - cy).powi(2)).recip()
+                    - (d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()).sin();
+
+                *residual0 = dbg!(res0);
+                *residual1 = dbg!(res1);
             }
         }
     }
@@ -1506,7 +1529,7 @@ impl Constraint {
                         * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(5_f64 / 2.0)
                     - d * (ax - cx)
                         * ((ax - cx).powi(2) + (ay - cy).powi(2)).powi(3)
-                        * libm::sin(d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()))
+                        * (d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()).sin())
                     / ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(9_f64 / 2.0);
                 let r0day = ((by - cy) * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(7_f64 / 2.0)
                     - 2.0
@@ -1515,7 +1538,7 @@ impl Constraint {
                         * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(5_f64 / 2.0)
                     - d * (ay - cy)
                         * ((ax - cx).powi(2) + (ay - cy).powi(2)).powi(3)
-                        * libm::sin(d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()))
+                        * (d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()).sin())
                     / ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(9_f64 / 2.0);
                 let r0dbx = (ax - cx) * ((ax - cx).powi(2) + (ay - cy).powi(2)).recip();
                 let r0dby = (ay - cy) * ((ax - cx).powi(2) + (ay - cy).powi(2)).recip();
@@ -1527,7 +1550,7 @@ impl Constraint {
                         * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(5_f64 / 2.0)
                     + d * (ax - cx)
                         * ((ax - cx).powi(2) + (ay - cy).powi(2)).powi(3)
-                        * libm::sin(d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()))
+                        * (d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()).sin())
                     / ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(9_f64 / 2.0);
                 let r0dcy = (((ax - cx).powi(2) + (ay - cy).powi(2)).powf(7_f64 / 2.0)
                     * (-ay - by + 2.0 * cy)
@@ -1537,7 +1560,7 @@ impl Constraint {
                         * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(5_f64 / 2.0)
                     + d * (ay - cy)
                         * ((ax - cx).powi(2) + (ay - cy).powi(2)).powi(3)
-                        * libm::sin(d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()))
+                        * (d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()).sin())
                     / ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(9_f64 / 2.0);
                 row0.extend([
                     JacobianVar {
@@ -1565,26 +1588,50 @@ impl Constraint {
                         partial_derivative: r0dcy,
                     },
                 ]);
-                let r1dax = ((by - cy) * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(3_f64 / 2.0)
+                let r1dax = ((by - cy) * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(7_f64 / 2.0)
                     + d * (ax - cx)
-                        * libm::cos(d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()))
-                    / ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(3_f64 / 2.0);
+                        * ((ax - cx).powi(2) + (ay - cy).powi(2)).powi(2)
+                        * (d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()).cos()
+                    + 2.0
+                        * (ax - cx)
+                        * (ay - cy)
+                        * (bx - cx)
+                        * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(3_f64 / 2.0))
+                    / ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(7_f64 / 2.0);
                 let r1day = ((-bx + cx)
-                    * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(3_f64 / 2.0)
+                    * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(7_f64 / 2.0)
+                    + 2.0
+                        * (ay - cy).powi(2)
+                        * (bx - cx)
+                        * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(5_f64 / 2.0)
                     + d * (ay - cy)
-                        * libm::cos(d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()))
-                    / ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(3_f64 / 2.0);
-                let r1dbx = -ay + cy;
+                        * ((ax - cx).powi(2) + (ay - cy).powi(2)).powi(3)
+                        * (d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()).cos())
+                    / ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(9_f64 / 2.0);
+                let r1dbx = (-ay + cy) * ((ax - cx).powi(2) + (ay - cy).powi(2)).recip();
                 let r1dby = ax - cx;
-                let r1dcx = ((ay - by) * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(3_f64 / 2.0)
+                let r1dcx = ((ay - cy) * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(7_f64 / 2.0)
+                    + (-by + cy) * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(9_f64 / 2.0)
                     - d * (ax - cx)
-                        * libm::cos(d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()))
-                    / ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(3_f64 / 2.0);
-                let r1dcy = ((-ax + bx)
-                    * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(3_f64 / 2.0)
+                        * ((ax - cx).powi(2) + (ay - cy).powi(2)).powi(3)
+                        * (d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()).cos()
+                    - 2.0
+                        * (ax - cx)
+                        * (ay - cy)
+                        * (bx - cx)
+                        * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(5_f64 / 2.0))
+                    / ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(9_f64 / 2.0);
+                let r1dcy = ((-ax + cx)
+                    * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(9_f64 / 2.0)
+                    + (bx - cx) * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(7_f64 / 2.0)
+                    - 2.0
+                        * (ay - cy).powi(2)
+                        * (bx - cx)
+                        * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(5_f64 / 2.0)
                     - d * (ay - cy)
-                        * libm::cos(d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()))
-                    / ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(3_f64 / 2.0);
+                        * ((ax - cx).powi(2) + (ay - cy).powi(2)).powi(3)
+                        * (d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()).cos())
+                    / ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(9_f64 / 2.0);
                 row1.extend([
                     JacobianVar {
                         id: id_ax,

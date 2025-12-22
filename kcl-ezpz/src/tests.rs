@@ -484,6 +484,12 @@ fn chamfer_square() {
 }
 
 #[test]
+fn arc_length() {
+    let solved = run("arc_length");
+    assert!(solved.is_satisfied());
+}
+
+#[test]
 fn strange_nonconvergence() {
     use crate::datatypes::DatumPoint;
     let p = DatumPoint { x_id: 0, y_id: 1 };
