@@ -7,3 +7,4 @@
 cc 0348ec3503f22b38491b7d33573d30e4b2e958b48a9dbbc79a2e900f62a2a470 # shrinks to x = 0.0, y = 0.0, guess_x = 0.0, guess_y = 0.846792320291437
 cc 0b464017fae3d625e7ea66ef6aad13edaf9cafed376dad5d2ecd58c8c8170c9e # shrinks to arc_center_x = 0.0, arc_center_y = 0.0, arc_radius = 1.0, arc_start = 326.0065646718824, arc_degrees = 5.0, point_guess_x = 0.0, point_guess_y = 0.0
 cc c575498bec76978e4bab71532e1f4c8a227ae405365e1e6e2850e334c7445dbc # shrinks to arc_center_x = 0.0, arc_center_y = 0.0, arc_radius = 22.73229937272911, arc_start = 294.58471976001573, arc_degrees = 5.0, point_guess_x = 0.0, point_guess_y = 0.0
+cc 4235a7c12ee6c86afaec1db18ec73abe5c92695d732c0e98cb728d84275579b6 # shrinks to guess_line_p0x = 39.74751056036584, guess_line_p0y = -95.46159322882576, guess_line_p1x = 0.0, guess_line_p1y = -95.45694757549501, guess_point_x = 0.0, guess_point_y = 0.0, desired_distance = 0.0

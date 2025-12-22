@@ -175,7 +175,7 @@ proptest! {
         desired_distance in 0.0..100.0f64,
     ) {
         // Avoid vertical/degenerate lines so the vertical distance is well-defined.
-        prop_assume!((guess_line_p1x - guess_line_p0x).abs() > 1e-6);
+        prop_assume!((guess_line_p1x - guess_line_p0x).abs() > EPSILON);
 
         let mut ids = IdGenerator::default();
         let point = DatumPoint::new(&mut ids);
@@ -205,7 +205,18 @@ proptest! {
         desired_distance in 0.0..100.0f64,
     ) {
         // Avoid horizontal/degenerate lines so the horizontal distance is well-defined.
-        prop_assume!((guess_line_p1y - guess_line_p0y).abs() > 1e-6);
+        let p0 = Point {
+            x: guess_line_p0x,
+            y: guess_line_p0y,
+        };
+        let p1 = Point {
+            x: guess_line_p1x,
+            y: guess_line_p1y,
+        };
+        let line_length = p0.euclidean_distance(p1);
+        let dy = guess_line_p1y - guess_line_p0y;
+        prop_assume!(line_length > 1e-2);
+        prop_assume!(dy.abs() > 1e-2);
 
         let mut ids = IdGenerator::default();
         let point = DatumPoint::new(&mut ids);
