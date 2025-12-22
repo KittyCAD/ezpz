@@ -344,6 +344,30 @@ fn test_point_arc_length(
         outcome.warnings.is_empty(),
         "this simple system should not emit warnings"
     );
+
+    // Was the end point placed on the arc?
+    // i.e. it should be `radius` distance from arc center.
+    let solved_end_x = outcome.final_values[arc.end.id_x() as usize];
+    let solved_end_y = outcome.final_values[arc.end.id_y() as usize];
+    let solved_end = Point {
+        x: solved_end_x,
+        y: solved_end_y,
+    };
+    let center_point = Point {
+        x: arc_center_x,
+        y: arc_center_y,
+    };
+    let end_distance = solved_end.euclidean_distance(center_point);
+    assert_nearly_eq(end_distance, arc_radius);
+
+    // The end should be the desired length away from the start.
+    let end_radians = (solved_end_y - arc_center_y)
+        .atan2(solved_end_x - arc_center_x)
+        .rem_euclid(two_pi);
+    let ccw_delta = (end_radians - arc_start_radians).rem_euclid(two_pi);
+    // arc length = r * theta
+    let actual_arc_length = arc_radius * ccw_delta;
+    assert_nearly_eq(actual_arc_length, desired_arc_length);
 }
 
 /// Given an arc, and a randomly-guessed point, constrain the point to lie on the arc.
