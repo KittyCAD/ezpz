@@ -575,8 +575,8 @@ impl Constraint {
                 let res0 = ((ax - cx) * (bx - cx) + (ay - cy) * (by - cy))
                     * ((ax - cx).powi(2) + (ay - cy).powi(2)).recip()
                     - (d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()).cos();
-                let res1 = (ax - cx) * (by - cy)
-                    - (ay - cy) * (bx - cx) * ((ax - cx).powi(2) + (ay - cy).powi(2)).recip()
+                let res1 = ((ax - cx) * (by - cy) - (ay - cy) * (bx - cx))
+                    * ((ax - cx).powi(2) + (ay - cy).powi(2)).recip()
                     - (d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()).sin();
 
                 *residual0 = dbg!(res0);
@@ -1589,44 +1589,40 @@ impl Constraint {
                     },
                 ]);
                 let r1dax = ((by - cy) * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(7_f64 / 2.0)
-                    + d * (ax - cx)
-                        * ((ax - cx).powi(2) + (ay - cy).powi(2)).powi(2)
-                        * (d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()).cos()
-                    + 2.0
+                    - 2.0
                         * (ax - cx)
-                        * (ay - cy)
-                        * (bx - cx)
-                        * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(3_f64 / 2.0))
-                    / ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(7_f64 / 2.0);
+                        * ((ax - cx) * (by - cy) - (ay - cy) * (bx - cx))
+                        * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(5_f64 / 2.0)
+                    + d * (ax - cx)
+                        * ((ax - cx).powi(2) + (ay - cy).powi(2)).powi(3)
+                        * (d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()).cos())
+                    / ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(9_f64 / 2.0);
                 let r1day = ((-bx + cx)
                     * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(7_f64 / 2.0)
-                    + 2.0
-                        * (ay - cy).powi(2)
-                        * (bx - cx)
+                    - 2.0
+                        * (ay - cy)
+                        * ((ax - cx) * (by - cy) - (ay - cy) * (bx - cx))
                         * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(5_f64 / 2.0)
                     + d * (ay - cy)
                         * ((ax - cx).powi(2) + (ay - cy).powi(2)).powi(3)
                         * (d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()).cos())
                     / ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(9_f64 / 2.0);
                 let r1dbx = (-ay + cy) * ((ax - cx).powi(2) + (ay - cy).powi(2)).recip();
-                let r1dby = ax - cx;
-                let r1dcx = ((ay - cy) * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(7_f64 / 2.0)
-                    + (-by + cy) * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(9_f64 / 2.0)
+                let r1dby = (ax - cx) * ((ax - cx).powi(2) + (ay - cy).powi(2)).recip();
+                let r1dcx = ((ay - by) * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(7_f64 / 2.0)
+                    + 2.0
+                        * (ax - cx)
+                        * ((ax - cx) * (by - cy) - (ay - cy) * (bx - cx))
+                        * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(5_f64 / 2.0)
                     - d * (ax - cx)
                         * ((ax - cx).powi(2) + (ay - cy).powi(2)).powi(3)
-                        * (d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()).cos()
-                    - 2.0
-                        * (ax - cx)
-                        * (ay - cy)
-                        * (bx - cx)
-                        * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(5_f64 / 2.0))
+                        * (d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()).cos())
                     / ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(9_f64 / 2.0);
-                let r1dcy = ((-ax + cx)
-                    * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(9_f64 / 2.0)
-                    + (bx - cx) * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(7_f64 / 2.0)
-                    - 2.0
-                        * (ay - cy).powi(2)
-                        * (bx - cx)
+                let r1dcy = ((-ax + bx)
+                    * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(7_f64 / 2.0)
+                    + 2.0
+                        * (ay - cy)
+                        * ((ax - cx) * (by - cy) - (ay - cy) * (bx - cx))
                         * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(5_f64 / 2.0)
                     - d * (ay - cy)
                         * ((ax - cx).powi(2) + (ay - cy).powi(2)).powi(3)
