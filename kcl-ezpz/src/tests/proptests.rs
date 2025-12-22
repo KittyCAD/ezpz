@@ -254,35 +254,95 @@ proptest! {
         );
     }
 
+    /// Given an arc, and a randomly-chosen percentage of the circle, constraint the arc
+    /// to that percentage of the circle's length.
+    #[test]
+    fn point_arc_length(
+        arc_center_x in -50.0..50.0,
+        arc_center_y in -50.0..50.0,
+        arc_radius in 1.0..50.0,
+        arc_start_degrees in 0.0..360.0,
+        arc_length_percent in 0.05..0.95,
+        point_guess_x in -10.0..10.0,
+        point_guess_y in -10.0..10.0,
+    ) {
+        // Avoid degenerate initial guesses where the point is exactly at the arc center;
+        // that makes the distance Jacobian singular and the solver refuses to proceed.
+        let point_offset_from_center =
+            libm::hypot(point_guess_x - arc_center_x, point_guess_y - arc_center_y);
+        prop_assume!(point_offset_from_center > EPSILON);
+        test_point_arc_length(
+            arc_center_x,
+            arc_center_y,
+            arc_radius,
+            arc_start_degrees,
+            arc_length_percent,
+            point_guess_x,
+            point_guess_y,
+        );
+    }
+
 }
 
-#[test]
-fn specific_test_point_arc_coincident() {
-    let arc_center = Point::default();
-    let point = Point { x: 10.0, y: 10.0 };
-    test_point_arc_coincident(
-        arc_center.x,
-        arc_center.y,
-        5.0,
-        40.0,
-        10.0,
-        point.x,
-        point.y,
-    );
-}
+/// Given an arc, and a randomly-chosen percentage of the circle, constraint the arc
+/// to that percentage of the circle's length.
+fn test_point_arc_length(
+    arc_center_x: f64,
+    arc_center_y: f64,
+    arc_radius: f64,
+    arc_start_degrees: f64,
+    arc_length_percent: f64,
+    arc_end_x_guess: f64,
+    arc_end_y_guess: f64,
+) {
+    let two_pi = 2.0 * PI;
+    let circle_perimeter = two_pi * arc_radius;
+    let desired_arc_length = circle_perimeter * arc_length_percent;
+    let arc_start_radians = arc_start_degrees.to_radians().rem_euclid(two_pi);
 
-#[test]
-fn specific_test_point_arc_coincident_off_center() {
-    let arc_center = Point { x: -10.0, y: 10.0 };
-    let point = Point { x: 10.0, y: 10.0 };
-    test_point_arc_coincident(
-        arc_center.x,
-        arc_center.y,
-        5.0,
-        40.0,
-        10.0,
-        point.x,
-        point.y,
+    // Generate IDs for variables.
+    let mut ids = IdGenerator::default();
+    let center = DatumPoint::new(&mut ids);
+    let start = DatumPoint::new(&mut ids);
+    let end = DatumPoint::new(&mut ids);
+    let arc = CircularArc { center, start, end };
+
+    // The arc's start position is fixed, let's find the fixed points.
+    let arc_start = Point {
+        x: arc_center_x + libm::cos(arc_start_radians) * arc_radius,
+        y: arc_center_y + libm::sin(arc_start_radians) * arc_radius,
+    };
+    let initial_guesses = vec![
+        (arc.center.id_x(), arc_center_x),
+        (arc.center.id_y(), arc_center_y),
+        (arc.start.id_x(), arc_start.x),
+        (arc.start.id_y(), arc_start.y),
+        (arc.end.id_x(), arc_end_x_guess),
+        (arc.end.id_y(), arc_end_y_guess),
+    ];
+
+    let requests: Vec<_> = vec![
+        // Fix the arc in place.
+        Constraint::Arc(arc),
+        Constraint::Fixed(arc.center.id_x(), arc_center_x),
+        Constraint::Fixed(arc.center.id_y(), arc_center_y),
+        Constraint::Fixed(arc.start.id_x(), arc_start.x),
+        Constraint::Fixed(arc.start.id_y(), arc_start.y),
+        // This is the constraint to test.
+        Constraint::ArcLength(arc, desired_arc_length),
+    ]
+    .into_iter()
+    .map(ConstraintRequest::highest_priority)
+    .collect();
+
+    // Solve it.
+    let outcome = solve_with_priority(&requests, initial_guesses, Config::default())
+        .expect("this constraint system should converge and be solvable");
+
+    assert!(outcome.is_satisfied(), "the constraint should be satisfied");
+    assert!(
+        outcome.warnings.is_empty(),
+        "this simple system should not emit warnings"
     );
 }
 
@@ -502,4 +562,34 @@ fn test_horizontal_pld(
     let line_x_at_point = solved_p0x + slope * (solved_y - solved_p0y);
 
     assert_nearly_eq(solved_x - line_x_at_point, desired_distance);
+}
+
+#[test]
+fn specific_test_point_arc_coincident_off_center() {
+    let arc_center = Point { x: -10.0, y: 10.0 };
+    let point = Point { x: 10.0, y: 10.0 };
+    test_point_arc_coincident(
+        arc_center.x,
+        arc_center.y,
+        5.0,
+        40.0,
+        10.0,
+        point.x,
+        point.y,
+    );
+}
+
+#[test]
+fn specific_test_point_arc_coincident() {
+    let arc_center = Point::default();
+    let point = Point { x: 10.0, y: 10.0 };
+    test_point_arc_coincident(
+        arc_center.x,
+        arc_center.y,
+        5.0,
+        40.0,
+        10.0,
+        point.x,
+        point.y,
+    );
 }
