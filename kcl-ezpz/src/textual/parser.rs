@@ -3,7 +3,7 @@ use crate::{
     textual::{
         ScalarGuess,
         instruction::{
-            AngleLine, ArcRadius, CircleRadius, DeclareArc, DeclareCircle, Distance,
+            AngleLine, ArcLength, ArcRadius, CircleRadius, DeclareArc, DeclareCircle, Distance,
             FixCenterPointComponent, IsArc, Line, LinesEqualLength, Midpoint, Parallel,
             Perpendicular, PointArcCoincident, PointLineDistance, PointsCoincident, Symmetric,
             Tangent,
@@ -286,6 +286,13 @@ pub fn parse_arc_radius(i: &mut &str) -> WResult<ArcRadius> {
     Ok(ArcRadius { arc_label, radius })
 }
 
+pub fn parse_arc_length(i: &mut &str) -> WResult<ArcLength> {
+    let _ = "arc_length".parse_next(i)?;
+    ignore_ws(i);
+    let (arc, _, distance) = inside_brackets((parse_label, commasep, parse_number), i)?;
+    Ok(ArcLength { arc, distance })
+}
+
 pub fn parse_is_arc(i: &mut &str) -> WResult<IsArc> {
     let _ = "is_arc".parse_next(i)?;
     ignore_ws(i);
@@ -412,6 +419,7 @@ fn parse_other_instructions(i: &mut &str) -> WResult<Vec<Instruction>> {
         parse_circle_radius.map(Instruction::CircleRadius).map(sv),
         parse_tangent.map(Instruction::Tangent).map(sv),
         parse_arc_radius.map(Instruction::ArcRadius).map(sv),
+        parse_arc_length.map(Instruction::ArcLength).map(sv),
         parse_is_arc.map(Instruction::IsArc).map(sv),
         parse_point_line_distance
             .map(Instruction::PointLineDistance)

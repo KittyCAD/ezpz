@@ -409,6 +409,16 @@ impl Problem {
                         AngleKind::Other(*angle),
                     ));
                 }
+                Instruction::ArcLength(arc_length) => {
+                    let arc_label = &arc_length.arc.0;
+                    let length = arc_length.distance;
+                    let circular_arc = CircularArc {
+                        center: datum_point_for_label(&Label(format!("{arc_label}.center")))?,
+                        start: datum_point_for_label(&Label(format!("{arc_label}.a")))?,
+                        end: datum_point_for_label(&Label(format!("{arc_label}.b")))?,
+                    };
+                    constraints.push(Constraint::ArcLength(circular_arc, length));
+                }
             }
         }
         let initial_guesses = initial_guesses.done();
