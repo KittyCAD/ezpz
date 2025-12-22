@@ -569,9 +569,6 @@ impl Constraint {
                 let ay = current_assignments[layout.index_of(circular_arc.start.id_y())];
                 let bx = current_assignments[layout.index_of(circular_arc.end.id_x())];
                 let by = current_assignments[layout.index_of(circular_arc.end.id_y())];
-                eprintln!("A: ({},{})", ax, ay);
-                eprintln!("B: ({},{})", bx, by);
-                eprintln!("C: ({},{})", cx, cy);
                 let res0 = ((ax - cx) * (bx - cx) + (ay - cy) * (by - cy))
                     * ((ax - cx).powi(2) + (ay - cy).powi(2)).recip()
                     - libm::cos(d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip());
@@ -579,8 +576,8 @@ impl Constraint {
                     * ((ax - cx).powi(2) + (ay - cy).powi(2)).recip()
                     - libm::sin(d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip());
 
-                *residual0 = dbg!(res0);
-                *residual1 = dbg!(res1);
+                *residual0 = res0;
+                *residual1 = res1;
             }
         }
     }

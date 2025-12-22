@@ -372,9 +372,9 @@ fn test_point_arc_length(
     assert_nearly_eq(end_distance, arc_radius);
 
     // The end should be the desired length away from the start.
-    let end_radians = (solved_end_y - arc_center_y)
-        .atan2(solved_end_x - arc_center_x)
-        .rem_euclid(two_pi);
+    let dy = solved_end_y - arc_center_y;
+    let dx = solved_end_x - arc_center_x;
+    let end_radians = libm::atan2(dy, dx).rem_euclid(two_pi);
     let ccw_delta = (end_radians - arc_start_radians).rem_euclid(two_pi);
     // arc length = r * theta
     let actual_arc_length = arc_radius * ccw_delta;
