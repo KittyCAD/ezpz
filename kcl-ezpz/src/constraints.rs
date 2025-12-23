@@ -569,6 +569,15 @@ impl Constraint {
                 let ay = current_assignments[layout.index_of(circular_arc.start.id_y())];
                 let bx = current_assignments[layout.index_of(circular_arc.end.id_x())];
                 let by = current_assignments[layout.index_of(circular_arc.end.id_y())];
+                let dx = ax - cx;
+                let dy = ay - cy;
+                let r2 = dx * dx + dy * dy;
+                if r2 < EPSILON {
+                    *residual0 = 0.0;
+                    *residual1 = 0.0;
+                    *degenerate = true;
+                    return;
+                }
                 let res0 = ((ax - cx) * (bx - cx) + (ay - cy) * (by - cy))
                     * ((ax - cx).powi(2) + (ay - cy).powi(2)).recip()
                     - libm::cos(d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip());
@@ -1516,6 +1525,13 @@ impl Constraint {
                 let ay = current_assignments[layout.index_of(id_ay)];
                 let bx = current_assignments[layout.index_of(id_bx)];
                 let by = current_assignments[layout.index_of(id_by)];
+                let dx = ax - cx;
+                let dy = ay - cy;
+                let r2 = dx * dx + dy * dy;
+                if r2 < EPSILON {
+                    *degenerate = true;
+                    return;
+                }
 
                 // Then calculate the partial derivatives.
                 // Taken from SymPy, see ezpz-sympy.
