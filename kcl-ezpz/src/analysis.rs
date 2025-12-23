@@ -60,6 +60,12 @@ impl FreedomAnalysis {
     }
 }
 
+impl From<FreedomAnalysis> for Vec<crate::Id> {
+    fn from(value: FreedomAnalysis) -> Vec<crate::Id> {
+        value.underconstrained
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct SolveOutcomeAnalysis<A> {
     /// Extra analysis for the system.

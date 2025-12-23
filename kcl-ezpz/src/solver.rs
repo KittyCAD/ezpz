@@ -24,12 +24,33 @@ const REGULARIZATION_LAMBDA: f64 = 1e-9;
 #[non_exhaustive]
 pub struct Config {
     /// How many iteration rounds before the solver gives up?
-    pub max_iterations: usize,
+    max_iterations: usize,
     /// How close can the residual be to 0 before we declare the system is solved?
     /// Smaller number means more precise solves.
-    pub convergence_tolerance: f64,
+    convergence_tolerance: f64,
     /// Stop iterating if the step size becomes negligible (relative infinity norm).
-    pub step_tolerance: f64,
+    step_tolerance: f64,
+}
+
+impl Config {
+    /// How many iteration rounds before the solver gives up?
+    pub fn with_max_iterations(mut self, value: usize) -> Self {
+        self.max_iterations = value;
+        self
+    }
+
+    /// How close can the residual be to 0 before we declare the system is solved?
+    /// Smaller number means more precise solves.
+    pub fn with_convergence_tolerance(mut self, value: f64) -> Self {
+        self.convergence_tolerance = value;
+        self
+    }
+
+    /// Stop iterating if the step size becomes negligible (relative infinity norm).
+    pub fn with_step_tolerance(mut self, value: f64) -> Self {
+        self.step_tolerance = value;
+        self
+    }
 }
 
 impl Default for Config {

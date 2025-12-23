@@ -713,10 +713,7 @@ fn strange_nonconvergence() {
     let outcome = solve_with_priority(
         &requests,
         initial_guesses,
-        Config {
-            max_iterations: 31,
-            ..Default::default()
-        },
+        Config::default().with_max_iterations(31),
     );
     let iterations = outcome.unwrap().iterations;
     assert_eq!(iterations, 2);
