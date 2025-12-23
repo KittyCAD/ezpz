@@ -1479,8 +1479,8 @@ impl Constraint {
                 };
                 let r2dpx = (by - cy) * end_weight;
                 let r2dpy = -(bx - cx) * end_weight;
-                let _r2dax = 0;
-                let _r2day = 0;
+                // let _r2dax = 0;
+                // let _r2day = 0;
                 let r2dbx = (cy - py) * end_weight;
                 let r2dby = -(cx - px) * end_weight;
                 let r2dcx = -(by - py) * end_weight;
