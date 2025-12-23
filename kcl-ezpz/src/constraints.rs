@@ -81,6 +81,7 @@ pub(crate) struct JacobianVar {
     pub partial_derivative: f64,
 }
 
+#[cfg(feature = "dbg-jac")]
 impl std::fmt::Debug for JacobianVar {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "∂ col={} pd={:.3}", self.id, self.partial_derivative)
