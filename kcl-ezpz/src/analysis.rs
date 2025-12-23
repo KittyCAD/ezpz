@@ -58,11 +58,16 @@ impl FreedomAnalysis {
     pub fn underconstrained(&self) -> &[crate::Id] {
         &self.underconstrained
     }
+
+    /// Just like [`underconstrained`] except it consumes the struct to take ownership.
+    pub fn into_underconstrained(self) -> Vec<crate::Id> {
+        self.underconstrained
+    }
 }
 
 impl From<FreedomAnalysis> for Vec<crate::Id> {
-    fn from(value: FreedomAnalysis) -> Vec<crate::Id> {
-        value.underconstrained
+    fn from(analysis: FreedomAnalysis) -> Vec<crate::Id> {
+        analysis.into_underconstrained()
     }
 }
 
