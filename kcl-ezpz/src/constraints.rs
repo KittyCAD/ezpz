@@ -67,6 +67,8 @@ pub enum Constraint {
     Symmetric(LineSegment, DatumPoint, DatumPoint),
     /// This point should lie on this arc.
     PointArcCoincident(CircularArc, DatumPoint),
+    /// The arc should have this length.
+    ArcLength(CircularArc, f64),
 }
 
 /// Describes one value in one row of the Jacobian matrix.
@@ -176,6 +178,10 @@ impl Constraint {
                 row2.extend(circular_arc.center.all_variables());
                 row2.extend(circular_arc.end.all_variables());
                 row2.extend(point.all_variables());
+            }
+            Constraint::ArcLength(circular_arc, _dist) => {
+                row0.extend(circular_arc.all_variables());
+                row1.extend(circular_arc.all_variables());
             }
         }
     }
@@ -537,6 +543,51 @@ impl Constraint {
                 let end_cross = (bx - cx) * (cy - py) - (by - cy) * (cx - px);
                 *residual2 = if end_cross >= 0.0 { 0.0 } else { end_cross };
             }
+            Constraint::ArcLength(circular_arc, d) => {
+                // Residual math, see ezpz-sympy for notebook.
+                // u = a - c
+                // v = b - c
+                // ux = u[0]
+                // uy = u[1]
+                // vx = v[0]
+                // vy = v[1]
+                //
+                // r = u.norm()
+                //
+                // cos_theta = u.dot(v) / (r**2)
+                // sin_theta = ux * vy - uy * vx
+                // # Target angle
+                // alpha = d / r
+                //
+                // # Residuals
+                // res0 = cos_theta - sp.cos(alpha)
+                // res1 = sin_theta - sp.sin(alpha)
+
+                let cx = current_assignments[layout.index_of(circular_arc.center.id_x())];
+                let cy = current_assignments[layout.index_of(circular_arc.center.id_y())];
+                let ax = current_assignments[layout.index_of(circular_arc.start.id_x())];
+                let ay = current_assignments[layout.index_of(circular_arc.start.id_y())];
+                let bx = current_assignments[layout.index_of(circular_arc.end.id_x())];
+                let by = current_assignments[layout.index_of(circular_arc.end.id_y())];
+                let dx = ax - cx;
+                let dy = ay - cy;
+                let r2 = dx * dx + dy * dy;
+                if r2 < EPSILON {
+                    *residual0 = 0.0;
+                    *residual1 = 0.0;
+                    *degenerate = true;
+                    return;
+                }
+                let res0 = ((ax - cx) * (bx - cx) + (ay - cy) * (by - cy))
+                    * ((ax - cx).powi(2) + (ay - cy).powi(2)).recip()
+                    - libm::cos(d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip());
+                let res1 = ((ax - cx) * (by - cy) - (ay - cy) * (bx - cx))
+                    * ((ax - cx).powi(2) + (ay - cy).powi(2)).recip()
+                    - libm::sin(d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip());
+
+                *residual0 = res0;
+                *residual1 = res1;
+            }
         }
     }
 
@@ -564,6 +615,7 @@ impl Constraint {
             Constraint::HorizontalPointLineDistance(..) => 1,
             Constraint::Symmetric(..) => 2,
             Constraint::PointArcCoincident(..) => 3,
+            Constraint::ArcLength(..) => 2,
         }
     }
 
@@ -1362,8 +1414,7 @@ impl Constraint {
                 let id_by = circular_arc.end.id_y();
                 let id_px = point.id_x();
                 let id_py = point.id_y();
-                // The first residual is just the distance from the point to the circular arc's perimeter.
-                // i.e. it should be arc-radius from the center.
+                // Residual 0: the point's distance from the arc's center should be the arc's radius.
                 let dist_constraint = Constraint::Distance(circular_arc.center, *point, arc_radius);
                 dist_constraint.jacobian_rows(
                     layout,
@@ -1460,6 +1511,163 @@ impl Constraint {
                     },
                 ]);
             }
+            Constraint::ArcLength(circular_arc, d) => {
+                // First, get all the variables.
+                let id_cx = circular_arc.center.id_x();
+                let id_cy = circular_arc.center.id_y();
+                let id_ax = circular_arc.start.id_x();
+                let id_ay = circular_arc.start.id_y();
+                let id_bx = circular_arc.end.id_x();
+                let id_by = circular_arc.end.id_y();
+                let cx = current_assignments[layout.index_of(id_cx)];
+                let cy = current_assignments[layout.index_of(id_cy)];
+                let ax = current_assignments[layout.index_of(id_ax)];
+                let ay = current_assignments[layout.index_of(id_ay)];
+                let bx = current_assignments[layout.index_of(id_bx)];
+                let by = current_assignments[layout.index_of(id_by)];
+                let dx = ax - cx;
+                let dy = ay - cy;
+                let r2 = dx * dx + dy * dy;
+                if r2 < EPSILON {
+                    *degenerate = true;
+                    return;
+                }
+
+                // Then calculate the partial derivatives.
+                // Taken from SymPy, see ezpz-sympy.
+                let r0dax = ((bx - cx) * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(7_f64 / 2.0)
+                    - 2.0
+                        * (ax - cx)
+                        * ((ax - cx) * (bx - cx) + (ay - cy) * (by - cy))
+                        * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(5_f64 / 2.0)
+                    - d * (ax - cx)
+                        * ((ax - cx).powi(2) + (ay - cy).powi(2)).powi(3)
+                        * libm::sin(d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()))
+                    / ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(9_f64 / 2.0);
+                let r0day = ((by - cy) * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(7_f64 / 2.0)
+                    - 2.0
+                        * (ay - cy)
+                        * ((ax - cx) * (bx - cx) + (ay - cy) * (by - cy))
+                        * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(5_f64 / 2.0)
+                    - d * (ay - cy)
+                        * ((ax - cx).powi(2) + (ay - cy).powi(2)).powi(3)
+                        * libm::sin(d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()))
+                    / ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(9_f64 / 2.0);
+                let r0dbx = (ax - cx) * ((ax - cx).powi(2) + (ay - cy).powi(2)).recip();
+                let r0dby = (ay - cy) * ((ax - cx).powi(2) + (ay - cy).powi(2)).recip();
+                let r0dcx = (((ax - cx).powi(2) + (ay - cy).powi(2)).powf(7_f64 / 2.0)
+                    * (-ax - bx + 2.0 * cx)
+                    + 2.0
+                        * (ax - cx)
+                        * ((ax - cx) * (bx - cx) + (ay - cy) * (by - cy))
+                        * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(5_f64 / 2.0)
+                    + d * (ax - cx)
+                        * ((ax - cx).powi(2) + (ay - cy).powi(2)).powi(3)
+                        * libm::sin(d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()))
+                    / ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(9_f64 / 2.0);
+                let r0dcy = (((ax - cx).powi(2) + (ay - cy).powi(2)).powf(7_f64 / 2.0)
+                    * (-ay - by + 2.0 * cy)
+                    + 2.0
+                        * (ay - cy)
+                        * ((ax - cx) * (bx - cx) + (ay - cy) * (by - cy))
+                        * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(5_f64 / 2.0)
+                    + d * (ay - cy)
+                        * ((ax - cx).powi(2) + (ay - cy).powi(2)).powi(3)
+                        * libm::sin(d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()))
+                    / ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(9_f64 / 2.0);
+                row0.extend([
+                    JacobianVar {
+                        id: id_ax,
+                        partial_derivative: r0dax,
+                    },
+                    JacobianVar {
+                        id: id_ay,
+                        partial_derivative: r0day,
+                    },
+                    JacobianVar {
+                        id: id_bx,
+                        partial_derivative: r0dbx,
+                    },
+                    JacobianVar {
+                        id: id_by,
+                        partial_derivative: r0dby,
+                    },
+                    JacobianVar {
+                        id: id_cx,
+                        partial_derivative: r0dcx,
+                    },
+                    JacobianVar {
+                        id: id_cy,
+                        partial_derivative: r0dcy,
+                    },
+                ]);
+                let r1dax = ((by - cy) * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(7_f64 / 2.0)
+                    - 2.0
+                        * (ax - cx)
+                        * ((ax - cx) * (by - cy) - (ay - cy) * (bx - cx))
+                        * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(5_f64 / 2.0)
+                    + d * (ax - cx)
+                        * ((ax - cx).powi(2) + (ay - cy).powi(2)).powi(3)
+                        * libm::cos(d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()))
+                    / ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(9_f64 / 2.0);
+                let r1day = ((-bx + cx)
+                    * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(7_f64 / 2.0)
+                    - 2.0
+                        * (ay - cy)
+                        * ((ax - cx) * (by - cy) - (ay - cy) * (bx - cx))
+                        * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(5_f64 / 2.0)
+                    + d * (ay - cy)
+                        * ((ax - cx).powi(2) + (ay - cy).powi(2)).powi(3)
+                        * libm::cos(d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()))
+                    / ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(9_f64 / 2.0);
+                let r1dbx = (-ay + cy) * ((ax - cx).powi(2) + (ay - cy).powi(2)).recip();
+                let r1dby = (ax - cx) * ((ax - cx).powi(2) + (ay - cy).powi(2)).recip();
+                let r1dcx = ((ay - by) * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(7_f64 / 2.0)
+                    + 2.0
+                        * (ax - cx)
+                        * ((ax - cx) * (by - cy) - (ay - cy) * (bx - cx))
+                        * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(5_f64 / 2.0)
+                    - d * (ax - cx)
+                        * ((ax - cx).powi(2) + (ay - cy).powi(2)).powi(3)
+                        * libm::cos(d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()))
+                    / ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(9_f64 / 2.0);
+                let r1dcy = ((-ax + bx)
+                    * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(7_f64 / 2.0)
+                    + 2.0
+                        * (ay - cy)
+                        * ((ax - cx) * (by - cy) - (ay - cy) * (bx - cx))
+                        * ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(5_f64 / 2.0)
+                    - d * (ay - cy)
+                        * ((ax - cx).powi(2) + (ay - cy).powi(2)).powi(3)
+                        * libm::cos(d * ((ax - cx).powi(2) + (ay - cy).powi(2)).sqrt().recip()))
+                    / ((ax - cx).powi(2) + (ay - cy).powi(2)).powf(9_f64 / 2.0);
+                row1.extend([
+                    JacobianVar {
+                        id: id_ax,
+                        partial_derivative: r1dax,
+                    },
+                    JacobianVar {
+                        id: id_ay,
+                        partial_derivative: r1day,
+                    },
+                    JacobianVar {
+                        id: id_bx,
+                        partial_derivative: r1dbx,
+                    },
+                    JacobianVar {
+                        id: id_by,
+                        partial_derivative: r1dby,
+                    },
+                    JacobianVar {
+                        id: id_cx,
+                        partial_derivative: r1dcx,
+                    },
+                    JacobianVar {
+                        id: id_cy,
+                        partial_derivative: r1dcy,
+                    },
+                ]);
+            }
         }
     }
 
@@ -1490,6 +1698,7 @@ impl Constraint {
             Constraint::Symmetric(..) => "Symmetric",
             Constraint::ScalarEqual(..) => "ScalarEqual",
             Constraint::PointArcCoincident(..) => "PointArcCoincident",
+            Constraint::ArcLength(..) => "ArcLength",
         }
     }
 }

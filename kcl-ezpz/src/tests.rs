@@ -1,8 +1,8 @@
-use std::str::FromStr;
+use std::{f64::consts::PI, str::FromStr};
 
 use super::*;
 use crate::{
-    datatypes::Angle,
+    datatypes::{Angle, CircularArc, DatumPoint},
     textual::{OutcomeAnalysis, Point, Problem},
 };
 
@@ -481,6 +481,202 @@ fn chamfer_square() {
     assert_points_eq(solved.get_point("c").unwrap(), Point { x: 40.0, y: 30.0 });
     assert_points_eq(solved.get_point("d").unwrap(), Point { x: 40.0, y: 0.0 });
     assert_points_eq(solved.get_point("e").unwrap(), Point { x: 0.0, y: 0.0 });
+}
+
+#[test]
+fn arc_length() {
+    let solved = run("arc_length");
+    assert!(solved.is_satisfied());
+}
+
+fn solve_arc_length_case(
+    arc_center_x: f64,
+    arc_center_y: f64,
+    arc_radius: f64,
+    arc_start_radians: f64,
+    desired_arc_length: f64,
+    arc_end_guess: Point,
+) -> (SolveOutcome, CircularArc) {
+    let mut ids = IdGenerator::default();
+    let center = DatumPoint::new(&mut ids);
+    let start = DatumPoint::new(&mut ids);
+    let end = DatumPoint::new(&mut ids);
+    let arc = CircularArc { center, start, end };
+
+    let arc_start = Point {
+        x: arc_center_x + libm::cos(arc_start_radians) * arc_radius,
+        y: arc_center_y + libm::sin(arc_start_radians) * arc_radius,
+    };
+
+    let initial_guesses = vec![
+        (arc.center.id_x(), arc_center_x),
+        (arc.center.id_y(), arc_center_y),
+        (arc.start.id_x(), arc_start.x),
+        (arc.start.id_y(), arc_start.y),
+        (arc.end.id_x(), arc_end_guess.x),
+        (arc.end.id_y(), arc_end_guess.y),
+    ];
+
+    let requests: Vec<_> = vec![
+        Constraint::Arc(arc),
+        Constraint::Fixed(arc.center.id_x(), arc_center_x),
+        Constraint::Fixed(arc.center.id_y(), arc_center_y),
+        Constraint::Fixed(arc.start.id_x(), arc_start.x),
+        Constraint::Fixed(arc.start.id_y(), arc_start.y),
+        Constraint::ArcLength(arc, desired_arc_length),
+    ]
+    .into_iter()
+    .map(ConstraintRequest::highest_priority)
+    .collect();
+
+    let outcome = solve_with_priority(&requests, initial_guesses, Config::default())
+        .expect("arc length case should solve");
+
+    (outcome, arc)
+}
+
+#[test]
+fn arc_length_ccw_over_pi() {
+    let arc_center_x = 0.0;
+    let arc_center_y = 0.0;
+    let arc_radius = 1.0;
+    let arc_start_radians = 0.0;
+    let desired_arc_length = 1.5 * PI;
+    let arc_end_guess = Point { x: 0.0, y: -1.0 };
+
+    let (outcome, arc) = solve_arc_length_case(
+        arc_center_x,
+        arc_center_y,
+        arc_radius,
+        arc_start_radians,
+        desired_arc_length,
+        arc_end_guess,
+    );
+
+    assert!(outcome.is_satisfied());
+
+    let solved_end_x = outcome.final_values[arc.end.id_x() as usize];
+    let solved_end_y = outcome.final_values[arc.end.id_y() as usize];
+    let solved_end = Point {
+        x: solved_end_x,
+        y: solved_end_y,
+    };
+    let center_point = Point {
+        x: arc_center_x,
+        y: arc_center_y,
+    };
+    let end_distance = solved_end.euclidean_distance(center_point);
+    assert_nearly_eq(end_distance, arc_radius);
+
+    let two_pi = 2.0 * PI;
+    let end_radians =
+        libm::atan2(solved_end_y - arc_center_y, solved_end_x - arc_center_x).rem_euclid(two_pi);
+    let ccw_delta = (end_radians - arc_start_radians).rem_euclid(two_pi);
+    let actual_arc_length = arc_radius * ccw_delta;
+    assert_nearly_eq(actual_arc_length, desired_arc_length);
+}
+
+#[test]
+fn arc_length_near_zero() {
+    let arc_center_x = -2.0;
+    let arc_center_y = 3.0;
+    let arc_radius = 5.0;
+    let arc_start_radians = 0.25 * PI;
+    let desired_arc_length = 1.0e-3;
+    let arc_end_guess = Point {
+        x: arc_center_x + libm::cos(arc_start_radians + 1.0e-2) * arc_radius,
+        y: arc_center_y + libm::sin(arc_start_radians + 1.0e-2) * arc_radius,
+    };
+
+    let (outcome, arc) = solve_arc_length_case(
+        arc_center_x,
+        arc_center_y,
+        arc_radius,
+        arc_start_radians,
+        desired_arc_length,
+        arc_end_guess,
+    );
+
+    assert!(outcome.is_satisfied());
+
+    let solved_end_x = outcome.final_values[arc.end.id_x() as usize];
+    let solved_end_y = outcome.final_values[arc.end.id_y() as usize];
+    let end_radians =
+        libm::atan2(solved_end_y - arc_center_y, solved_end_x - arc_center_x).rem_euclid(2.0 * PI);
+    let ccw_delta = (end_radians - arc_start_radians).rem_euclid(2.0 * PI);
+    let actual_arc_length = arc_radius * ccw_delta;
+    assert_nearly_eq(actual_arc_length, desired_arc_length);
+}
+
+#[test]
+fn arc_length_near_full_circle() {
+    let arc_center_x = 1.0;
+    let arc_center_y = -1.0;
+    let arc_radius = 2.5;
+    let arc_start_radians = 0.0;
+    let desired_arc_length = 2.0 * PI * arc_radius - 1.0e-3;
+    let arc_end_guess = Point {
+        x: arc_center_x + libm::cos(-1.0e-2) * arc_radius,
+        y: arc_center_y + libm::sin(-1.0e-2) * arc_radius,
+    };
+
+    let (outcome, arc) = solve_arc_length_case(
+        arc_center_x,
+        arc_center_y,
+        arc_radius,
+        arc_start_radians,
+        desired_arc_length,
+        arc_end_guess,
+    );
+
+    assert!(outcome.is_satisfied());
+
+    let solved_end_x = outcome.final_values[arc.end.id_x() as usize];
+    let solved_end_y = outcome.final_values[arc.end.id_y() as usize];
+    let end_radians =
+        libm::atan2(solved_end_y - arc_center_y, solved_end_x - arc_center_x).rem_euclid(2.0 * PI);
+    let ccw_delta = (end_radians - arc_start_radians).rem_euclid(2.0 * PI);
+    let actual_arc_length = arc_radius * ccw_delta;
+    assert_nearly_eq(actual_arc_length, desired_arc_length);
+}
+
+#[test]
+fn arc_length_degenerate_warns() {
+    let mut ids = IdGenerator::default();
+    let center = DatumPoint::new(&mut ids);
+    let start = DatumPoint::new(&mut ids);
+    let end = DatumPoint::new(&mut ids);
+    let arc = CircularArc { center, start, end };
+
+    let initial_guesses = vec![
+        (arc.center.id_x(), 0.0),
+        (arc.center.id_y(), 0.0),
+        (arc.start.id_x(), 0.0),
+        (arc.start.id_y(), 0.0),
+        (arc.end.id_x(), 1.0),
+        (arc.end.id_y(), 0.0),
+    ];
+
+    let requests: Vec<_> = vec![
+        Constraint::Fixed(arc.center.id_x(), 0.0),
+        Constraint::Fixed(arc.center.id_y(), 0.0),
+        Constraint::Fixed(arc.start.id_x(), 0.0),
+        Constraint::Fixed(arc.start.id_y(), 0.0),
+        Constraint::ArcLength(arc, 1.0),
+    ]
+    .into_iter()
+    .map(ConstraintRequest::highest_priority)
+    .collect();
+
+    let outcome = solve_with_priority(&requests, initial_guesses, Config::default())
+        .expect("degenerate arc length case should solve");
+
+    assert!(
+        outcome
+            .warnings
+            .iter()
+            .any(|warning| matches!(warning.content, WarningContent::Degenerate))
+    );
 }
 
 #[test]

@@ -26,6 +26,7 @@ pub(crate) enum Instruction {
     IsArc(IsArc),
     PointLineDistance(PointLineDistance),
     Line(Line),
+    ArcLength(ArcLength),
 }
 
 #[derive(Debug)]
@@ -113,6 +114,12 @@ pub struct PointLineDistance {
     pub point: Label,
     pub line_p0: Label,
     pub line_p1: Label,
+    pub distance: f64,
+}
+
+#[derive(Debug)]
+pub struct ArcLength {
+    pub arc: Label,
     pub distance: f64,
 }
 
