@@ -12,6 +12,7 @@ license = "MIT"
 [features]
 fuzz = ["dep:arbitrary"]
 dbg-jac = []
+unstable-exhaustive = []
 
 [dependencies]
 arbitrary = { version = "1.4.2", features = ["derive"], optional = true }

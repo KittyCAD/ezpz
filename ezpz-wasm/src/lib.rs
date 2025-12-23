@@ -99,5 +99,5 @@ pub fn benchmark() -> Vec<f64> {
         Config::default(),
     )
     .unwrap();
-    actual.final_values
+    actual.final_values().to_owned()
 }

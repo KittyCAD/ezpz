@@ -165,7 +165,7 @@ fn perpdist() {
     // a range of possible absolute positions it could be at.
     assert!(solved.analysis.is_underconstrained());
     assert_eq!(
-        solved.analysis.underconstrained,
+        solved.analysis.underconstrained(),
         vec![4, 5],
         "P and Q are constrained, but A is not, it could move along the PQ line as long as it stays a fixed perp distance away."
     );
@@ -189,7 +189,7 @@ fn perpdist_negative() {
     assert!(solved.is_satisfied());
     assert!(solved.analysis.is_underconstrained());
     assert_eq!(
-        solved.analysis.underconstrained,
+        solved.analysis.underconstrained(),
         vec![4, 5],
         "P and Q are constrained, but A is not, it could move along the PQ line as long as it stays a fixed perp distance away."
     );
@@ -220,7 +220,7 @@ fn underconstrained() {
     let solved = run("underconstrained");
     assert!(solved.analysis.is_underconstrained());
     assert!(solved.is_satisfied());
-    assert_eq!(solved.analysis.underconstrained, vec![0, 1]);
+    assert_eq!(solved.analysis.underconstrained(), vec![0, 1]);
     // p should be whatever the user's initial guess was.
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 1.0, y: 1.0 });
     // q should be what it was constrained to be.
@@ -378,7 +378,7 @@ fn parallelogram() {
     // A = 0 and 1
     // B = 2 and 3
     // CD are 4, 5, 6 and 7, and aren't constrained.
-    assert_eq!(solved.analysis.underconstrained, vec![4, 5, 6, 7]);
+    assert_eq!(solved.analysis.underconstrained(), vec![4, 5, 6, 7]);
     assert_nearly_eq(
         solved.get_point("a").unwrap().y - solved.get_point("c").unwrap().y,
         solved.get_point("b").unwrap().y - solved.get_point("d").unwrap().y,
@@ -398,7 +398,7 @@ fn underdetermined_lines() {
     let solved = run("underdetermined_lines");
     assert!(solved.analysis.is_underconstrained());
     assert_eq!(
-        solved.analysis.underconstrained,
+        solved.analysis.underconstrained(),
         vec![5],
         "P0 and P1 are constrained, but P2 is only fixed in the X direction, not Y"
     );
@@ -414,7 +414,7 @@ fn arc_radius() {
     assert!(solved.is_satisfied());
     assert!(solved.analysis.is_underconstrained());
     assert_eq!(
-        solved.analysis.underconstrained,
+        solved.analysis.underconstrained(),
         vec![
             // P is vars 0,1, and P is totally unconstrained.
             0, 1,
@@ -452,7 +452,7 @@ fn arc_equidistant() {
     assert!(solved.is_satisfied());
     assert!(solved.analysis.is_underconstrained());
     assert_eq!(
-        solved.analysis.underconstrained,
+        solved.analysis.underconstrained(),
         vec![
             // P is vars 0,1, and P is totally unconstrained.
             0, 1,

@@ -40,18 +40,43 @@ const EPSILON: f64 = 1e-4;
 
 /// Data from a successful solved system.
 #[derive(Debug)]
+#[cfg_attr(not(feature = "unstable-exhaustive"), non_exhaustive)]
 pub struct SolveOutcome {
     /// Which constraints couldn't be satisfied
-    pub unsatisfied: Vec<usize>,
+    unsatisfied: Vec<usize>,
     /// Each variable's final value.
-    pub final_values: Vec<f64>,
+    final_values: Vec<f64>,
     /// How many iterations of Newton's method were required?
-    pub iterations: usize,
+    iterations: usize,
     /// Anything that went wrong either in problem definition or during solving it.
-    pub warnings: Vec<Warning>,
+    warnings: Vec<Warning>,
     /// What is the lowest priority that got solved?
     /// 0 is the highest priority. Larger numbers are lower priority.
-    pub priority_solved: u32,
+    priority_solved: u32,
+}
+
+impl SolveOutcome {
+    /// Which constraints couldn't be satisfied
+    pub fn unsatisfied(&self) -> &[usize] {
+        &self.unsatisfied
+    }
+    /// Each variable's final value.
+    pub fn final_values(&self) -> &[f64] {
+        &self.final_values
+    }
+    /// How many iterations of Newton's method were required?
+    pub fn iterations(&self) -> usize {
+        self.iterations
+    }
+    /// Anything that went wrong either in problem definition or during solving it.
+    pub fn warnings(&self) -> &[Warning] {
+        &self.warnings
+    }
+    /// What is the lowest priority that got solved?
+    /// 0 is the highest priority. Larger numbers are lower priority.
+    pub fn priority_solved(&self) -> u32 {
+        self.priority_solved
+    }
 }
 
 /// Just like [`SolveOutcome`] except it also contains the result of
@@ -87,6 +112,7 @@ impl SolveOutcome {
 
 /// Returned when ezpz could not solve a system.
 #[derive(Debug)]
+#[cfg_attr(not(feature = "unstable-exhaustive"), non_exhaustive)]
 pub struct FailureOutcome {
     /// The error that stopped the system from being solved.
     pub error: NonLinearSystemError,
@@ -97,6 +123,29 @@ pub struct FailureOutcome {
     pub num_vars: usize,
     /// Size of the system.
     pub num_eqs: usize,
+}
+
+impl FailureOutcome {
+    /// The error that stopped the system from being solved.
+    pub fn error(&self) -> &NonLinearSystemError {
+        &self.error
+    }
+
+    /// Other warnings which might have contributed,
+    /// or might be suboptimal for other reasons.
+    pub fn warnings(&self) -> &[Warning] {
+        &self.warnings
+    }
+
+    /// Size of the system.
+    pub fn num_vars(&self) -> usize {
+        self.num_vars
+    }
+
+    /// Size of the system.
+    pub fn num_eqs(&self) -> usize {
+        self.num_eqs
+    }
 }
 
 /// Given some initial guesses, constrain them.
@@ -155,8 +204,8 @@ pub(crate) fn solve_with_priority_inner<A: Analysis>(
         .iter()
         .enumerate()
         .map(|(id, c)| ConstraintEntry {
-            constraint: &c.constraint,
-            priority: c.priority,
+            constraint: c.constraint(),
+            priority: c.priority(),
             id,
         })
         .collect();

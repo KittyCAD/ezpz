@@ -8,6 +8,7 @@ pub(crate) trait Datum {
 /// like parallel or perpendicular.
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
+#[cfg_attr(not(feature = "unstable-exhaustive"), non_exhaustive)]
 pub enum AngleKind {
     /// The two lines should be parallel to each other.
     Parallel,

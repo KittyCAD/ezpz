@@ -500,7 +500,7 @@ impl ConstraintSystem<'_> {
         let num_eqs = self
             .constraints
             .iter()
-            .map(|c| c.constraint.residual_dim())
+            .map(|c| c.constraint().residual_dim())
             .sum();
         // Pass into the solver.
         let SolveOutcomeAnalysis {

@@ -73,6 +73,6 @@ impl Model<'_> {
             .map(|x| x as u32)
             .collect();
 
-        Ok(FreedomAnalysis { underconstrained })
+        Ok(FreedomAnalysis::new(underconstrained))
     }
 }

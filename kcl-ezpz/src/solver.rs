@@ -21,6 +21,7 @@ const REGULARIZATION_LAMBDA: f64 = 1e-9;
 
 /// Configuration for how to solve a system.
 #[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
 pub struct Config {
     /// How many iteration rounds before the solver gives up?
     pub max_iterations: usize,

@@ -20,7 +20,7 @@ impl<'c> AsRef<Constraint> for ConstraintEntry<'c> {
 /// Each geometric constraint we support.
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
-#[non_exhaustive]
+#[cfg_attr(not(feature = "unstable-exhaustive"), non_exhaustive)]
 pub enum Constraint {
     /// This line must be tangent to the circle
     /// (i.e. touches its perimeter in exactly one place)

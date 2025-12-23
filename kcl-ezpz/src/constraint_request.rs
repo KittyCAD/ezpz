@@ -5,11 +5,12 @@ use crate::Constraint;
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct ConstraintRequest {
     /// The constraint itself.
-    pub constraint: Constraint,
+    constraint: Constraint,
+
     /// The constraint's priority.
     /// 0 is highest priority.
     /// Larger numbers are lower priority.
-    pub priority: u32,
+    priority: u32,
 }
 
 impl ConstraintRequest {
@@ -24,6 +25,16 @@ impl ConstraintRequest {
     /// Create a new constraint request with the highest priority.
     pub fn highest_priority(constraint: Constraint) -> Self {
         Self::new(constraint, 0)
+    }
+
+    /// Get the underlying constraint.
+    pub fn constraint(&self) -> &Constraint {
+        &self.constraint
+    }
+
+    /// Get the underlying priority.
+    pub fn priority(&self) -> u32 {
+        self.priority
     }
 }
 
