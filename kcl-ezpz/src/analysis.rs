@@ -9,10 +9,12 @@ pub(crate) trait Analysis: Sized {
 pub(crate) struct NoAnalysis;
 
 impl Analysis for NoAnalysis {
+    #[mutants::skip]
     fn analyze(_: Model<'_>) -> Result<Self, NonLinearSystemError> {
         Ok(Self)
     }
 
+    #[mutants::skip]
     fn no_constraints() -> Self {
         Self
     }
@@ -32,6 +34,7 @@ impl Analysis for FreedomAnalysis {
         model.freedom_analysis()
     }
 
+    #[mutants::skip]
     fn no_constraints() -> Self {
         Self {
             underconstrained: Vec::new(),

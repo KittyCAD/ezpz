@@ -324,3 +324,24 @@ fn solve_inner<A: Analysis>(
         analysis,
     })
 }
+
+#[cfg(test)]
+mod basic_tests {
+    use super::*;
+
+    #[test]
+    fn test_satisfied() {
+        // Test the is_unsatisfied and is_satisfied getters
+        // do what we expect.
+        let so = SolveOutcome {
+            unsatisfied: vec![0],
+            final_values: vec![0.3],
+            iterations: 1,
+            warnings: Vec::new(),
+            priority_solved: 0,
+        };
+
+        assert!(so.is_unsatisfied());
+        assert!(!so.is_satisfied());
+    }
+}
