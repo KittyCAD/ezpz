@@ -10,7 +10,7 @@ use kcl_ezpz::{
 };
 
 /// General benchmark template.
-/// Opens a given test case from the test_cases/ dir,
+/// Opens a given test case from the `test_cases`/ dir,
 /// benchmarks solving it.
 fn bench_case(c: &mut Criterion, test_case: &'static str) {
     let txt = std::fs::read_to_string(format!("test_cases/{test_case}/problem.md")).unwrap();
@@ -40,19 +40,19 @@ fn bench_case_analysis(c: &mut Criterion, test_case: &'static str) {
 }
 
 fn solve_inconsistent(c: &mut Criterion) {
-    bench_case(c, "inconsistent")
+    bench_case(c, "inconsistent");
 }
 
 fn solve_two_rectangles(c: &mut Criterion) {
-    bench_case(c, "two_rectangles")
+    bench_case(c, "two_rectangles");
 }
 
 fn solve_nonsquare(c: &mut Criterion) {
-    bench_case(c, "nonsquare")
+    bench_case(c, "nonsquare");
 }
 
 fn solve_nonsquare_analysis(c: &mut Criterion) {
-    bench_case_analysis(c, "nonsquare")
+    bench_case_analysis(c, "nonsquare");
 }
 
 /// Just like `solve_two_rectangles`, except that the rectangles
@@ -135,16 +135,16 @@ fn solve_two_rectangles_dependent(c: &mut Criterion) {
                 )
                 .unwrap(),
             );
-        })
+        });
     });
 }
 
 fn solve_massive(c: &mut Criterion) {
-    run_massive(c, false)
+    run_massive(c, false);
 }
 
 fn solve_massive_overconstrained(c: &mut Criterion) {
-    run_massive(c, true)
+    run_massive(c, true);
 }
 
 fn run_massive(c: &mut Criterion, overconstrained: bool) {

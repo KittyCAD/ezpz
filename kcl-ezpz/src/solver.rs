@@ -328,7 +328,7 @@ impl Model<'_> {
                 warnings.push(Warning {
                     about_constraint: Some(i),
                     content: WarningContent::Degenerate,
-                })
+                });
             }
             for row in [&residuals0, &residuals1, &residuals2]
                 .iter()
@@ -373,7 +373,7 @@ impl Model<'_> {
                 warnings.push(Warning {
                     about_constraint: Some(i),
                     content: WarningContent::Degenerate,
-                })
+                });
             }
 
             // For each variable in this constraint's set of partial derivatives (Jacobian slice).

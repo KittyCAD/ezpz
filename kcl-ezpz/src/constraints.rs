@@ -11,7 +11,7 @@ pub(crate) struct ConstraintEntry<'c> {
     pub priority: u32,
 }
 
-impl<'c> AsRef<Constraint> for ConstraintEntry<'c> {
+impl AsRef<Constraint> for ConstraintEntry<'_> {
     fn as_ref(&self) -> &Constraint {
         self.constraint
     }
@@ -1037,7 +1037,7 @@ impl Constraint {
                 row0.push(JacobianVar {
                     id: circle.radius.id,
                     partial_derivative: 1.0,
-                })
+                });
             }
             Constraint::ArcRadius(arc, radius) => {
                 // This is really just equivalent to 2 constraints,
@@ -1116,7 +1116,7 @@ impl Constraint {
                         id: arc.center.id_y(),
                         partial_derivative: dy_c,
                     },
-                ])
+                ]);
             }
             Constraint::Midpoint(line, point) => {
                 let p = line.p0;
@@ -1181,7 +1181,7 @@ impl Constraint {
                 let p1y = current_assignments[layout.index_of(line.p1.id_y())];
 
                 let partial_derivatives = pds_for_point_line(
-                    point,
+                    *point,
                     line,
                     PointLineVars {
                         px,
@@ -1808,7 +1808,7 @@ fn pds_from_symmetric(
 }
 
 fn pds_for_point_line(
-    point: &DatumPoint,
+    point: DatumPoint,
     line: &LineSegment,
     point_line_vars: PointLineVars,
 ) -> [JacobianVar; 6] {
@@ -2202,7 +2202,7 @@ mod tests {
         ];
 
         for test in tests {
-            let actual = pds_for_point_line(&test.point, &test.line, test.vars);
+            let actual = pds_for_point_line(test.point, &test.line, test.vars);
 
             for (idx, (expected_id, expected_pd)) in test.expected.iter().enumerate() {
                 let jacobian_var = &actual[idx];
@@ -2226,6 +2226,6 @@ mod tests {
     #[track_caller]
     fn assert_close(actual: f64, expected: f64) {
         let delta = actual - expected;
-        assert!((delta).abs() <= 0.00001, "Delta is {}", delta)
+        assert!((delta).abs() <= 0.00001, "Delta is {}", delta);
     }
 }
