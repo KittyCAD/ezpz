@@ -81,7 +81,7 @@ pub struct DatumDistance {
 }
 
 impl DatumDistance {
-    /// Create a new DatumDistance.
+    /// Create a new `DatumDistance`.
     pub fn new(id: Id) -> Self {
         Self { id }
     }
@@ -104,7 +104,7 @@ pub struct DatumPoint {
 }
 
 impl DatumPoint {
-    /// Create a new DatumPoint from an ID generator.
+    /// Create a new `DatumPoint` from an ID generator.
     pub fn new(id_generator: &mut IdGenerator) -> Self {
         Self {
             x_id: id_generator.next_id(),
@@ -112,7 +112,7 @@ impl DatumPoint {
         }
     }
 
-    /// Create a new DatumPoint with these specific IDs.
+    /// Create a new `DatumPoint` with these specific IDs.
     pub fn new_xy(x: Id, y: Id) -> Self {
         Self { x_id: x, y_id: y }
     }
@@ -147,7 +147,7 @@ pub struct LineSegment {
 }
 
 impl LineSegment {
-    /// Create a new LineSegment.
+    /// Create a new `LineSegment`.
     pub fn new(p0: DatumPoint, p1: DatumPoint) -> Self {
         Self { p0, p1 }
     }

@@ -32,7 +32,7 @@ use super::Instruction;
 use super::Problem;
 
 impl Problem {
-    /// Build a [ConstraintSystem] which models the system in this problem.
+    /// Build a [`ConstraintSystem`] which models the system in this problem.
     /// Error means this problem was not properly specified, e.g. it could be
     /// missing a variable used in a constraint.
     pub fn to_constraint_system(&self) -> Result<ConstraintSystem<'_>, TextualError> {
@@ -231,7 +231,7 @@ impl Problem {
                         p1: datum_point_for_label(line_p1)?,
                     };
                     let p = datum_point_for_label(point)?;
-                    constraints.push(Constraint::PointLineDistance(p, line, *distance))
+                    constraints.push(Constraint::PointLineDistance(p, line, *distance));
                 }
                 Instruction::Tangent(Tangent {
                     circle,
@@ -276,7 +276,7 @@ impl Problem {
                                 Component::X => center.x,
                                 Component::Y => center.y,
                             };
-                            constraints.push(Constraint::Fixed(id, *value))
+                            constraints.push(Constraint::Fixed(id, *value));
                         }
                     } else {
                         return Err(TextualError::UndefinedPoint {

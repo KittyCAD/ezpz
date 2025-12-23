@@ -98,7 +98,6 @@ impl Layout {
 
 /// A Jacobian cache.
 /// Stores the Jacobian so we don't constantly reallocate it.
-/// Required by newton_faer.
 struct Jc {
     /// The symbolic structure of the matrix (i.e. which cells are non-zero).
     /// This way the matrix's structure is only allocated once, and reused
@@ -298,7 +297,7 @@ fn build_lambda_i(num_variables: usize) -> faer::sparse::SparseColMat<usize, f64
     .unwrap()
 }
 
-/// Connect the model to newton_faer's solver.
+/// Connect the model to the Newton-Gauss numeric solver.
 impl Model<'_> {
     /// Compute the residual F, figuring out how close the problem is to being solved.
     /// `out` is the global residual vector.
@@ -329,7 +328,7 @@ impl Model<'_> {
                 warnings.push(Warning {
                     about_constraint: Some(i),
                     content: WarningContent::Degenerate,
-                })
+                });
             }
             for row in [&residuals0, &residuals1, &residuals2]
                 .iter()
@@ -374,7 +373,7 @@ impl Model<'_> {
                 warnings.push(Warning {
                     about_constraint: Some(i),
                     content: WarningContent::Degenerate,
-                })
+                });
             }
 
             // For each variable in this constraint's set of partial derivatives (Jacobian slice).
