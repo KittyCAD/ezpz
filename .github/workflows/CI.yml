@@ -54,3 +54,11 @@ jobs:
           - name: Run checks
             run: just fmt-check
 
+    semver-checks:
+        name: Check semver violations
+        runs-on: ubuntu-latest-8-cores
+        steps:
+          - uses: actions/checkout@v4
+          - name: Check semver
+            uses: obi1kenobi/cargo-semver-checks-action@v2
+
