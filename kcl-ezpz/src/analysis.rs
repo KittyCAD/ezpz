@@ -22,11 +22,12 @@ impl Analysis for NoAnalysis {
 
 /// Results from analyzing the freedom of each variable.
 #[derive(Default, Debug)]
+#[cfg_attr(not(feature = "unstable-exhaustive"), non_exhaustive)]
 pub struct FreedomAnalysis {
     /// These variables are underconstrained, and the user could (probably should)
     /// add more constraints so that their positions are properly specified and don't
     /// depend on the initial guesses.
-    pub underconstrained: Vec<crate::Id>,
+    underconstrained: Vec<crate::Id>,
 }
 
 impl Analysis for FreedomAnalysis {
@@ -43,9 +44,30 @@ impl Analysis for FreedomAnalysis {
 }
 
 impl FreedomAnalysis {
+    pub(crate) fn new(underconstrained: Vec<crate::Id>) -> Self {
+        Self { underconstrained }
+    }
     /// Is any variable in the system underconstrained?
     pub fn is_underconstrained(&self) -> bool {
         !self.underconstrained.is_empty()
+    }
+
+    /// These variables are underconstrained, and the user could (probably should)
+    /// add more constraints so that their positions are properly specified and don't
+    /// depend on the initial guesses.
+    pub fn underconstrained(&self) -> &[crate::Id] {
+        &self.underconstrained
+    }
+
+    /// Just like [`underconstrained`] except it consumes the struct to take ownership.
+    pub fn into_underconstrained(self) -> Vec<crate::Id> {
+        self.underconstrained
+    }
+}
+
+impl From<FreedomAnalysis> for Vec<crate::Id> {
+    fn from(analysis: FreedomAnalysis) -> Vec<crate::Id> {
+        analysis.into_underconstrained()
     }
 }
 

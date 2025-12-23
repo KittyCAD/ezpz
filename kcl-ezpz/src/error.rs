@@ -7,7 +7,7 @@ use crate::Id;
 
 /// Errors from parsing and executing ezpz's textual representation.
 #[derive(thiserror::Error, Debug)]
-#[non_exhaustive]
+#[cfg_attr(not(feature = "unstable-exhaustive"), non_exhaustive)]
 pub enum TextualError {
     /// No initial guess was given for this label.
     #[error("No guess was given for point {label}")]
@@ -31,7 +31,7 @@ pub enum TextualError {
 
 /// Errors that could occur when running the core Newton-Gauss solve.
 #[derive(thiserror::Error, Debug)]
-#[non_exhaustive]
+#[cfg_attr(not(feature = "unstable-exhaustive"), non_exhaustive)]
 pub enum NonLinearSystemError {
     /// ID was not found.
     #[error("ID {0} not found")]

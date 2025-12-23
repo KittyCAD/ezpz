@@ -5,7 +5,7 @@ use crate::{
 };
 
 /// Something bad that users should know about.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct Warning {
     /// If this warning is about a particular constraint, which constraint?
@@ -16,9 +16,9 @@ pub struct Warning {
 }
 
 /// What went wrong, or should be done differently.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 #[cfg_attr(test, derive(PartialEq))]
-#[non_exhaustive]
+#[cfg_attr(not(feature = "unstable-exhaustive"), non_exhaustive)]
 pub enum WarningContent {
     /// The constraint was satisfied, but only by a degenerate solution,
     /// e.g. making a line where both points are the same.
