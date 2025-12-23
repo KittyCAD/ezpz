@@ -886,25 +886,25 @@ impl Constraint {
                 let pds = match expected_angle {
                     AngleKind::Parallel => PartialDerivatives4Points {
                         // Residual: R = (x1-x0)*(y3-y2) - (y1-y0)*(x3-x2)
-                        dr_dx0: y2 - y3,
-                        dr_dy0: -x2 + x3,
-                        dr_dx1: -y2 + y3,
-                        dr_dy1: x2 - x3,
-                        dr_dx2: -y0 + y1,
-                        dr_dy2: x0 - x1,
-                        dr_dx3: y0 - y1,
-                        dr_dy3: -x0 + x1,
+                        x0: y2 - y3,
+                        y0: -x2 + x3,
+                        x1: -y2 + y3,
+                        y1: x2 - x3,
+                        x2: -y0 + y1,
+                        y2: x0 - x1,
+                        x3: y0 - y1,
+                        y3: -x0 + x1,
                     },
                     AngleKind::Perpendicular => PartialDerivatives4Points {
                         // Residual: R = (x1-x0)*(x3-x2) + (y1-y0)*(y3-y2)
-                        dr_dx0: x2 - x3,
-                        dr_dy0: y2 - y3,
-                        dr_dx1: -x2 + x3,
-                        dr_dy1: -y2 + y3,
-                        dr_dx2: x0 - x1,
-                        dr_dy2: y0 - y1,
-                        dr_dx3: -x0 + x1,
-                        dr_dy3: -y0 + y1,
+                        x0: x2 - x3,
+                        y0: y2 - y3,
+                        x1: -x2 + x3,
+                        y1: -y2 + y3,
+                        x2: x0 - x1,
+                        y2: y0 - y1,
+                        x3: -x0 + x1,
+                        y3: -y0 + y1,
                     },
                     AngleKind::Other(_expected_angle) => {
                         // Expected angle isn't used because its derivative is zero.
@@ -930,14 +930,14 @@ impl Constraint {
                         let mag1_squared = mag1.powi(2);
 
                         PartialDerivatives4Points {
-                            dr_dx0: (y0 - y1) / mag0_squared,
-                            dr_dy0: (-x0 + x1) / mag0_squared,
-                            dr_dx1: (-y0 + y1) / mag0_squared,
-                            dr_dy1: (x0 - x1) / mag0_squared,
-                            dr_dx2: (-y2 + y3) / mag1_squared,
-                            dr_dy2: (x2 - x3) / mag1_squared,
-                            dr_dx3: (y2 - y3) / mag1_squared,
-                            dr_dy3: (-x2 + x3) / mag1_squared,
+                            x0: (y0 - y1) / mag0_squared,
+                            y0: (-x0 + x1) / mag0_squared,
+                            x1: (-y0 + y1) / mag0_squared,
+                            y1: (x0 - x1) / mag0_squared,
+                            x2: (-y2 + y3) / mag1_squared,
+                            y2: (x2 - x3) / mag1_squared,
+                            x3: (y2 - y3) / mag1_squared,
+                            y3: (-x2 + x3) / mag1_squared,
                         }
                     }
                 };
@@ -970,14 +970,14 @@ impl Constraint {
 
                 // Calculate derivatives.
                 let pds = PartialDerivatives4Points {
-                    dr_dx0: (x0 - x1) / len0,
-                    dr_dy0: (y0 - y1) / len0,
-                    dr_dx1: (-x0 + x1) / len0,
-                    dr_dy1: (-y0 + y1) / len0,
-                    dr_dx2: (-x2 + x3) / len1,
-                    dr_dy2: (-y2 + y3) / len1,
-                    dr_dx3: (x2 - x3) / len1,
-                    dr_dy3: (y2 - y3) / len1,
+                    x0: (x0 - x1) / len0,
+                    y0: (y0 - y1) / len0,
+                    x1: (-x0 + x1) / len0,
+                    y1: (-y0 + y1) / len0,
+                    x2: (-x2 + x3) / len1,
+                    y2: (-y2 + y3) / len1,
+                    x3: (x2 - x3) / len1,
+                    y3: (y2 - y3) / len1,
                 };
                 let jvars = pds.jvars(line0, line1);
                 row0.extend(jvars.as_slice());
@@ -1890,16 +1890,18 @@ fn pds_for_point_line(
     ]
 }
 
+/// Partial derivatives for all 4 points that exist
+/// in a line segment.
 #[derive(Debug)]
 struct PartialDerivatives4Points {
-    dr_dx0: f64,
-    dr_dy0: f64,
-    dr_dx1: f64,
-    dr_dy1: f64,
-    dr_dx2: f64,
-    dr_dy2: f64,
-    dr_dx3: f64,
-    dr_dy3: f64,
+    x0: f64,
+    y0: f64,
+    x1: f64,
+    y1: f64,
+    x2: f64,
+    y2: f64,
+    x3: f64,
+    y3: f64,
 }
 
 impl PartialDerivatives4Points {
@@ -1907,35 +1909,35 @@ impl PartialDerivatives4Points {
         [
             JacobianVar {
                 id: line0.p0.id_x(),
-                partial_derivative: self.dr_dx0,
+                partial_derivative: self.x0,
             },
             JacobianVar {
                 id: line0.p0.id_y(),
-                partial_derivative: self.dr_dy0,
+                partial_derivative: self.y0,
             },
             JacobianVar {
                 id: line0.p1.id_x(),
-                partial_derivative: self.dr_dx1,
+                partial_derivative: self.x1,
             },
             JacobianVar {
                 id: line0.p1.id_y(),
-                partial_derivative: self.dr_dy1,
+                partial_derivative: self.y1,
             },
             JacobianVar {
                 id: line1.p0.id_x(),
-                partial_derivative: self.dr_dx2,
+                partial_derivative: self.x2,
             },
             JacobianVar {
                 id: line1.p0.id_y(),
-                partial_derivative: self.dr_dy2,
+                partial_derivative: self.y2,
             },
             JacobianVar {
                 id: line1.p1.id_x(),
-                partial_derivative: self.dr_dx3,
+                partial_derivative: self.x3,
             },
             JacobianVar {
                 id: line1.p1.id_y(),
-                partial_derivative: self.dr_dy3,
+                partial_derivative: self.y3,
             },
         ]
     }
