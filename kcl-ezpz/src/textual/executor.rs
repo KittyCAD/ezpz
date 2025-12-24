@@ -15,10 +15,10 @@ use crate::SolveOutcomeAnalysis;
 use crate::Warning;
 use crate::datatypes;
 use crate::datatypes::AngleKind;
-use crate::datatypes::DatumCircularArc;
-use crate::datatypes::DatumDistance;
-use crate::datatypes::DatumPoint;
-use crate::datatypes::DatumLineSegment;
+use crate::datatypes::inputs::DatumCircularArc;
+use crate::datatypes::inputs::DatumDistance;
+use crate::datatypes::inputs::DatumLineSegment;
+use crate::datatypes::inputs::DatumPoint;
 use crate::datatypes::outputs::Arc;
 use crate::datatypes::outputs::{Circle, Component, Point};
 use crate::error::TextualError;
@@ -196,7 +196,7 @@ impl Problem {
                     let center_id = datum_point_for_label(&Label(format!("{circ}.center")))?;
                     let radius_id = datum_distance_for_label(&Label(format!("{circ}.radius")))?;
                     constraints.push(Constraint::CircleRadius(
-                        datatypes::DatumCircle {
+                        datatypes::inputs::DatumCircle {
                             center: center_id,
                             radius: radius_id,
                         },
@@ -248,7 +248,7 @@ impl Problem {
                     };
                     constraints.push(Constraint::LineTangentToCircle(
                         line,
-                        datatypes::DatumCircle {
+                        datatypes::inputs::DatumCircle {
                             center: center_id,
                             radius: radius_id,
                         },

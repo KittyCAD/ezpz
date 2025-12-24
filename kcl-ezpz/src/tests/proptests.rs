@@ -4,8 +4,8 @@ use proptest::prelude::*;
 
 use crate::{
     Config, Constraint, ConstraintRequest, EPSILON, Id, IdGenerator,
+    datatypes::inputs::{DatumCircularArc, DatumLineSegment, DatumPoint},
     datatypes::outputs::Point,
-    datatypes::{DatumCircularArc, DatumPoint, DatumLineSegment},
     solve,
     tests::assert_nearly_eq,
 };

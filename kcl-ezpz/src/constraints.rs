@@ -1,4 +1,4 @@
-use crate::{EPSILON, datatypes::*, id::Id, solver::Layout, vector::V};
+use crate::{EPSILON, datatypes::inputs::*, datatypes::*, id::Id, solver::Layout, vector::V};
 use std::f64::consts::PI;
 
 #[derive(Clone, Copy, Debug)]

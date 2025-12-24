@@ -2,7 +2,11 @@ use std::{f64::consts::PI, str::FromStr};
 
 use super::*;
 use crate::{
-    datatypes::{Angle, DatumCircularArc, DatumPoint, outputs::Point},
+    datatypes::{
+        Angle,
+        inputs::{DatumCircularArc, DatumPoint},
+        outputs::Point,
+    },
     textual::{OutcomeAnalysis, Problem},
 };
 
@@ -677,7 +681,7 @@ fn arc_length_degenerate_warns() {
 
 #[test]
 fn strange_nonconvergence() {
-    use crate::datatypes::DatumPoint;
+    use crate::datatypes::inputs::DatumPoint;
     let p = DatumPoint { x_id: 0, y_id: 1 };
     let q = DatumPoint { x_id: 2, y_id: 3 };
     let r = DatumPoint { x_id: 4, y_id: 5 };
@@ -690,8 +694,8 @@ fn strange_nonconvergence() {
         ConstraintRequest::highest_priority(Constraint::PointsCoincident(r, s)),
         ConstraintRequest::highest_priority(Constraint::PointsCoincident(q, p)),
         ConstraintRequest::highest_priority(Constraint::LinesEqualLength(
-            datatypes::DatumLineSegment { p0: q, p1: r },
-            datatypes::DatumLineSegment { p0: s, p1: t },
+            datatypes::inputs::DatumLineSegment { p0: q, p1: r },
+            datatypes::inputs::DatumLineSegment { p0: s, p1: t },
         )),
     ];
     let initial_guesses = vec![

@@ -92,7 +92,10 @@ mod tests {
     use crate::{
         Constraint,
         constraints::ConstraintEntry,
-        datatypes::{Angle, AngleKind, DatumPoint, DatumLineSegment},
+        datatypes::{
+            Angle, AngleKind,
+            inputs::{DatumLineSegment, DatumPoint},
+        },
     };
 
     fn make_lines(angle: Angle) -> Constraint {

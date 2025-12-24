@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::{Id, IdGenerator, datatypes::DatumPoint, datatypes::outputs::Point};
+use crate::{Id, IdGenerator, datatypes::inputs::DatumPoint, datatypes::outputs::Point};
 
 const VARS_PER_POINT: usize = 2;
 const VARS_PER_CIRCLE: usize = 3;

@@ -7,7 +7,7 @@ use crate::analysis::{Analysis, NoAnalysis, SolveOutcomeAnalysis};
 pub use crate::constraint_request::ConstraintRequest;
 pub use crate::constraints::Constraint;
 use crate::constraints::ConstraintEntry;
-use crate::datatypes::{DatumCircle, DatumCircularArc, DatumDistance, DatumPoint};
+use crate::datatypes::inputs::{DatumCircle, DatumCircularArc, DatumDistance, DatumPoint};
 pub use crate::error::*;
 pub use crate::solver::Config;
 // Only public for now so that I can benchmark it.

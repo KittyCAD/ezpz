@@ -428,7 +428,7 @@ impl Model<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::datatypes::DatumPoint;
+    use crate::datatypes::inputs::DatumPoint;
 
     #[test]
     fn reports_missing_guess_for_second_row_ids() {

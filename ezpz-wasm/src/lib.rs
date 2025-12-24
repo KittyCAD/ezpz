@@ -1,6 +1,6 @@
 use kcl_ezpz::{
     Config, Constraint, ConstraintRequest, IdGenerator,
-    datatypes::{DatumPoint, DatumLineSegment},
+    datatypes::inputs::{DatumLineSegment, DatumPoint},
     solve,
 };
 use wasm_bindgen::prelude::*;

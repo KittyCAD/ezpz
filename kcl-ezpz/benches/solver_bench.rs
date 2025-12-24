@@ -4,7 +4,7 @@ use std::{hint::black_box, str::FromStr};
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use kcl_ezpz::{
     Config, Constraint, ConstraintRequest, IdGenerator,
-    datatypes::{DatumPoint, DatumLineSegment},
+    datatypes::inputs::{DatumLineSegment, DatumPoint},
     solve,
     textual::Problem,
 };
