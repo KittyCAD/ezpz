@@ -1,10 +1,10 @@
 [package]
 name = "kcl-ezpz"
-version = "0.2.11"
+version = "0.2.12"
 edition = "2024"
 description = "A constraint solver for KCL and Zoo Design Studio"
 repository = "https://github.com/KittyCAD/ezpz"
-readme = "../README.md"
+readme = "README.md"
 keywords = ["constraint-solver", "cad", "geometry"]
 categories = ["mathematics"]
 license = "MIT"
