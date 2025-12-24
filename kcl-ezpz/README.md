@@ -4,7 +4,7 @@ This is a 2D constraint solver, for use in CAD or graphics applications.
 
 ## Usage
 ```rust
-use kcl_ezpz::{Config, solve, Constraint, ConstraintRequest, datatypes::DatumPoint, IdGenerator};
+use kcl_ezpz::{Config, solve, Constraint, ConstraintRequest, datatypes::inputs::DatumPoint, IdGenerator};
 
 // Define the geometry.
 // These entities don't have known positions or dimensions yet, the solver

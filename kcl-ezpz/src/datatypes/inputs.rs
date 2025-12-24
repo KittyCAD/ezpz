@@ -6,7 +6,7 @@ pub(crate) trait Datum {
     fn all_variables(&self) -> impl IntoIterator<Item = Id>;
 }
 
-/// A distance that can be found by the constraint solver.
+/// A distance that can be determined by the constraint solver.
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct DatumDistance {
@@ -27,7 +27,7 @@ impl Datum for DatumDistance {
     }
 }
 
-/// 2D point.
+/// 2D point, whose position can be determined by the constraint solver.
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct DatumPoint {
@@ -71,6 +71,8 @@ impl Datum for DatumPoint {
 }
 
 /// Finite segment of a line.
+/// It has two points, one at each end, and those points
+/// can be determined by the constraint solver.
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct DatumLineSegment {
@@ -98,7 +100,7 @@ impl Datum for DatumLineSegment {
     }
 }
 
-/// A circle.
+/// A circle, whose radius and position can be determined by the constraint solver.
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct DatumCircle {
@@ -116,6 +118,7 @@ impl Datum for DatumCircle {
 }
 
 /// Arc on the perimeter of a circle.
+/// The arc's start, end and center can be determined by the constraint solver.
 /// The arc always goes counter-clockwise from start to end.
 /// To get a clockwise arc, swap start and end.
 #[derive(Clone, Copy, Debug)]
