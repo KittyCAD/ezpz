@@ -7,11 +7,13 @@ use crate::analysis::{Analysis, NoAnalysis, SolveOutcomeAnalysis};
 pub use crate::constraint_request::ConstraintRequest;
 pub use crate::constraints::Constraint;
 use crate::constraints::ConstraintEntry;
+use crate::datatypes::{CircularArc, DatumCircle, DatumDistance, DatumPoint};
 pub use crate::error::*;
 pub use crate::solver::Config;
 // Only public for now so that I can benchmark it.
 // TODO: Replace this with an end-to-end benchmark,
 // or find a different way to structure modules.
+use crate::datatypes::outputs::{Arc, Circle, Point};
 pub use crate::id::{Id, IdGenerator};
 use crate::solver::Model;
 pub use warnings::{Warning, WarningContent};
@@ -59,22 +61,58 @@ impl SolveOutcome {
     pub fn unsatisfied(&self) -> &[usize] {
         &self.unsatisfied
     }
+
     /// Each variable's final value.
     pub fn final_values(&self) -> &[f64] {
         &self.final_values
     }
+
     /// How many iterations of Newton's method were required?
     pub fn iterations(&self) -> usize {
         self.iterations
     }
+
     /// Anything that went wrong either in problem definition or during solving it.
     pub fn warnings(&self) -> &[Warning] {
         &self.warnings
     }
+
     /// What is the lowest priority that got solved?
     /// 0 is the highest priority. Larger numbers are lower priority.
     pub fn priority_solved(&self) -> u32 {
         self.priority_solved
+    }
+
+    /// Look up the solved value for this distance.
+    fn final_value_scalar(&self, id: Id) -> f64 {
+        self.final_values[id as usize]
+    }
+
+    /// Look up the solved value for this distance.
+    pub fn final_value_distance(&self, distance: &DatumDistance) -> f64 {
+        self.final_values[distance.id as usize]
+    }
+
+    /// Look up the solved values for this point.
+    pub fn final_value_point(&self, point: &DatumPoint) -> Point {
+        let x = self.final_value_scalar(point.id_x());
+        let y = self.final_value_scalar(point.id_y());
+        Point { x, y }
+    }
+
+    /// Look up the solved values for this arc.
+    pub fn final_value_arc(&self, arc: &CircularArc) -> Arc {
+        let a = self.final_value_point(&arc.start);
+        let b = self.final_value_point(&arc.end);
+        let c = self.final_value_point(&arc.center);
+        Arc { a, b, center: c }
+    }
+
+    /// Look up the solved values for this circle.
+    pub fn final_value_circle(&self, circle: &DatumCircle) -> Circle {
+        let center = self.final_value_point(&circle.center);
+        let radius = self.final_value_distance(&circle.radius);
+        Circle { center, radius }
     }
 }
 
@@ -158,7 +196,7 @@ pub fn solve(
     Ok(out.outcome)
 }
 
-/// Just like [`solve_with_priority`] except it also does some expensive analysis steps
+/// Just like [`solve`] except it also does some expensive analysis steps
 /// at the end. This lets it calculate helpful data for the user, like degrees of freedom.
 /// Should not be called on every iteration of a system when you change the initial values!
 /// Just call this when you change the constraint structure.

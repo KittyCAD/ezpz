@@ -1,5 +1,7 @@
 use crate::{IdGenerator, id::Id};
 
+pub mod outputs;
+
 pub(crate) trait Datum {
     fn all_variables(&self) -> impl IntoIterator<Item = Id>;
 }
@@ -167,14 +169,14 @@ impl Datum for LineSegment {
 /// A circle.
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
-pub struct Circle {
+pub struct DatumCircle {
     /// Center of the circle.
     pub center: DatumPoint,
     /// Radius distance of the circle.
     pub radius: DatumDistance,
 }
 
-impl Datum for Circle {
+impl Datum for DatumCircle {
     /// Get all IDs of all variables, i.e. center components and radius.
     fn all_variables(&self) -> impl IntoIterator<Item = Id> {
         [self.center.id_x(), self.center.id_y(), self.radius.id]
@@ -237,7 +239,7 @@ mod tests {
             vec![0, 1, 2, 3]
         );
 
-        let circle = Circle {
+        let circle = DatumCircle {
             center: p0,
             radius: DatumDistance::new(ids.next_id()),
         };

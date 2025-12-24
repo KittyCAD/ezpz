@@ -26,7 +26,7 @@ pub enum Constraint {
     /// (i.e. touches its perimeter in exactly one place)
     /// Note this constraint is directional: making circle C
     /// tangent to PQ will produce a different solution to QP.
-    LineTangentToCircle(LineSegment, Circle),
+    LineTangentToCircle(LineSegment, DatumCircle),
     /// These two points should be a given distance apart.
     Distance(DatumPoint, DatumPoint, f64),
     /// These two points should be a given vertical distance apart.
@@ -47,7 +47,7 @@ pub enum Constraint {
     /// These two points must coincide.
     PointsCoincident(DatumPoint, DatumPoint),
     /// Constraint radius of a circle
-    CircleRadius(Circle, f64),
+    CircleRadius(DatumCircle, f64),
     /// These lines should be the same distance.
     LinesEqualLength(LineSegment, LineSegment),
     /// The arc should have the given radius.

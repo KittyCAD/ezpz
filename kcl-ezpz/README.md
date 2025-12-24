@@ -4,51 +4,52 @@ This is a 2D constraint solver, for use in CAD or graphics applications.
 
 ## Usage
 ```rust
-    use kcl_ezpz::datatypes::DatumPoint;
-    use kcl_ezpz::{Config, solve, Constraint, ConstraintRequest};
-    let p = DatumPoint { x_id: 0, y_id: 1 };
-    let q = DatumPoint { x_id: 2, y_id: 3 };
-    let r = DatumPoint { x_id: 4, y_id: 5 };
-    let s = DatumPoint { x_id: 6, y_id: 7 };
+use kcl_ezpz::{Config, solve, Constraint, ConstraintRequest, datatypes::DatumPoint, IdGenerator};
 
+// Define the geometry.
+// These entities don't have known positions or dimensions yet, the solver
+// will place them for us.
+let mut ids = IdGenerator::default();
+let p = DatumPoint::new(&mut ids);
+let q = DatumPoint::new(&mut ids);
 
-    let requests = [
-        // Fix P to the origin
-        ConstraintRequest::highest_priority(Constraint::Fixed(p.id_x(), 0.0)),
-        ConstraintRequest::highest_priority(Constraint::Fixed(p.id_y(), 0.0)),
-        // P and Q should be 4 units apart.
-        ConstraintRequest::highest_priority(Constraint::Distance(p, q, 4.0)),
-    ];
-    let initial_guesses = vec![
-        (0, 0.0),
-        (1, -0.02),
-        (2, 4.39),
-        (3, 4.38),
-    ];
-    let outcome = solve(
-        &requests,
-        initial_guesses,
-        Config::default(),
-    );
-    match outcome {
-      Ok(solution) => {
-        assert!(solution.is_satisfied());
-        let (px, py) = (
-          solution.final_values()[q.id_x() as usize],
-          solution.final_values()[q.id_y() as usize],
-        );
-        let (qx, qy) = (
-          solution.final_values()[q.id_x() as usize],
-          solution.final_values()[q.id_y() as usize],
-        );
-        println!("P = ({px}, {py})");
-        println!("Q = ({qx}, {qy})");
-      }
-      Err(e) => {
-        eprintln!("ezpz could not solve this constraint system: {}", e.error);
-      }
-    }
+// Define constraints on the geometric entities (their dimensions and relation to each other).
+let requests = [
+    // Fix P to the origin
+    ConstraintRequest::highest_priority(Constraint::Fixed(p.id_x(), 0.0)),
+    ConstraintRequest::highest_priority(Constraint::Fixed(p.id_y(), 0.0)),
+    // P and Q should be 4 units apart.
+    ConstraintRequest::highest_priority(Constraint::Distance(p, q, 4.0)),
+];
 
+// Provide some initial guesses to the solver for their locations.
+let initial_guesses = vec![
+    (p.id_x(), 0.0),
+    (p.id_y(), -0.02),
+    (q.id_x(), 4.39),
+    (q.id_y(), 4.38),
+];
+
+// Run the solver!
+let outcome = solve(
+    &requests,
+    initial_guesses,
+    Config::default(),
+);
+
+// Check the outcome.
+match outcome {
+  Ok(solution) => {
+    assert!(solution.is_satisfied());
+    let solved_p = solution.final_value_point(&p);
+    let solved_q = solution.final_value_point(&q);
+    println!("P = ({}, {})", solved_p.x, solved_p.y);
+    println!("Q = ({}, {})", solved_q.x, solved_q.y);
+  }
+  Err(e) => {
+    eprintln!("ezpz could not solve this constraint system: {}", e.error);
+  }
+}
 ```
 
 ## Constraint problem files

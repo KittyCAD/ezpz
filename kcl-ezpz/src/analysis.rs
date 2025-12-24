@@ -59,7 +59,7 @@ impl FreedomAnalysis {
         &self.underconstrained
     }
 
-    /// Just like [`underconstrained`] except it consumes the struct to take ownership.
+    /// Just like [`FreedomAnalysis::underconstrained`] except it consumes the struct to take ownership.
     pub fn into_underconstrained(self) -> Vec<crate::Id> {
         self.underconstrained
     }

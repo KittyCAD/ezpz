@@ -19,14 +19,15 @@ use crate::datatypes::CircularArc;
 use crate::datatypes::DatumDistance;
 use crate::datatypes::DatumPoint;
 use crate::datatypes::LineSegment;
+use crate::datatypes::outputs::Arc;
+use crate::datatypes::outputs::{Circle, Component, Point};
 use crate::error::TextualError;
-use crate::textual::Arc;
+use crate::textual::Label;
 use crate::textual::geometry_variables::DoneState;
 use crate::textual::geometry_variables::GeometryVariables;
 use crate::textual::geometry_variables::PointsState;
 use crate::textual::geometry_variables::VARS_PER_ARC;
 use crate::textual::instruction::*;
-use crate::textual::{Circle, Component, Label, Point};
 
 use super::Instruction;
 use super::Problem;
@@ -195,7 +196,7 @@ impl Problem {
                     let center_id = datum_point_for_label(&Label(format!("{circ}.center")))?;
                     let radius_id = datum_distance_for_label(&Label(format!("{circ}.radius")))?;
                     constraints.push(Constraint::CircleRadius(
-                        datatypes::Circle {
+                        datatypes::DatumCircle {
                             center: center_id,
                             radius: radius_id,
                         },
@@ -247,7 +248,7 @@ impl Problem {
                     };
                     constraints.push(Constraint::LineTangentToCircle(
                         line,
-                        datatypes::Circle {
+                        datatypes::DatumCircle {
                             center: center_id,
                             radius: radius_id,
                         },

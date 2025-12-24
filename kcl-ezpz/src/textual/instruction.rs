@@ -1,6 +1,6 @@
-use crate::datatypes::Angle;
+use crate::datatypes::{Angle, outputs::Component};
 
-use super::{Component, Label};
+use super::Label;
 
 #[derive(Debug)]
 pub(crate) enum Instruction {
