@@ -5,6 +5,7 @@ edition = "2024"
 repository = "https://github.com/KittyCAD/ezpz"
 description = "CLI for using the ezpz constraint solver"
 license = "MIT"
+publish = false
 
 [[bin]]
 path = "src/main.rs"

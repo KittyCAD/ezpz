@@ -1,5 +1,4 @@
-//! Efficient Zoo Problem Zolver.
-//! Solves 2D constraint systems.
+#![doc = include_str!("../README.md")]
 
 use std::collections::HashSet;
 
