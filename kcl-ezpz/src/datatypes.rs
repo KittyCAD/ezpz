@@ -141,21 +141,21 @@ impl Datum for DatumPoint {
 /// Finite segment of a line.
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
-pub struct LineSegment {
+pub struct DatumLineSegment {
     /// Point for one end of this line.
     pub p0: DatumPoint,
     /// Point for the other end of this line.
     pub p1: DatumPoint,
 }
 
-impl LineSegment {
+impl DatumLineSegment {
     /// Create a new `LineSegment`.
     pub fn new(p0: DatumPoint, p1: DatumPoint) -> Self {
         Self { p0, p1 }
     }
 }
 
-impl Datum for LineSegment {
+impl Datum for DatumLineSegment {
     fn all_variables(&self) -> impl IntoIterator<Item = Id> {
         [
             self.p0.id_x(),
@@ -188,7 +188,7 @@ impl Datum for DatumCircle {
 /// To get a clockwise arc, swap start and end.
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
-pub struct CircularArc {
+pub struct DatumCircularArc {
     /// Center of the circle
     pub center: DatumPoint,
     /// Start point of the arc.
@@ -199,7 +199,7 @@ pub struct CircularArc {
     pub end: DatumPoint,
 }
 
-impl Datum for CircularArc {
+impl Datum for DatumCircularArc {
     fn all_variables(&self) -> impl IntoIterator<Item = Id> {
         [
             self.start.id_x(),
@@ -233,7 +233,7 @@ mod tests {
         let mut ids = IdGenerator::default();
         let p0 = DatumPoint::new(&mut ids);
         let p1 = DatumPoint::new(&mut ids);
-        let line = LineSegment::new(p0, p1);
+        let line = DatumLineSegment::new(p0, p1);
         assert_eq!(
             line.all_variables().into_iter().collect::<Vec<_>>(),
             vec![0, 1, 2, 3]
@@ -248,7 +248,7 @@ mod tests {
             vec![0, 1, 4]
         );
 
-        let arc = CircularArc {
+        let arc = DatumCircularArc {
             center: p0,
             start: p1,
             end: DatumPoint::new_xy(6, 7),
