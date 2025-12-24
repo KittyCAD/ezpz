@@ -149,7 +149,7 @@ impl FailureOutcome {
 
 /// Given some initial guesses, constrain them.
 /// Returns the same variables in the same order, but constrained.
-pub fn solve_with_priority(
+pub fn solve(
     reqs: &[ConstraintRequest],
     initial_guesses: Vec<(Id, f64)>,
     config: Config,
@@ -162,7 +162,7 @@ pub fn solve_with_priority(
 /// at the end. This lets it calculate helpful data for the user, like degrees of freedom.
 /// Should not be called on every iteration of a system when you change the initial values!
 /// Just call this when you change the constraint structure.
-pub fn solve_with_priority_analysis(
+pub fn solve_analysis(
     reqs: &[ConstraintRequest],
     initial_guesses: Vec<(Id, f64)>,
     config: Config,

@@ -5,7 +5,7 @@ This is a 2D constraint solver, for use in CAD or graphics applications.
 ## Usage
 ```rust
     use kcl_ezpz::datatypes::DatumPoint;
-    use kcl_ezpz::{Config, solve_with_priority, Constraint, ConstraintRequest};
+    use kcl_ezpz::{Config, solve, Constraint, ConstraintRequest};
     let p = DatumPoint { x_id: 0, y_id: 1 };
     let q = DatumPoint { x_id: 2, y_id: 3 };
     let r = DatumPoint { x_id: 4, y_id: 5 };
@@ -25,14 +25,24 @@ This is a 2D constraint solver, for use in CAD or graphics applications.
         (2, 4.39),
         (3, 4.38),
     ];
-    let outcome = solve_with_priority(
+    let outcome = solve(
         &requests,
         initial_guesses,
         Config::default(),
     );
     match outcome {
-      Ok(outcome) => {
-        // Handle the outcome, extract points
+      Ok(solution) => {
+        assert!(solution.is_satisfied());
+        let (px, py) = (
+          solution.final_values()[q.id_x() as usize],
+          solution.final_values()[q.id_y() as usize],
+        );
+        let (qx, qy) = (
+          solution.final_values()[q.id_x() as usize],
+          solution.final_values()[q.id_y() as usize],
+        );
+        println!("P = ({px}, {py})");
+        println!("Q = ({qx}, {qy})");
       }
       Err(e) => {
         eprintln!("ezpz could not solve this constraint system: {}", e.error);

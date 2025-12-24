@@ -15,7 +15,7 @@ pub struct SuccessfulSolve {
 
 impl Model<'_> {
     #[inline(never)]
-    pub fn solve_gauss_newton(
+    pub(crate) fn solve_gauss_newton(
         &mut self,
         current_values: &mut [f64],
         config: Config,

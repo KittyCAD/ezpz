@@ -5,7 +5,7 @@ use proptest::prelude::*;
 use crate::{
     Config, Constraint, ConstraintRequest, EPSILON, Id, IdGenerator,
     datatypes::{CircularArc, DatumPoint, LineSegment},
-    solve_with_priority,
+    solve,
     tests::assert_nearly_eq,
     textual::Point,
 };
@@ -71,7 +71,7 @@ proptest! {
         ];
 
         // Invariant: solve should succeed.
-        let outcome = solve_with_priority(
+        let outcome = solve(
             &requests,
             initial_guesses,
             Config::default(),
@@ -109,7 +109,7 @@ proptest! {
             ConstraintRequest::highest_priority(Constraint::VerticalDistance(p0, p1, desired_distance)),
         ];
 
-        let outcome = solve_with_priority(&requests, initial_guesses, Config::default())
+        let outcome = solve(&requests, initial_guesses, Config::default())
             .expect("this constraint system should converge and be solvable");
 
         assert!(outcome.is_satisfied(), "the vertical distance constraint should be satisfied");
@@ -150,7 +150,7 @@ proptest! {
             )),
         ];
 
-        let outcome = solve_with_priority(&requests, initial_guesses, Config::default())
+        let outcome = solve(&requests, initial_guesses, Config::default())
             .expect("this constraint system should converge and be solvable");
 
         assert!(outcome.is_satisfied(), "the horizontal distance constraint should be satisfied");
@@ -347,7 +347,7 @@ fn test_point_arc_length(
     .collect();
 
     // Solve it.
-    let outcome = solve_with_priority(&requests, initial_guesses, Config::default())
+    let outcome = solve(&requests, initial_guesses, Config::default())
         .expect("this constraint system should converge and be solvable");
 
     assert!(outcome.is_satisfied(), "the constraint should be satisfied");
@@ -445,7 +445,7 @@ fn test_point_arc_coincident(
     .collect();
 
     // Solve it.
-    let outcome = solve_with_priority(&requests, initial_guesses, Config::default())
+    let outcome = solve(&requests, initial_guesses, Config::default())
         .expect("this constraint system should converge and be solvable");
 
     assert!(outcome.is_satisfied(), "the constraint should be satisfied");
@@ -515,7 +515,7 @@ fn test_vertical_pld(
         )),
     ];
 
-    let outcome = solve_with_priority(&requests, initial_guesses, Config::default())
+    let outcome = solve(&requests, initial_guesses, Config::default())
         .expect("this constraint system should converge and be solvable");
 
     assert!(outcome.is_satisfied(), "the constraint should be satisfied");
@@ -573,7 +573,7 @@ fn test_horizontal_pld(
         )),
     ];
 
-    let outcome = solve_with_priority(&requests, initial_guesses, Config::default())
+    let outcome = solve(&requests, initial_guesses, Config::default())
         .expect("this constraint system should converge and be solvable");
 
     assert!(outcome.is_satisfied(), "the constraint should be satisfied");

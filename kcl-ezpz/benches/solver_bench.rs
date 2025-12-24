@@ -5,7 +5,7 @@ use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_m
 use kcl_ezpz::{
     Config, Constraint, ConstraintRequest, IdGenerator,
     datatypes::{DatumPoint, LineSegment},
-    solve_with_priority,
+    solve,
     textual::Problem,
 };
 
@@ -128,7 +128,7 @@ fn solve_two_rectangles_dependent(c: &mut Criterion) {
     c.bench_function("solve two rectangles dependent", |b| {
         b.iter(|| {
             let _actual = black_box(
-                solve_with_priority(
+                solve(
                     &constraints.clone(),
                     initial_guesses.clone(),
                     Config::default(),

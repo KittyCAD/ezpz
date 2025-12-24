@@ -458,7 +458,7 @@ pub struct ConstraintSystem<'a> {
 impl ConstraintSystem<'_> {
     /// Solve, without carrying through metadata about the solve.
     pub fn solve_no_metadata(&self, config: Config) -> Result<SolveOutcome, FailureOutcome> {
-        crate::solve_with_priority(&self.constraints, self.initial_guesses.variables(), config)
+        crate::solve(&self.constraints, self.initial_guesses.variables(), config)
     }
 
     fn solve_no_metadata_inner<A: Analysis>(
