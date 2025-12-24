@@ -56,7 +56,7 @@ match outcome {
 
 ezpz defines a text format for writing out constraint problems. You don't have to use this format -- you can use the Rust library directly -- but it's a very convenient format. It looks like this:
 
-```ignore
+```md
 # constraints
 point p
 point q
