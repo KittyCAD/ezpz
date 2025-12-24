@@ -1,5 +1,6 @@
 use crate::{
     datatypes::Angle,
+    datatypes::outputs::{Component, Point},
     textual::{
         ScalarGuess,
         instruction::{
@@ -12,7 +13,7 @@ use crate::{
 };
 
 use super::{
-    Component, Label, Point, PointGuess, Problem,
+    Label, PointGuess, Problem,
     instruction::{DeclarePoint, FixPointComponent, Horizontal, Instruction, Vertical},
 };
 use winnow::{

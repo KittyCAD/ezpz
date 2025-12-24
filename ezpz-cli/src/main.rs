@@ -9,7 +9,8 @@ use std::{
 use clap::Parser;
 use kcl_ezpz::{
     Constraint, FailureOutcome, Warning,
-    textual::{Outcome, Point, Problem},
+    datatypes::outputs::{self, Point},
+    textual::{Outcome, Problem},
 };
 
 mod visualize;
@@ -123,19 +124,19 @@ fn print_output((outcome, duration, constraints): &RunOutcome, show_points: bool
     print_performance(*duration);
     if show_points {
         println!("Points:");
-        for (label, Point { x, y }) in points {
+        for (label, outputs::Point { x, y }) in points {
             println!("\t{label}: ({x:.2}, {y:.2})",);
         }
         if !circles.is_empty() {
             println!("Circles:");
-            for (label, kcl_ezpz::textual::Circle { radius, center }) in circles {
+            for (label, outputs::Circle { radius, center }) in circles {
                 let Point { x, y } = center;
                 println!("\t{label}: center = ({x:.2}, {y:.2}), radius = {radius:.2}",);
             }
         }
         if !arcs.is_empty() {
             println!("Arcs:");
-            for (label, kcl_ezpz::textual::Arc { a, b, center }) in arcs {
+            for (label, outputs::Arc { a, b, center }) in arcs {
                 let Point { x, y } = center;
                 let ax = a.x;
                 let ay = a.y;

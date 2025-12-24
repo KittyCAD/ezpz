@@ -4,10 +4,10 @@ use proptest::prelude::*;
 
 use crate::{
     Config, Constraint, ConstraintRequest, EPSILON, Id, IdGenerator,
+    datatypes::outputs::Point,
     datatypes::{CircularArc, DatumPoint, LineSegment},
     solve,
     tests::assert_nearly_eq,
-    textual::Point,
 };
 
 fn run(txt: &str) -> crate::textual::Outcome {

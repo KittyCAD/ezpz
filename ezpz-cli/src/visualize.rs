@@ -1,6 +1,7 @@
 use std::f64::consts::PI;
 
-use kcl_ezpz::textual::{Arc, Circle, Outcome, Point};
+use kcl_ezpz::datatypes::outputs::{Arc, Circle, Point};
+use kcl_ezpz::textual::Outcome;
 use plotters::{coord::types::RangedCoordf64, prelude::*};
 
 const POINT_COLOR: RGBColor = RGBColor(0x58, 0x50, 0x8d);

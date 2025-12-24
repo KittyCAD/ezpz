@@ -2,8 +2,8 @@ use std::{f64::consts::PI, str::FromStr};
 
 use super::*;
 use crate::{
-    datatypes::{Angle, CircularArc, DatumPoint},
-    textual::{OutcomeAnalysis, Point, Problem},
+    datatypes::{Angle, CircularArc, DatumPoint, outputs::Point},
+    textual::{OutcomeAnalysis, Problem},
 };
 
 mod proptests;
