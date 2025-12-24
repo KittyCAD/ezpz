@@ -15,10 +15,10 @@ use crate::SolveOutcomeAnalysis;
 use crate::Warning;
 use crate::datatypes;
 use crate::datatypes::AngleKind;
-use crate::datatypes::CircularArc;
-use crate::datatypes::DatumDistance;
-use crate::datatypes::DatumPoint;
-use crate::datatypes::LineSegment;
+use crate::datatypes::inputs::DatumCircularArc;
+use crate::datatypes::inputs::DatumDistance;
+use crate::datatypes::inputs::DatumLineSegment;
+use crate::datatypes::inputs::DatumPoint;
 use crate::datatypes::outputs::Arc;
 use crate::datatypes::outputs::{Circle, Component, Point};
 use crate::error::TextualError;
@@ -196,7 +196,7 @@ impl Problem {
                     let center_id = datum_point_for_label(&Label(format!("{circ}.center")))?;
                     let radius_id = datum_distance_for_label(&Label(format!("{circ}.radius")))?;
                     constraints.push(Constraint::CircleRadius(
-                        datatypes::DatumCircle {
+                        datatypes::inputs::DatumCircle {
                             center: center_id,
                             radius: radius_id,
                         },
@@ -205,7 +205,7 @@ impl Problem {
                 }
                 Instruction::ArcRadius(ArcRadius { arc_label, radius }) => {
                     let arc_label = &arc_label.0;
-                    let circular_arc = CircularArc {
+                    let circular_arc = DatumCircularArc {
                         center: datum_point_for_label(&Label(format!("{arc_label}.center")))?,
                         start: datum_point_for_label(&Label(format!("{arc_label}.a")))?,
                         end: datum_point_for_label(&Label(format!("{arc_label}.b")))?,
@@ -214,7 +214,7 @@ impl Problem {
                 }
                 Instruction::IsArc(IsArc { arc_label }) => {
                     let arc_label = &arc_label.0;
-                    let circular_arc = CircularArc {
+                    let circular_arc = DatumCircularArc {
                         center: datum_point_for_label(&Label(format!("{arc_label}.center")))?,
                         start: datum_point_for_label(&Label(format!("{arc_label}.a")))?,
                         end: datum_point_for_label(&Label(format!("{arc_label}.b")))?,
@@ -227,7 +227,7 @@ impl Problem {
                     line_p1,
                     distance,
                 }) => {
-                    let line = LineSegment {
+                    let line = DatumLineSegment {
                         p0: datum_point_for_label(line_p0)?,
                         p1: datum_point_for_label(line_p1)?,
                     };
@@ -242,13 +242,13 @@ impl Problem {
                     let circ = &circle.0;
                     let center_id = datum_point_for_label(&Label(format!("{circ}.center")))?;
                     let radius_id = datum_distance_for_label(&Label(format!("{circ}.radius")))?;
-                    let line = LineSegment {
+                    let line = DatumLineSegment {
                         p0: datum_point_for_label(line_p0)?,
                         p1: datum_point_for_label(line_p1)?,
                     };
                     constraints.push(Constraint::LineTangentToCircle(
                         line,
-                        datatypes::DatumCircle {
+                        datatypes::inputs::DatumCircle {
                             center: center_id,
                             radius: radius_id,
                         },
@@ -319,7 +319,7 @@ impl Problem {
                 Instruction::Vertical(Vertical { label }) => {
                     let p0 = datum_point_for_label(&label.0)?;
                     let p1 = datum_point_for_label(&label.1)?;
-                    constraints.push(Constraint::Vertical(LineSegment { p0, p1 }));
+                    constraints.push(Constraint::Vertical(DatumLineSegment { p0, p1 }));
                 }
                 Instruction::PointsCoincident(PointsCoincident { point0, point1 }) => {
                     let p0 = datum_point_for_label(point0)?;
@@ -329,7 +329,7 @@ impl Problem {
                 Instruction::PointArcCoincident(PointArcCoincident { point, arc }) => {
                     let p = datum_point_for_label(point)?;
                     let arc_label = &arc.0;
-                    let datum_arc = CircularArc {
+                    let datum_arc = DatumCircularArc {
                         center: datum_point_for_label(&Label(format!("{arc_label}.center")))?,
                         start: datum_point_for_label(&Label(format!("{arc_label}.a")))?,
                         end: datum_point_for_label(&Label(format!("{arc_label}.b")))?,
@@ -340,7 +340,7 @@ impl Problem {
                     let p0 = datum_point_for_label(point0)?;
                     let p1 = datum_point_for_label(point1)?;
                     let mp = datum_point_for_label(mp)?;
-                    constraints.push(Constraint::Midpoint(LineSegment { p0, p1 }, mp));
+                    constraints.push(Constraint::Midpoint(DatumLineSegment { p0, p1 }, mp));
                 }
                 Instruction::Symmetric(Symmetric { p0, p1, line }) => {
                     let p0 = datum_point_for_label(p0)?;
@@ -349,7 +349,7 @@ impl Problem {
                         datum_point_for_label(&line.0)?,
                         datum_point_for_label(&line.1)?,
                     );
-                    let line = LineSegment {
+                    let line = DatumLineSegment {
                         p0: line.0,
                         p1: line.1,
                     };
@@ -358,7 +358,7 @@ impl Problem {
                 Instruction::Horizontal(Horizontal { label }) => {
                     let p0 = datum_point_for_label(&label.0)?;
                     let p1 = datum_point_for_label(&label.1)?;
-                    constraints.push(Constraint::Horizontal(LineSegment { p0, p1 }));
+                    constraints.push(Constraint::Horizontal(DatumLineSegment { p0, p1 }));
                 }
                 Instruction::Distance(Distance { label, distance }) => {
                     let p0 = datum_point_for_label(&label.0)?;
@@ -371,8 +371,8 @@ impl Problem {
                     let p2 = datum_point_for_label(&line1.0)?;
                     let p3 = datum_point_for_label(&line1.1)?;
                     constraints.push(Constraint::lines_parallel([
-                        LineSegment { p0, p1 },
-                        LineSegment { p0: p2, p1: p3 },
+                        DatumLineSegment { p0, p1 },
+                        DatumLineSegment { p0: p2, p1: p3 },
                     ]));
                 }
                 Instruction::LinesEqualLength(LinesEqualLength { line0, line1 }) => {
@@ -381,8 +381,8 @@ impl Problem {
                     let p2 = datum_point_for_label(&line1.0)?;
                     let p3 = datum_point_for_label(&line1.1)?;
                     constraints.push(Constraint::LinesEqualLength(
-                        LineSegment { p0, p1 },
-                        LineSegment { p0: p2, p1: p3 },
+                        DatumLineSegment { p0, p1 },
+                        DatumLineSegment { p0: p2, p1: p3 },
                     ));
                 }
                 Instruction::Perpendicular(Perpendicular { line0, line1 }) => {
@@ -391,8 +391,8 @@ impl Problem {
                     let p2 = datum_point_for_label(&line1.0)?;
                     let p3 = datum_point_for_label(&line1.1)?;
                     constraints.push(Constraint::lines_perpendicular([
-                        LineSegment { p0, p1 },
-                        LineSegment { p0: p2, p1: p3 },
+                        DatumLineSegment { p0, p1 },
+                        DatumLineSegment { p0: p2, p1: p3 },
                     ]));
                 }
                 Instruction::AngleLine(AngleLine {
@@ -405,15 +405,15 @@ impl Problem {
                     let p2 = datum_point_for_label(&line1.0)?;
                     let p3 = datum_point_for_label(&line1.1)?;
                     constraints.push(Constraint::LinesAtAngle(
-                        LineSegment { p0, p1 },
-                        LineSegment { p0: p2, p1: p3 },
+                        DatumLineSegment { p0, p1 },
+                        DatumLineSegment { p0: p2, p1: p3 },
                         AngleKind::Other(*angle),
                     ));
                 }
                 Instruction::ArcLength(arc_length) => {
                     let arc_label = &arc_length.arc.0;
                     let length = arc_length.distance;
-                    let circular_arc = CircularArc {
+                    let circular_arc = DatumCircularArc {
                         center: datum_point_for_label(&Label(format!("{arc_label}.center")))?,
                         start: datum_point_for_label(&Label(format!("{arc_label}.a")))?,
                         end: datum_point_for_label(&Label(format!("{arc_label}.b")))?,

@@ -7,7 +7,7 @@ use crate::analysis::{Analysis, NoAnalysis, SolveOutcomeAnalysis};
 pub use crate::constraint_request::ConstraintRequest;
 pub use crate::constraints::Constraint;
 use crate::constraints::ConstraintEntry;
-use crate::datatypes::{CircularArc, DatumCircle, DatumDistance, DatumPoint};
+use crate::datatypes::inputs::{DatumCircle, DatumCircularArc, DatumDistance, DatumPoint};
 pub use crate::error::*;
 pub use crate::solver::Config;
 // Only public for now so that I can benchmark it.
@@ -101,7 +101,7 @@ impl SolveOutcome {
     }
 
     /// Look up the solved values for this arc.
-    pub fn final_value_arc(&self, arc: &CircularArc) -> Arc {
+    pub fn final_value_arc(&self, arc: &DatumCircularArc) -> Arc {
         let a = self.final_value_point(&arc.start);
         let b = self.final_value_point(&arc.end);
         let c = self.final_value_point(&arc.center);

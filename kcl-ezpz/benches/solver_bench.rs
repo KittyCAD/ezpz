@@ -4,7 +4,7 @@ use std::{hint::black_box, str::FromStr};
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use kcl_ezpz::{
     Config, Constraint, ConstraintRequest, IdGenerator,
-    datatypes::{DatumPoint, LineSegment},
+    datatypes::inputs::{DatumLineSegment, DatumPoint},
     solve,
     textual::Problem,
 };
@@ -63,18 +63,18 @@ fn solve_two_rectangles_dependent(c: &mut Criterion) {
     let p1 = DatumPoint::new(&mut id_generator);
     let p2 = DatumPoint::new(&mut id_generator);
     let p3 = DatumPoint::new(&mut id_generator);
-    let line0_bottom = LineSegment::new(p0, p1);
-    let line0_right = LineSegment::new(p1, p2);
-    let line0_top = LineSegment::new(p2, p3);
-    let line0_left = LineSegment::new(p3, p0);
+    let line0_bottom = DatumLineSegment::new(p0, p1);
+    let line0_right = DatumLineSegment::new(p1, p2);
+    let line0_top = DatumLineSegment::new(p2, p3);
+    let line0_left = DatumLineSegment::new(p3, p0);
     // Second square (upper case IDs)
     let p5 = DatumPoint::new(&mut id_generator);
     let p6 = DatumPoint::new(&mut id_generator);
     let p7 = DatumPoint::new(&mut id_generator);
-    let line1_bottom = LineSegment::new(p2, p5);
-    let line1_right = LineSegment::new(p5, p6);
-    let line1_top = LineSegment::new(p6, p7);
-    let line1_left = LineSegment::new(p7, p2);
+    let line1_bottom = DatumLineSegment::new(p2, p5);
+    let line1_right = DatumLineSegment::new(p5, p6);
+    let line1_top = DatumLineSegment::new(p6, p7);
+    let line1_left = DatumLineSegment::new(p7, p2);
     // First square (lower case IDs)
     let constraints0 = vec![
         Constraint::Fixed(p0.id_x(), 1.0),

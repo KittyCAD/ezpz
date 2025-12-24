@@ -4,8 +4,8 @@ use proptest::prelude::*;
 
 use crate::{
     Config, Constraint, ConstraintRequest, EPSILON, Id, IdGenerator,
+    datatypes::inputs::{DatumCircularArc, DatumLineSegment, DatumPoint},
     datatypes::outputs::Point,
-    datatypes::{CircularArc, DatumPoint, LineSegment},
     solve,
     tests::assert_nearly_eq,
 };
@@ -179,7 +179,7 @@ proptest! {
 
         let mut ids = IdGenerator::default();
         let point = DatumPoint::new(&mut ids);
-        let line = LineSegment::new(
+        let line = DatumLineSegment::new(
             DatumPoint::new(&mut ids),
             DatumPoint::new(&mut ids),
         );
@@ -220,7 +220,7 @@ proptest! {
 
         let mut ids = IdGenerator::default();
         let point = DatumPoint::new(&mut ids);
-        let line = LineSegment::new(
+        let line = DatumLineSegment::new(
             DatumPoint::new(&mut ids),
             DatumPoint::new(&mut ids),
         );
@@ -316,7 +316,7 @@ fn test_point_arc_length(
     let center = DatumPoint::new(&mut ids);
     let start = DatumPoint::new(&mut ids);
     let end = DatumPoint::new(&mut ids);
-    let arc = CircularArc { center, start, end };
+    let arc = DatumCircularArc { center, start, end };
 
     // The arc's start position is fixed, let's find the fixed points.
     let arc_start = Point {
@@ -403,7 +403,7 @@ fn test_point_arc_coincident(
     let center = DatumPoint::new(&mut ids);
     let start = DatumPoint::new(&mut ids);
     let end = DatumPoint::new(&mut ids);
-    let arc = CircularArc { center, start, end };
+    let arc = DatumCircularArc { center, start, end };
 
     // The arc's position is fixed, let's find the fixed points.
     let arc_start_x = arc_center_x + libm::cos(arc_start_radians) * arc_radius;
@@ -485,7 +485,7 @@ fn test_point_arc_coincident(
 /// `desired_distance` is a SIGNED distance, so 1 and -1 are opposite sides of the line.
 fn test_vertical_pld(
     initial_guesses: Vec<(Id, f64)>,
-    line: LineSegment,
+    line: DatumLineSegment,
     point: DatumPoint,
     desired_distance: f64,
 ) {
@@ -543,7 +543,7 @@ fn test_vertical_pld(
 
 fn test_horizontal_pld(
     initial_guesses: Vec<(Id, f64)>,
-    line: LineSegment,
+    line: DatumLineSegment,
     point: DatumPoint,
     desired_distance: f64,
 ) {

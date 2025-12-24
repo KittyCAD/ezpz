@@ -1,4 +1,4 @@
-use crate::{EPSILON, datatypes::*, id::Id, solver::Layout, vector::V};
+use crate::{EPSILON, datatypes::inputs::*, datatypes::*, id::Id, solver::Layout, vector::V};
 use std::f64::consts::PI;
 
 #[derive(Clone, Copy, Debug)]
@@ -26,7 +26,7 @@ pub enum Constraint {
     /// (i.e. touches its perimeter in exactly one place)
     /// Note this constraint is directional: making circle C
     /// tangent to PQ will produce a different solution to QP.
-    LineTangentToCircle(LineSegment, DatumCircle),
+    LineTangentToCircle(DatumLineSegment, DatumCircle),
     /// These two points should be a given distance apart.
     Distance(DatumPoint, DatumPoint, f64),
     /// These two points should be a given vertical distance apart.
@@ -34,11 +34,11 @@ pub enum Constraint {
     /// These two points should be a given horizontal distance apart.
     HorizontalDistance(DatumPoint, DatumPoint, f64),
     /// These two points have the same Y value.
-    Vertical(LineSegment),
+    Vertical(DatumLineSegment),
     /// These two points have the same X value.
-    Horizontal(LineSegment),
+    Horizontal(DatumLineSegment),
     /// These lines meet at this angle.
-    LinesAtAngle(LineSegment, LineSegment, AngleKind),
+    LinesAtAngle(DatumLineSegment, DatumLineSegment, AngleKind),
     /// Some scalar value is fixed.
     Fixed(Id, f64),
     /// These two scalar values are the same.
@@ -49,26 +49,26 @@ pub enum Constraint {
     /// Constraint radius of a circle
     CircleRadius(DatumCircle, f64),
     /// These lines should be the same distance.
-    LinesEqualLength(LineSegment, LineSegment),
+    LinesEqualLength(DatumLineSegment, DatumLineSegment),
     /// The arc should have the given radius.
-    ArcRadius(CircularArc, f64),
+    ArcRadius(DatumCircularArc, f64),
     /// These 3 points should form an arc,
     /// i.e. `a` and `b` should be equidistant from `center`.
-    Arc(CircularArc),
+    Arc(DatumCircularArc),
     /// The given point should be the midpoint along the given line.
-    Midpoint(LineSegment, DatumPoint),
+    Midpoint(DatumLineSegment, DatumPoint),
     /// The given point should be the given (perpendicular, i.e. minimum Euclidean) distance away from the line.
-    PointLineDistance(DatumPoint, LineSegment, f64),
+    PointLineDistance(DatumPoint, DatumLineSegment, f64),
     /// The given point should be the given (vertical) distance away from the line.
-    VerticalPointLineDistance(DatumPoint, LineSegment, f64),
+    VerticalPointLineDistance(DatumPoint, DatumLineSegment, f64),
     /// The given point should be the given (horizontal) distance away from the line.
-    HorizontalPointLineDistance(DatumPoint, LineSegment, f64),
+    HorizontalPointLineDistance(DatumPoint, DatumLineSegment, f64),
     /// These two points should be symmetric across the given line.
-    Symmetric(LineSegment, DatumPoint, DatumPoint),
+    Symmetric(DatumLineSegment, DatumPoint, DatumPoint),
     /// This point should lie on this arc.
-    PointArcCoincident(CircularArc, DatumPoint),
+    PointArcCoincident(DatumCircularArc, DatumPoint),
     /// The arc should have this length.
-    ArcLength(CircularArc, f64),
+    ArcLength(DatumCircularArc, f64),
 }
 
 /// Describes one value in one row of the Jacobian matrix.
@@ -188,14 +188,14 @@ impl Constraint {
     }
 
     /// Constrain these lines to be parallel.
-    pub fn lines_parallel([l0, l1]: [LineSegment; 2]) -> Self {
+    pub fn lines_parallel([l0, l1]: [DatumLineSegment; 2]) -> Self {
         // TODO: Check if all points are unique.
         // Our math can't handle a common point just yet.
         Self::LinesAtAngle(l0, l1, AngleKind::Parallel)
     }
 
     /// Constrain these lines to be perpendicular.
-    pub fn lines_perpendicular([l0, l1]: [LineSegment; 2]) -> Self {
+    pub fn lines_perpendicular([l0, l1]: [DatumLineSegment; 2]) -> Self {
         Self::LinesAtAngle(l0, l1, AngleKind::Perpendicular)
     }
 
@@ -1809,7 +1809,7 @@ fn pds_from_symmetric(
 
 fn pds_for_point_line(
     point: DatumPoint,
-    line: &LineSegment,
+    line: &DatumLineSegment,
     point_line_vars: PointLineVars,
 ) -> [JacobianVar; 6] {
     let PointLineVars {
@@ -1905,7 +1905,7 @@ struct PartialDerivatives4Points {
 }
 
 impl PartialDerivatives4Points {
-    fn jvars(&self, line0: &LineSegment, line1: &LineSegment) -> [JacobianVar; 8] {
+    fn jvars(&self, line0: &DatumLineSegment, line1: &DatumLineSegment) -> [JacobianVar; 8] {
         [
             JacobianVar {
                 id: line0.p0.id_x(),
@@ -1945,8 +1945,8 @@ impl PartialDerivatives4Points {
 
 fn get_line_ends(
     current_assignments: &[f64],
-    line0: &LineSegment,
-    line1: &LineSegment,
+    line0: &DatumLineSegment,
+    line1: &DatumLineSegment,
     layout: &Layout,
 ) -> ((V, V), (V, V)) {
     let p0_x_l0 = current_assignments[layout.index_of(line0.p0.id_x())];
@@ -1966,7 +1966,7 @@ fn get_line_ends(
 /// this returns (A, B, C).
 fn equation_of_line(
     current_assignments: &[f64],
-    line: &LineSegment,
+    line: &DatumLineSegment,
     layout: &Layout,
 ) -> (f64, f64, f64) {
     let px = current_assignments[layout.index_of(line.p0.id_x())];
@@ -2139,7 +2139,7 @@ mod tests {
         struct Test {
             name: &'static str,
             point: DatumPoint,
-            line: LineSegment,
+            line: DatumLineSegment,
             vars: PointLineVars,
             expected: [(Id, f64); 6],
         }
@@ -2148,7 +2148,7 @@ mod tests {
             Test {
                 name: "horizontal_line",
                 point: DatumPoint::new_xy(0, 1),
-                line: LineSegment::new(DatumPoint::new_xy(2, 3), DatumPoint::new_xy(4, 5)),
+                line: DatumLineSegment::new(DatumPoint::new_xy(2, 3), DatumPoint::new_xy(4, 5)),
                 vars: PointLineVars {
                     px: 0.0,
                     py: 1.0,
@@ -2162,7 +2162,10 @@ mod tests {
             Test {
                 name: "diagonal_line",
                 point: DatumPoint::new_xy(100, 101),
-                line: LineSegment::new(DatumPoint::new_xy(102, 103), DatumPoint::new_xy(104, 105)),
+                line: DatumLineSegment::new(
+                    DatumPoint::new_xy(102, 103),
+                    DatumPoint::new_xy(104, 105),
+                ),
                 vars: PointLineVars {
                     px: 2.0,
                     py: 0.0,
@@ -2183,7 +2186,10 @@ mod tests {
             Test {
                 name: "vertical_line",
                 point: DatumPoint::new_xy(200, 201),
-                line: LineSegment::new(DatumPoint::new_xy(202, 203), DatumPoint::new_xy(204, 205)),
+                line: DatumLineSegment::new(
+                    DatumPoint::new_xy(202, 203),
+                    DatumPoint::new_xy(204, 205),
+                ),
                 vars: PointLineVars {
                     px: 5.0,
                     py: 1.0,
