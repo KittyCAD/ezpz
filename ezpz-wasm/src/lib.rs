@@ -1,7 +1,7 @@
 use kcl_ezpz::{
     Config, Constraint, ConstraintRequest, IdGenerator,
     datatypes::{DatumPoint, LineSegment},
-    solve_with_priority,
+    solve,
 };
 use wasm_bindgen::prelude::*;
 
@@ -93,7 +93,7 @@ pub fn benchmark() -> Vec<f64> {
             .into_iter()
             .map(ConstraintRequest::highest_priority),
     );
-    let actual = solve_with_priority(
+    let actual = solve(
         &constraints.clone(),
         initial_guesses.clone(),
         Config::default(),

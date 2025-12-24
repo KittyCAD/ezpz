@@ -37,8 +37,7 @@ fn empty() {
     ))];
     // We don't pass any variables, so this should return an error,
     // because the constraint requires variable 0, and it's not given.
-    let _e =
-        solve_with_priority(constraints.as_slice(), Vec::new(), Default::default()).unwrap_err();
+    let _e = solve(constraints.as_slice(), Vec::new(), Default::default()).unwrap_err();
 }
 
 #[test]
@@ -57,8 +56,7 @@ fn it_returns_best_satisfied_solution() {
         ConstraintRequest::new(Constraint::Fixed(var, 2.0), low_priority),
     ];
     let initial_guesses = vec![(var, 0.5)];
-    let solved =
-        solve_with_priority_analysis(&constraints, initial_guesses, Config::default()).unwrap();
+    let solved = solve_analysis(&constraints, initial_guesses, Config::default()).unwrap();
     assert!(solved.outcome.is_satisfied());
     assert_eq!(solved.as_ref().priority_solved, high_priority);
 }
@@ -74,8 +72,7 @@ fn initials_become_finals_if_no_constraints() {
     let constraints = vec![];
     let initial_guess = 0.5;
     let initial_guesses = vec![(var, initial_guess)];
-    let solved =
-        solve_with_priority_analysis(&constraints, initial_guesses, Config::default()).unwrap();
+    let solved = solve_analysis(&constraints, initial_guesses, Config::default()).unwrap();
     assert!(solved.as_ref().is_satisfied());
     assert_eq!(solved.as_ref().final_values, vec![initial_guess]);
 }
@@ -97,8 +94,7 @@ fn priority_solver_reports_original_indices() {
     ];
     let initial_guess = vec![(var, 0.5)];
 
-    let solved =
-        solve_with_priority_analysis(&constraints, initial_guess, Config::default()).unwrap();
+    let solved = solve_analysis(&constraints, initial_guess, Config::default()).unwrap();
     assert_eq!(solved.as_ref().unsatisfied, vec![1, 2]);
     assert_eq!(solved.as_ref().priority_solved, high_priority);
 }
@@ -113,7 +109,7 @@ fn too_many_variables() {
     ))];
     let initial_guess = vec![];
 
-    let err = solve_with_priority_analysis(&constraints, initial_guess, Config::default())
+    let err = solve_analysis(&constraints, initial_guess, Config::default())
         .unwrap_err()
         .error;
     assert!(matches!(
@@ -529,8 +525,8 @@ fn solve_arc_length_case(
     .map(ConstraintRequest::highest_priority)
     .collect();
 
-    let outcome = solve_with_priority(&requests, initial_guesses, Config::default())
-        .expect("arc length case should solve");
+    let outcome =
+        solve(&requests, initial_guesses, Config::default()).expect("arc length case should solve");
 
     (outcome, arc)
 }
@@ -668,7 +664,7 @@ fn arc_length_degenerate_warns() {
     .map(ConstraintRequest::highest_priority)
     .collect();
 
-    let outcome = solve_with_priority(&requests, initial_guesses, Config::default())
+    let outcome = solve(&requests, initial_guesses, Config::default())
         .expect("degenerate arc length case should solve");
 
     assert!(
@@ -710,7 +706,7 @@ fn strange_nonconvergence() {
         (8, -1.15),
         (9, 2.75),
     ];
-    let outcome = solve_with_priority(
+    let outcome = solve(
         &requests,
         initial_guesses,
         Config::default().with_max_iterations(31),

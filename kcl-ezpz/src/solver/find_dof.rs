@@ -4,7 +4,7 @@ use faer::sparse::SparseColMatRef;
 use crate::{FreedomAnalysis, NonLinearSystemError, solver::Model};
 
 impl Model<'_> {
-    pub fn freedom_analysis(&self) -> Result<FreedomAnalysis, NonLinearSystemError> {
+    pub(crate) fn freedom_analysis(&self) -> Result<FreedomAnalysis, NonLinearSystemError> {
         // First step is to compute the SVD.
         // Faer has a sparse SVD algorithm called `partial_svd`, but I haven't been
         // able to get it working properly yet.
