@@ -140,35 +140,46 @@ fn solve_two_rectangles_dependent(c: &mut Criterion) {
 }
 
 fn solve_massive(c: &mut Criterion) {
-    run_massive(c, false);
+    run_massive(c);
 }
 
-fn solve_massive_overconstrained(c: &mut Criterion) {
-    run_massive(c, true);
+fn solve_massive_analysis(c: &mut Criterion) {
+    let mut group = c.benchmark_group("massively_parallel_analysis");
+    let num_lines = &50;
+    // Each line has 2 points, each point has two variables (x and y)
+    // So each line is 4 variables, and that is the relevant throughput metric.
+    let size = num_lines * 4;
+    std::process::Command::new("just")
+        .args(["regen-massive-test", &size.to_string()])
+        .spawn()
+        .unwrap()
+        .wait()
+        .unwrap();
+    group.throughput(Throughput::Elements(size));
+    group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _size| {
+        let txt = std::fs::read_to_string("test_cases/massive_parallel_system/problem.md").unwrap();
+        let t = txt.as_str();
+        let problem = Problem::from_str(t).unwrap();
+        let constraints = problem.to_constraint_system().unwrap();
+        b.iter(|| {
+            let _actual = black_box(
+                constraints
+                    .solve_with_config_analysis(Config::default())
+                    .unwrap(),
+            );
+        });
+    });
+    group.finish();
 }
 
-fn run_massive(c: &mut Criterion, overconstrained: bool) {
-    let mut group = c.benchmark_group(format!(
-        "massively_parallel{}",
-        if overconstrained {
-            "_overconstrained"
-        } else {
-            ""
-        }
-    ));
+fn run_massive(c: &mut Criterion) {
+    let mut group = c.benchmark_group("massively_parallel");
     for num_lines in &[50, 150] {
         // Each line has 2 points, each point has two variables (x and y)
         // So each line is 4 variables, and that is the relevant throughput metric.
         let size = num_lines * 4;
         std::process::Command::new("just")
-            .args([
-                if overconstrained {
-                    "regen-massive-test-overconstrained"
-                } else {
-                    "regen-massive-test"
-                },
-                &size.to_string(),
-            ])
+            .args(["regen-massive-test", &size.to_string()])
             .spawn()
             .unwrap()
             .wait()
@@ -195,7 +206,7 @@ criterion_group!(
     solve_two_rectangles,
     solve_two_rectangles_dependent,
     solve_massive,
+    solve_massive_analysis,
     solve_nonsquare_analysis,
-    solve_massive_overconstrained,
 );
 criterion_main!(benches);
