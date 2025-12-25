@@ -617,19 +617,16 @@ pub struct OutcomeAnalysis {
 
 impl Outcome {
     /// Look up a point by its label.
-    #[cfg(test)]
     pub fn get_point(&self, label: &str) -> Option<Point> {
         self.points.get(label).copied()
     }
 
     /// Look up a circle by its label.
-    #[cfg(test)]
     pub fn get_circle(&self, label: &str) -> Option<Circle> {
         self.circles.get(label).copied()
     }
 
     /// Look up an arc by its label.
-    #[cfg(test)]
     pub fn get_arc(&self, label: &str) -> Option<Arc> {
         self.arcs.get(label).copied()
     }

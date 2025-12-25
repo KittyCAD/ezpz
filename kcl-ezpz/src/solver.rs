@@ -20,6 +20,11 @@ const NONZEROES_PER_ROW: usize = 8;
 const REGULARIZATION_LAMBDA: f64 = 1e-9;
 
 /// Configuration for how to solve a system.
+/// ```
+/// let config = kcl_ezpz::Config::default()
+///     .with_max_iterations(200)
+///     .with_convergence_tolerance(1e-10);
+/// ```
 #[derive(Debug, Clone, Copy)]
 #[non_exhaustive]
 pub struct Config {

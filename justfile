@@ -29,6 +29,7 @@ test:
 # Run unit tests, output coverage to `lcov.info`.
 test-with-coverage:
     cargo llvm-cov nextest --all-features --release --workspace --lcov --output-path lcov.info
+    cargo test --doc
 
 # Flamegraph our benchmarks
 flamegraph:
