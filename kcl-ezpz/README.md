@@ -13,7 +13,11 @@ let mut ids = IdGenerator::default();
 let p = DatumPoint::new(&mut ids);
 let q = DatumPoint::new(&mut ids);
 
-// Define constraints on the geometric entities (their dimensions and relation to each other).
+// Define constraints on the geometry.
+// These could constraint the entities themselves
+// (e.g. the position of a point or the radius of a circle),
+// or their relationship to each other
+// (e.g. these two lines must be parallel, or this point must lie on this arc).
 let requests = [
     // Fix P to the origin
     ConstraintRequest::highest_priority(Constraint::Fixed(p.id_x(), 0.0)),
@@ -34,13 +38,17 @@ let initial_guesses = vec![
 let outcome = solve(
     &requests,
     initial_guesses,
+    // You can customize the config, but for this example, we'll just use the default.
     Config::default(),
 );
 
 // Check the outcome.
 match outcome {
   Ok(solution) => {
+    // If you give incompatible constraints, then your constraints cannot possibly
+    // be satisfied. But in this example, there should be a solution.
     assert!(solution.is_satisfied());
+    assert!(solution.unsatisfied().is_empty());
     let solved_p = solution.final_value_point(&p);
     let solved_q = solution.final_value_point(&q);
     println!("P = ({}, {})", solved_p.x, solved_p.y);

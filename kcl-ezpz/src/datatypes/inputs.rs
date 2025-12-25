@@ -7,6 +7,13 @@ pub(crate) trait Datum {
 }
 
 /// A distance that can be determined by the constraint solver.
+/// ```
+/// use kcl_ezpz::datatypes::inputs::DatumDistance;
+/// use kcl_ezpz::IdGenerator;
+///
+/// let mut ids = IdGenerator::default();
+/// let dist = DatumDistance::new(ids.next_id());
+/// ```
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct DatumDistance {
@@ -16,6 +23,13 @@ pub struct DatumDistance {
 
 impl DatumDistance {
     /// Create a new `DatumDistance`.
+    /// ```
+    /// use kcl_ezpz::datatypes::inputs::DatumDistance;
+    /// use kcl_ezpz::IdGenerator;
+    ///
+    /// let mut ids = IdGenerator::default();
+    /// let dist = DatumDistance::new(ids.next_id());
+    /// ```
     pub fn new(id: Id) -> Self {
         Self { id }
     }
@@ -28,6 +42,13 @@ impl Datum for DatumDistance {
 }
 
 /// 2D point, whose position can be determined by the constraint solver.
+/// ```
+/// use kcl_ezpz::datatypes::inputs::DatumPoint;
+/// use kcl_ezpz::IdGenerator;
+///
+/// let mut ids = IdGenerator::default();
+/// let p = DatumPoint::new(&mut ids);
+/// ```
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct DatumPoint {
@@ -39,6 +60,13 @@ pub struct DatumPoint {
 
 impl DatumPoint {
     /// Create a new `DatumPoint` from an ID generator.
+    /// ```
+    /// use kcl_ezpz::datatypes::inputs::DatumPoint;
+    /// use kcl_ezpz::IdGenerator;
+    ///
+    /// let mut ids = IdGenerator::default();
+    /// let p = DatumPoint::new(&mut ids);
+    /// ```
     pub fn new(id_generator: &mut IdGenerator) -> Self {
         Self {
             x_id: id_generator.next_id(),
@@ -47,6 +75,14 @@ impl DatumPoint {
     }
 
     /// Create a new `DatumPoint` with these specific IDs.
+    /// ```
+    /// use kcl_ezpz::datatypes::inputs::DatumPoint;
+    /// use kcl_ezpz::IdGenerator;
+    ///
+    /// let x_id = 4;
+    /// let y_id = 4;
+    /// let p = DatumPoint::new_xy(x_id, y_id);
+    /// ```
     pub fn new_xy(x: Id, y: Id) -> Self {
         Self { x_id: x, y_id: y }
     }
@@ -84,6 +120,15 @@ pub struct DatumLineSegment {
 
 impl DatumLineSegment {
     /// Create a new `LineSegment`.
+    /// ```
+    /// use kcl_ezpz::datatypes::inputs::{DatumLineSegment, DatumPoint};
+    /// use kcl_ezpz::IdGenerator;
+    ///
+    /// let mut ids = IdGenerator::default();
+    /// let p = DatumPoint::new(&mut ids);
+    /// let q = DatumPoint::new(&mut ids);
+    /// let l = DatumLineSegment::new(p, q);
+    /// ```
     pub fn new(p0: DatumPoint, p1: DatumPoint) -> Self {
         Self { p0, p1 }
     }

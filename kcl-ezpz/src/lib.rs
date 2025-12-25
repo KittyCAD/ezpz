@@ -41,6 +41,39 @@ const EPSILON: f64 = 1e-4;
 
 /// Given some initial guesses, constrain them.
 /// Returns the same variables in the same order, but constrained.
+/// ```
+/// use kcl_ezpz::{Config, solve, Constraint, ConstraintRequest, datatypes::inputs::DatumPoint, IdGenerator};
+///
+/// // Define the geometry.
+/// let mut ids = IdGenerator::default();
+/// let p = DatumPoint::new(&mut ids);
+/// let q = DatumPoint::new(&mut ids);
+///
+/// // Define constraints on the geometry.
+/// let requests = [
+///     // Fix P to the origin
+///     ConstraintRequest::highest_priority(Constraint::Fixed(p.id_x(), 0.0)),
+///     ConstraintRequest::highest_priority(Constraint::Fixed(p.id_y(), 0.0)),
+///     // P and Q should be 4 units apart.
+///     ConstraintRequest::highest_priority(Constraint::Distance(p, q, 4.0)),
+/// ];
+///
+/// // Provide some initial guesses to the solver for their locations.
+/// let initial_guesses = vec![
+///     (p.id_x(), 0.0),
+///     (p.id_y(), -0.02),
+///     (q.id_x(), 4.39),
+///     (q.id_y(), 4.38),
+/// ];
+///
+/// // Run the solver!
+/// let _outcome = solve(
+///     &requests,
+///     initial_guesses,
+///     // You can customize the config, but for this example, we'll just use the default.
+///     Config::default(),
+/// );
+/// ```
 pub fn solve(
     reqs: &[ConstraintRequest],
     initial_guesses: Vec<(Id, f64)>,
@@ -54,6 +87,47 @@ pub fn solve(
 /// at the end. This lets it calculate helpful data for the user, like degrees of freedom.
 /// Should not be called on every iteration of a system when you change the initial values!
 /// Just call this when you change the constraint structure.
+/// ```
+/// use kcl_ezpz::{Config, solve_analysis, Constraint, ConstraintRequest, datatypes::inputs::DatumPoint, IdGenerator};
+///
+/// // Define the geometry.
+/// let mut ids = IdGenerator::default();
+/// let p = DatumPoint::new(&mut ids);
+/// let q = DatumPoint::new(&mut ids);
+///
+/// // Define constraints on the geometry.
+/// let requests = [
+///     // Fix P to the origin
+///     ConstraintRequest::highest_priority(Constraint::Fixed(p.id_x(), 0.0)),
+///     ConstraintRequest::highest_priority(Constraint::Fixed(p.id_y(), 0.0)),
+///     // P and Q should be 4 units apart.
+///     ConstraintRequest::highest_priority(Constraint::Distance(p, q, 4.0)),
+/// ];
+///
+/// // Provide some initial guesses to the solver for their locations.
+/// let initial_guesses = vec![
+///     (p.id_x(), 0.0),
+///     (p.id_y(), -0.02),
+///     (q.id_x(), 4.39),
+///     (q.id_y(), 4.38),
+/// ];
+///
+/// // Run the solver!
+/// let solver_res = solve_analysis(
+///     &requests,
+///     initial_guesses,
+///     Config::default(),
+/// );
+/// let analysis = solver_res.unwrap().analysis;
+/// let underconstrained_vars = analysis.underconstrained();
+/// // P is fully constrained, because it's completely fixed to the origin.
+/// assert!(!underconstrained_vars.contains(&p.id_x()));
+/// assert!(!underconstrained_vars.contains(&p.id_y()));
+/// // Q is underconstrained. It has to be 4 units away from Q, but there's many
+/// // possible positions for Q. It could be at (4, 0), (-4, 0), etc etc.
+/// assert!(underconstrained_vars.contains(&q.id_x()));
+/// assert!(underconstrained_vars.contains(&q.id_y()));
+/// ```
 pub fn solve_analysis(
     reqs: &[ConstraintRequest],
     initial_guesses: Vec<(Id, f64)>,
