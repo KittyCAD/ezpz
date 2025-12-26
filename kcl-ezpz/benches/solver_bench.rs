@@ -26,7 +26,7 @@ fn bench_case(c: &mut Criterion, test_case: &'static str) {
 /// Like [`bench_case`] but with freedom analysis.
 fn bench_case_analysis(c: &mut Criterion, test_case: &'static str) {
     let txt = std::fs::read_to_string(format!("test_cases/{test_case}/problem.md")).unwrap();
-    c.bench_function(&format!("solve_{test_case}"), |b| {
+    c.bench_function(&format!("solve_{test_case}_analysis"), |b| {
         let problem = Problem::from_str(txt.as_str()).unwrap();
         let constraints = problem.to_constraint_system().unwrap();
         b.iter(|| {
