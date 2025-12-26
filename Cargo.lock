@@ -998,7 +998,7 @@ dependencies = [
 
 [[package]]
 name = "kcl-ezpz"
-version = "0.2.12"
+version = "0.2.13"
 dependencies = [
  "arbitrary",
  "criterion",
