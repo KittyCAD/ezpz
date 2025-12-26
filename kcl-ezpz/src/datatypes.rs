@@ -16,7 +16,8 @@ pub enum AngleKind {
 }
 
 /// A measurement of a particular angle, could be degrees or radians.
-#[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct Angle {
     val: f64,
@@ -35,6 +36,10 @@ impl std::fmt::Display for Angle {
 
 impl Angle {
     /// Create an angle of this many degrees.
+    /// ```
+    /// use kcl_ezpz::datatypes::Angle;
+    /// let half_turn = Angle::from_degrees(180.0);
+    /// ```
     pub fn from_degrees(degrees: f64) -> Self {
         Self {
             val: degrees,
@@ -43,6 +48,10 @@ impl Angle {
     }
 
     /// Create an angle of this many radians.
+    /// ```
+    /// use kcl_ezpz::datatypes::Angle;
+    /// let half_turn = Angle::from_radians(std::f64::consts::PI);
+    /// ```
     pub fn from_radians(radians: f64) -> Self {
         Self {
             val: radians,
@@ -51,6 +60,11 @@ impl Angle {
     }
 
     /// How large is this angle, in degrees?
+    /// ```
+    /// use kcl_ezpz::datatypes::Angle;
+    /// assert_eq!(180.0, Angle::from_degrees(180.0).to_degrees());
+    /// assert_eq!(180.0, Angle::from_radians(std::f64::consts::PI).to_degrees());
+    /// ```
     pub fn to_degrees(self) -> f64 {
         if self.degrees {
             self.val
@@ -60,6 +74,11 @@ impl Angle {
     }
 
     /// How large is this angle, in radians?
+    /// ```
+    /// use kcl_ezpz::datatypes::Angle;
+    /// assert_eq!(std::f64::consts::PI, Angle::from_radians(std::f64::consts::PI).to_radians());
+    /// assert_eq!(std::f64::consts::PI, Angle::from_degrees(180.0).to_radians());
+    /// ```
     pub fn to_radians(self) -> f64 {
         if self.degrees {
             self.val.to_radians()

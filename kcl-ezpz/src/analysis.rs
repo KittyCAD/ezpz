@@ -21,6 +21,7 @@ impl Analysis for NoAnalysis {
 }
 
 /// Results from analyzing the freedom of each variable.
+/// Created from [`crate::solve_analysis`].
 #[derive(Default, Debug)]
 #[cfg_attr(not(feature = "unstable-exhaustive"), non_exhaustive)]
 pub struct FreedomAnalysis {

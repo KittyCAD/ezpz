@@ -95,6 +95,7 @@ impl SolveOutcome {
 
 /// Just like [`SolveOutcome`] except it also contains the result of
 /// expensive numeric analysis on the final solved system.
+/// Created from [`crate::solve_analysis`].
 // This is just like `SolveOutcomeAnalysis<FreedomAnalysis>`,
 // except it doesn't leak the private trait `Analysis`.
 #[derive(Debug)]
