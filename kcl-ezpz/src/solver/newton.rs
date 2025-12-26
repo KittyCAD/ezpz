@@ -1,7 +1,12 @@
 use faer::{
-    ColRef,
+    Accum, ColRef, Par,
+    dyn_stack::{MemBuffer, MemStack},
+    get_global_parallelism,
     prelude::Solve,
-    sparse::{SparseColMatRef, linalg::solvers::Lu},
+    sparse::{
+        SparseColMatMut, SparseColMatRef,
+        linalg::{matmul, solvers::Lu},
+    },
 };
 
 use crate::{Config, NonLinearSystemError};
@@ -21,8 +26,19 @@ impl Model<'_> {
         config: Config,
     ) -> Result<SuccessfulSolve, NonLinearSystemError> {
         let m = self.layout.total_num_residuals;
-
         let mut global_residual = vec![0.0; m];
+
+        // Preallocate scratch space for computing JᵀJ.
+        let jtj_nnz = self.jtj_symbolic.0.compute_nnz();
+        let jtj_scratch_req = {
+            let (jtj_sym, _) = &self.jtj_symbolic;
+            matmul::sparse_sparse_matmul_numeric_scratch::<usize, f64>(jtj_sym.as_ref(), Par::Seq)
+        };
+        let mut jtj_vals = vec![0.0; jtj_nnz];
+        let mut jtj_mem = MemBuffer::new(jtj_scratch_req);
+        let mut jt_vals = vec![0.0; self.jt_sym.compute_nnz()];
+        let mut a_vals = vec![0.0; self.a_sym.compute_nnz()];
+        let mut b_vals = vec![0.0; self.layout.num_variables];
 
         for this_iteration in 0..config.max_iterations {
             // Assemble global residual and Jacobian
@@ -30,6 +46,10 @@ impl Model<'_> {
             self.residual(current_values, &mut global_residual);
             // Re-evaluate the global jacobian, write it into self.jc
             self.refresh_jacobian(current_values);
+            let (jtj_sym, jtj_info) = &self.jtj_symbolic;
+            for (jt_idx, jc_idx) in self.jt_value_indices.iter().copied().enumerate() {
+                jt_vals[jt_idx] = self.jc.vals[jc_idx];
+            }
 
             // Convergence check: if the residual is within our tolerance,
             // then the system is totally solved and we can return.
@@ -48,15 +68,42 @@ impl Model<'_> {
                (JᵀJ + λI) d = -Jᵀr
                This involves creating a matrix A and rhs b where
                A = JᵀJ + λI
-               b = -Jᵀr
+            b = -Jᵀr
             */
 
             let j = SparseColMatRef::new(self.jc.sym.as_ref(), &self.jc.vals);
-            // TODO: Is there any way to transpose `j` and keep it in column-major?
-            // Converting from row- to column-major might not be necessary.
-            let jtj = j.transpose().to_col_major()? * j;
-            let a = jtj + &self.lambda_i;
-            let b = j.transpose() * -ColRef::from_slice(&global_residual);
+            let jt = SparseColMatRef::new(self.jt_sym.as_ref(), &jt_vals);
+
+            // Compute JᵀJ, reusing its symbolic structure.
+            let jtj_stack = MemStack::new(&mut jtj_mem);
+            matmul::sparse_sparse_matmul_numeric(
+                SparseColMatMut::new(jtj_sym.as_ref(), &mut jtj_vals),
+                Accum::Replace,
+                jt.as_ref(),
+                j,
+                1.0,
+                jtj_info,
+                get_global_parallelism(),
+                jtj_stack,
+            );
+            a_vals.fill(0.0);
+            for (jtj_idx, a_idx) in self.a_from_jtj_indices.iter().copied().enumerate() {
+                a_vals[a_idx] = jtj_vals[jtj_idx];
+            }
+            for (col, diag_idx) in self.lambda_diag_indices.iter().copied().enumerate() {
+                a_vals[diag_idx] += self.lambda_i.val_of_col(col)[0];
+            }
+            let a = SparseColMatRef::new(self.a_sym.as_ref(), &a_vals);
+            b_vals.fill(0.0);
+            let jt_row_idx = self.jt_sym.row_idx();
+            for (col, residual_val) in global_residual.iter().enumerate().take(self.jt_sym.ncols())
+            {
+                let col_range = self.jt_sym.col_range(col);
+                for idx in col_range.clone() {
+                    b_vals[jt_row_idx[idx]] -= jt_vals[idx] * residual_val;
+                }
+            }
+            let b = ColRef::from_slice(&b_vals);
 
             // Solve linear system
             let factored = Lu::try_new_with_symbolic(self.lu_symbolic.clone(), a.as_ref())?;
