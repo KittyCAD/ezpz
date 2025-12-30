@@ -1,6 +1,10 @@
 use crate::{EPSILON, datatypes::inputs::*, datatypes::*, id::Id, solver::Layout, vector::V};
 use std::f64::consts::PI;
 
+/// Constructors for constraints which are a composition of
+/// existing constraints.
+mod composite;
+
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct ConstraintEntry<'c> {
     /// The constraint itself.
@@ -185,18 +189,6 @@ impl Constraint {
                 row1.extend(circular_arc.all_variables());
             }
         }
-    }
-
-    /// Constrain these lines to be parallel.
-    pub fn lines_parallel([l0, l1]: [DatumLineSegment; 2]) -> Self {
-        // TODO: Check if all points are unique.
-        // Our math can't handle a common point just yet.
-        Self::LinesAtAngle(l0, l1, AngleKind::Parallel)
-    }
-
-    /// Constrain these lines to be perpendicular.
-    pub fn lines_perpendicular([l0, l1]: [DatumLineSegment; 2]) -> Self {
-        Self::LinesAtAngle(l0, l1, AngleKind::Perpendicular)
     }
 
     /// How close is this constraint to being satisfied?
@@ -1673,6 +1665,7 @@ impl Constraint {
     }
 
     /// Human-readable constraint name, useful for debugging.
+    #[mutants::skip]
     pub fn constraint_kind(&self) -> &'static str {
         match self {
             Constraint::LineTangentToCircle(..) => "LineTangentToCircle",
