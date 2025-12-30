@@ -161,14 +161,6 @@ fn symmetric() {
 fn perpdist() {
     let solved = run("perpdist");
     assert!(solved.is_satisfied());
-    // A is underdetermined, it has to be a certain distance from the line, but that leaves
-    // a range of possible absolute positions it could be at.
-    assert!(solved.analysis.is_underconstrained());
-    assert_eq!(
-        solved.analysis.underconstrained(),
-        vec![4, 5],
-        "P and Q are constrained, but A is not, it could move along the PQ line as long as it stays a fixed perp distance away."
-    );
     // P and Q are fixed:
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 0.0 });
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 2.0, y: 3.0 });
@@ -178,6 +170,14 @@ fn perpdist() {
             x: 0.10055560181546289,
             y: 1.9536090405127489,
         },
+    );
+    // A is underdetermined, it has to be a certain distance from the line, but that leaves
+    // a range of possible absolute positions it could be at.
+    assert!(solved.analysis.is_underconstrained());
+    assert_eq!(
+        solved.analysis.into_underconstrained(),
+        vec![4, 5],
+        "P and Q are constrained, but A is not, it could move along the PQ line as long as it stays a fixed perp distance away."
     );
 }
 

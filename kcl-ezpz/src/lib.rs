@@ -295,17 +295,10 @@ fn solve_inner<A: Analysis>(
             &mut residual2,
             &mut degenerate,
         );
-        let sat0 = residual0.abs() < EPSILON;
-        let sat1 = residual1.abs() < EPSILON;
-        let sat2 = residual2.abs() < EPSILON;
-        let satisfied = match constraint.constraint.residual_dim() {
-            1 => sat0,
-            2 => sat0 && sat1,
-            3 => sat0 && sat1 && sat2,
-            other => unreachable!(
-                "Unsupported number of residuals {other}, the `residual` method must be modified."
-            ),
-        };
+        let satisfied = is_satisfied(
+            constraint.constraint.residual_dim(),
+            [residual0, residual1, residual2],
+        );
         if !satisfied {
             unsatisfied.push(constraint.id);
         }
@@ -337,4 +330,65 @@ fn solve_inner<A: Analysis>(
         },
         analysis,
     })
+}
+
+fn is_satisfied(residual_dim: usize, residuals: [f64; 3]) -> bool {
+    let sat0 = residuals[0].abs() < EPSILON;
+    let sat1 = residuals[1].abs() < EPSILON;
+    let sat2 = residuals[2].abs() < EPSILON;
+    match residual_dim {
+        1 => sat0,
+        2 => sat0 && sat1,
+        3 => sat0 && sat1 && sat2,
+        other => unreachable!(
+            "Unsupported number of residuals {other}, the `residual` method must be modified."
+        ),
+    }
+}
+
+#[cfg(test)]
+mod basic_tests {
+    use super::*;
+
+    #[test]
+    fn test_is_satisfied_0() {
+        let actual = is_satisfied(1, [1e-8, 44.0, 44.0]);
+        let expected = true;
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_is_satisfied_1() {
+        let actual = is_satisfied(2, [1e-8, 1e-8, 44.0]);
+        let expected = true;
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_is_satisfied_2() {
+        let actual = is_satisfied(3, [1e-8, 1e-8, 1e-8]);
+        let expected = true;
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_is_unsatisfied_0() {
+        let actual = is_satisfied(1, [44.0, 44.0, 44.0]);
+        let expected = false;
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_is_unsatisfied_1() {
+        let actual = is_satisfied(2, [1e-8, 44.0, 44.0]);
+        let expected = false;
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_is_unsatisfied_2() {
+        let actual = is_satisfied(3, [44.0, 1e-8, 1e-8]);
+        let expected = false;
+        assert_eq!(actual, expected);
+    }
 }
