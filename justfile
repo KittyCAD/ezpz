@@ -98,3 +98,9 @@ fuzz-check:
 install-viz-deps:
     sudo apt-get update
     sudo apt install -y pkg-config libfontconfig1-dev
+
+mutants:
+    cargo mutants -p kcl-ezpz
+
+mutants-iterate:
+    cargo mutants -p kcl-ezpz --iterate
