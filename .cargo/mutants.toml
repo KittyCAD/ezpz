@@ -1,1 +1,2 @@
 exclude_re = ["impl Debug"] # same as -E
+profile = "mutants"

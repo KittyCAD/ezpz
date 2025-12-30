@@ -7,3 +7,7 @@ faer = { opt-level = 3 }
 
 [profile.bench]
 debug = "full"
+
+[profile.mutants]
+inherits = "test"
+debug = "none"
