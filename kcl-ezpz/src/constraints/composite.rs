@@ -1,6 +1,6 @@
 use crate::datatypes::{
     AngleKind,
-    inputs::{DatumCircularArc, DatumLineSegment, DatumPoint},
+    inputs::{DatumCircle, DatumCircularArc, DatumLineSegment, DatumPoint},
 };
 
 use super::Constraint;
@@ -40,6 +40,23 @@ impl Constraint {
         [
             Constraint::lines_parallel(lines),
             Constraint::PointLineDistance(lines[0].p0, lines[1], distance),
+        ]
+    }
+
+    /// Constraints a circle and a circular arc to have the same center and radius.
+    pub fn circle_arc_coincident(circle: DatumCircle, arc: DatumCircularArc) -> [Self; 2] {
+        [
+            Constraint::PointsCoincident(circle.center, arc.center),
+            Constraint::LinesEqualLength(
+                DatumLineSegment {
+                    p0: arc.center,
+                    p1: arc.start,
+                },
+                DatumLineSegment {
+                    p0: arc.center,
+                    p1: arc.end,
+                },
+            ),
         ]
     }
 }
