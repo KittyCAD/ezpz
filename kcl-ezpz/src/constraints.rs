@@ -73,6 +73,8 @@ pub enum Constraint {
     PointArcCoincident(DatumCircularArc, DatumPoint),
     /// The arc should have this length.
     ArcLength(DatumCircularArc, f64),
+    /// The arc should span this angle.
+    ArcAngle(DatumCircularArc, Angle),
 }
 
 /// Describes one value in one row of the Jacobian matrix.
@@ -188,6 +190,18 @@ impl Constraint {
                 row0.extend(circular_arc.all_variables());
                 row1.extend(circular_arc.all_variables());
             }
+            Constraint::ArcAngle(circular_arc, angle) => Constraint::LinesAtAngle(
+                DatumLineSegment {
+                    p0: circular_arc.center,
+                    p1: circular_arc.start,
+                },
+                DatumLineSegment {
+                    p0: circular_arc.center,
+                    p1: circular_arc.end,
+                },
+                AngleKind::Other(*angle),
+            )
+            .nonzeroes(row0, row1, row2),
         }
     }
 
@@ -581,6 +595,25 @@ impl Constraint {
                 *residual0 = res0;
                 *residual1 = res1;
             }
+            Constraint::ArcAngle(circular_arc, angle) => Constraint::LinesAtAngle(
+                DatumLineSegment {
+                    p0: circular_arc.center,
+                    p1: circular_arc.start,
+                },
+                DatumLineSegment {
+                    p0: circular_arc.center,
+                    p1: circular_arc.end,
+                },
+                AngleKind::Other(*angle),
+            )
+            .residual(
+                layout,
+                current_assignments,
+                residual0,
+                residual1,
+                residual2,
+                degenerate,
+            ),
         }
     }
 
@@ -609,6 +642,18 @@ impl Constraint {
             Constraint::Symmetric(..) => 2,
             Constraint::PointArcCoincident(..) => 3,
             Constraint::ArcLength(..) => 2,
+            Constraint::ArcAngle(circular_arc, angle) => Constraint::LinesAtAngle(
+                DatumLineSegment {
+                    p0: circular_arc.center,
+                    p1: circular_arc.start,
+                },
+                DatumLineSegment {
+                    p0: circular_arc.center,
+                    p1: circular_arc.end,
+                },
+                AngleKind::Other(*angle),
+            )
+            .residual_dim(),
         }
     }
 
@@ -1661,6 +1706,18 @@ impl Constraint {
                     },
                 ]);
             }
+            Constraint::ArcAngle(circular_arc, angle) => Constraint::LinesAtAngle(
+                DatumLineSegment {
+                    p0: circular_arc.center,
+                    p1: circular_arc.start,
+                },
+                DatumLineSegment {
+                    p0: circular_arc.center,
+                    p1: circular_arc.end,
+                },
+                AngleKind::Other(*angle),
+            )
+            .jacobian_rows(layout, current_assignments, row0, row1, row2, degenerate),
         }
     }
 
@@ -1693,6 +1750,7 @@ impl Constraint {
             Constraint::ScalarEqual(..) => "ScalarEqual",
             Constraint::PointArcCoincident(..) => "PointArcCoincident",
             Constraint::ArcLength(..) => "ArcLength",
+            Constraint::ArcAngle(..) => "ArcAngle",
         }
     }
 }
