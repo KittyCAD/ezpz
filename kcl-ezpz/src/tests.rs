@@ -764,3 +764,117 @@ pub fn assert_nearly_eq(l: f64, r: f64) {
         "LHS was {l}, RHS was {r}, difference was {diff}"
     );
 }
+
+/// Test that reproduces a bug where adding a point_arc_coincident constraint
+/// causes the solver to produce dramatically different results from the initial guesses,
+/// even when the point is already basically on the arc.
+#[test]
+fn arc_line_coincident_bug() {
+    // First, solve without the point_arc_coincident constraint to get a baseline
+    let txt_without = std::fs::read_to_string(
+        "../test_cases/arc_line_coincident_bug/problem_without_arc_constraint.md",
+    )
+    .unwrap();
+    let problem_without = parse_problem(&txt_without);
+    let system_without = problem_without.to_constraint_system().unwrap();
+    let solved_without = system_without
+        .solve_with_config_analysis(Default::default())
+        .unwrap();
+
+    // Now solve with the point_arc_coincident constraint
+    let solved_with = run("arc_line_coincident_bug");
+
+    // Initial guesses
+    let initial_line3_start = Point { x: 4.32, y: 3.72 };
+    let initial_line3_end = Point { x: 1.06, y: -3.26 };
+    let initial_line4_start = Point { x: -2.32, y: -2.96 };
+    let initial_line4_end = Point { x: -7.01, y: -2.77 };
+    let initial_arc_center = Point { x: 1.06, y: -3.26 };
+    let initial_arc_a = Point { x: -1.44, y: -0.99 };
+    let initial_arc_b = Point { x: 2.49, y: -0.2 };
+
+    // Get the solved values
+    let solved_line3_start = solved_with.get_point("line3start").unwrap();
+    let solved_line3_end = solved_with.get_point("line3end").unwrap();
+    let solved_line4_start = solved_with.get_point("line4start").unwrap();
+    let solved_line4_end = solved_with.get_point("line4end").unwrap();
+    let solved_arc = solved_with.get_arc("arc1").unwrap();
+
+    // Calculate how far line4_start is from the arc in the initial guess
+    // The arc center is at (1.06, -3.26) and arc.a is at (-1.44, -0.99)
+    // So the radius is the distance from center to arc.a
+    let initial_arc_radius = initial_arc_center.euclidean_distance(initial_arc_a);
+    let initial_line4_start_to_center = initial_line4_start.euclidean_distance(initial_arc_center);
+    let initial_distance_from_arc = (initial_line4_start_to_center - initial_arc_radius).abs();
+
+    // Verify that line4_start is already very close to the arc (within a reasonable tolerance)
+    // This should be a small value, showing the point is already basically on the arc
+    assert!(
+        initial_distance_from_arc < 0.5,
+        "line4_start should be close to the arc initially. Distance from arc: {}",
+        initial_distance_from_arc
+    );
+
+    // Calculate how much the solution changed from the initial guesses
+    let change_line3_start = solved_line3_start.euclidean_distance(initial_line3_start);
+    let change_line3_end = solved_line3_end.euclidean_distance(initial_line3_end);
+    let change_line4_start = solved_line4_start.euclidean_distance(initial_line4_start);
+    let change_line4_end = solved_line4_end.euclidean_distance(initial_line4_end);
+    let change_arc_center = solved_arc.center.euclidean_distance(initial_arc_center);
+    let change_arc_a = solved_arc.a.euclidean_distance(initial_arc_a);
+    let change_arc_b = solved_arc.b.euclidean_distance(initial_arc_b);
+
+    // The bug is that these changes are dramatically large even though line4_start
+    // is already basically on the arc. We expect the solver to make minimal changes.
+    // Print the changes for debugging
+    eprintln!("Changes from initial guesses:");
+    eprintln!("  line3_start: {:.6}", change_line3_start);
+    eprintln!("  line3_end: {:.6}", change_line3_end);
+    eprintln!("  line4_start: {:.6}", change_line4_start);
+    eprintln!("  line4_end: {:.6}", change_line4_end);
+    eprintln!("  arc.center: {:.6}", change_arc_center);
+    eprintln!("  arc.a: {:.6}", change_arc_a);
+    eprintln!("  arc.b: {:.6}", change_arc_b);
+    eprintln!(
+        "  Initial distance of line4_start from arc: {:.6}",
+        initial_distance_from_arc
+    );
+
+    // Compare with the solution without the constraint
+    let solved_without_line3_start = solved_without.get_point("line3start").unwrap();
+    let solved_without_line3_end = solved_without.get_point("line3end").unwrap();
+    let solved_without_line4_start = solved_without.get_point("line4start").unwrap();
+    let solved_without_line4_end = solved_without.get_point("line4end").unwrap();
+    let solved_without_arc = solved_without.get_arc("arc1").unwrap();
+
+    let diff_line3_start = solved_line3_start.euclidean_distance(solved_without_line3_start);
+    let diff_line3_end = solved_line3_end.euclidean_distance(solved_without_line3_end);
+    let diff_line4_start = solved_line4_start.euclidean_distance(solved_without_line4_start);
+    let diff_line4_end = solved_line4_end.euclidean_distance(solved_without_line4_end);
+    let diff_arc_center = solved_arc
+        .center
+        .euclidean_distance(solved_without_arc.center);
+    let diff_arc_a = solved_arc.a.euclidean_distance(solved_without_arc.a);
+    let diff_arc_b = solved_arc.b.euclidean_distance(solved_without_arc.b);
+
+    eprintln!("\nDifferences between solutions (with vs without point_arc_coincident):");
+    eprintln!("  line3_start: {:.6}", diff_line3_start);
+    eprintln!("  line3_end: {:.6}", diff_line3_end);
+    eprintln!("  line4_start: {:.6}", diff_line4_start);
+    eprintln!("  line4_end: {:.6}", diff_line4_end);
+    eprintln!("  arc.center: {:.6}", diff_arc_center);
+    eprintln!("  arc.a: {:.6}", diff_arc_a);
+    eprintln!("  arc.b: {:.6}", diff_arc_b);
+
+    // The test demonstrates the bug: adding the constraint causes dramatic changes
+    // This assertion will fail if the bug is present, showing the dramatic difference
+    // We use a threshold that's much larger than the initial distance from the arc
+    let max_expected_change = initial_distance_from_arc * 10.0;
+    if change_line4_start > max_expected_change {
+        panic!(
+            "BUG REPRODUCED: Adding point_arc_coincident constraint caused line4_start to move by {:.6}, \
+             but it was only {:.6} away from the arc initially. This is a dramatic change that shouldn't be necessary.",
+            change_line4_start, initial_distance_from_arc
+        );
+    }
+}
