@@ -855,7 +855,8 @@ fn point_basically_already_on_arc_should_not_cause_much_change_in_sketch() {
         change_line4_start <= max_expected_change,
         "BUG REPRODUCED: Adding point_arc_coincident constraint caused line4_start to move by {:.6}, \
          but it was only {:.6} away from the arc initially. This is a dramatic change that shouldn't be necessary.",
-        change_line4_start, initial_distance_from_arc
+        change_line4_start,
+        initial_distance_from_arc
     );
 }
 
