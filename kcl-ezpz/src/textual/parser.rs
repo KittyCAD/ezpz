@@ -351,9 +351,9 @@ fn four_points(i: &mut &str) -> WResult<[Label; 4]> {
 }
 
 fn two_points(i: &mut &str) -> WResult<[Label; 2]> {
-    let p0 = parse_label(i)?;
+    let p0 = parse_label_opt_suffix(i)?;
     commasep(i)?;
-    let p1 = parse_label(i)?;
+    let p1 = parse_label_opt_suffix(i)?;
     ignore_ws(i);
     Ok([p0, p1])
 }
@@ -369,11 +369,11 @@ fn three_points(i: &mut &str) -> WResult<[Label; 3]> {
 }
 
 fn three_labels_num(i: &mut &str) -> WResult<(Label, Label, Label, f64)> {
-    let p = parse_label(i)?;
+    let p = parse_label_opt_suffix(i)?;
     commasep(i)?;
-    let lp0 = parse_label(i)?;
+    let lp0 = parse_label_opt_suffix(i)?;
     commasep(i)?;
-    let lp1 = parse_label(i)?;
+    let lp1 = parse_label_opt_suffix(i)?;
     commasep(i)?;
     let d = parse_number(i)?;
     ignore_ws(i);

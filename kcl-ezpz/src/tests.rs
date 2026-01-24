@@ -769,7 +769,7 @@ pub fn assert_nearly_eq(l: f64, r: f64) {
 /// causes the solver to produce dramatically different results from the initial guesses,
 /// even when the point is already basically on the arc.
 #[test]
-fn arc_line_coincident_bug() {
+fn point_basically_already_on_arc_should_not_cause_much_change_in_sketch() {
     // First, solve without the point_arc_coincident constraint to get a baseline
     let txt_without = std::fs::read_to_string(
         "../test_cases/arc_line_coincident_bug/problem_without_arc_constraint.md",
@@ -826,19 +826,7 @@ fn arc_line_coincident_bug() {
 
     // The bug is that these changes are dramatically large even though line4_start
     // is already basically on the arc. We expect the solver to make minimal changes.
-    // Print the changes for debugging
-    eprintln!("Changes from initial guesses:");
-    eprintln!("  line3_start: {:.6}", change_line3_start);
-    eprintln!("  line3_end: {:.6}", change_line3_end);
-    eprintln!("  line4_start: {:.6}", change_line4_start);
-    eprintln!("  line4_end: {:.6}", change_line4_end);
-    eprintln!("  arc.center: {:.6}", change_arc_center);
-    eprintln!("  arc.a: {:.6}", change_arc_a);
-    eprintln!("  arc.b: {:.6}", change_arc_b);
-    eprintln!(
-        "  Initial distance of line4_start from arc: {:.6}",
-        initial_distance_from_arc
-    );
+    // Debug logs intentionally removed to keep tests quiet by default.
 
     // Compare with the solution without the constraint
     let solved_without_line3_start = solved_without.get_point("line3start").unwrap();
@@ -857,14 +845,7 @@ fn arc_line_coincident_bug() {
     let diff_arc_a = solved_arc.a.euclidean_distance(solved_without_arc.a);
     let diff_arc_b = solved_arc.b.euclidean_distance(solved_without_arc.b);
 
-    eprintln!("\nDifferences between solutions (with vs without point_arc_coincident):");
-    eprintln!("  line3_start: {:.6}", diff_line3_start);
-    eprintln!("  line3_end: {:.6}", diff_line3_end);
-    eprintln!("  line4_start: {:.6}", diff_line4_start);
-    eprintln!("  line4_end: {:.6}", diff_line4_end);
-    eprintln!("  arc.center: {:.6}", diff_arc_center);
-    eprintln!("  arc.a: {:.6}", diff_arc_a);
-    eprintln!("  arc.b: {:.6}", diff_arc_b);
+    // Debug logs intentionally removed to keep tests quiet by default.
 
     // The test demonstrates the bug: adding the constraint causes dramatic changes
     // This assertion will fail if the bug is present, showing the dramatic difference
@@ -877,4 +858,114 @@ fn arc_line_coincident_bug() {
             change_line4_start, initial_distance_from_arc
         );
     }
+}
+
+/// Test that when a point is initially at the arc center (not on the arc's circumference
+/// within the angular range), the point_arc_coincident constraint should cause it to
+/// move significantly to a point on the arc within the angular range.
+#[test]
+fn arc_center_point_coincident() {
+    let solved = run("arc_center_point_coincident");
+
+    // Initial guesses from the problem file
+    let initial_line4_start = Point { x: -1.16, y: -2.63 };
+    let initial_arc_center = Point { x: 0.55, y: -3.31 };
+
+    // Get the solved values
+    let solved_line4_start = solved.get_point("line4start").unwrap();
+    let solved_arc = solved.get_arc("arc1").unwrap();
+
+    // Check initial angular position relative to the arc
+    let initial_arc_a = Point { x: 2.25, y: -3.99 };
+    let initial_arc_b = Point { x: 1.43, y: -1.71 };
+
+    // Calculate cross products to check if point is in angular range initially
+    let cx = initial_arc_center.x;
+    let cy = initial_arc_center.y;
+    let ax = initial_arc_a.x;
+    let ay = initial_arc_a.y;
+    let bx = initial_arc_b.x;
+    let by = initial_arc_b.y;
+    let px = initial_line4_start.x;
+    let py = initial_line4_start.y;
+
+    let initial_start_cross = (ax - cx) * (cy - py) - (ay - cy) * (cx - px);
+    let initial_end_cross = (bx - cx) * (cy - py) - (by - cy) * (cx - px);
+
+    // Debug logs intentionally removed to keep tests quiet by default.
+
+    // The point should initially NOT be in the angular range
+    // (either start_cross > 0 or end_cross >= 0)
+    let initially_in_range = initial_start_cross <= 0.0 && initial_end_cross < 0.0;
+    assert!(
+        !initially_in_range,
+        "line4_start should initially NOT be in the angular range. start_cross: {}, end_cross: {}",
+        initial_start_cross, initial_end_cross
+    );
+
+    // Calculate how much the point moved
+    let movement = solved_line4_start.euclidean_distance(initial_line4_start);
+    // Debug logs intentionally removed to keep tests quiet by default.
+
+    // Verify the point is now on the arc (at the correct radius)
+    let arc_radius = solved_arc.center.euclidean_distance(solved_arc.a);
+    let point_to_center_dist = solved_line4_start.euclidean_distance(solved_arc.center);
+    let distance_from_arc = (point_to_center_dist - arc_radius).abs();
+    // Debug logs intentionally removed to keep tests quiet by default.
+
+    // The point should be on the arc (within tolerance)
+    assert!(
+        distance_from_arc < 0.01,
+        "line4_start should be on the arc after solving. Distance from arc: {}, arc radius: {}",
+        distance_from_arc,
+        arc_radius
+    );
+
+    // The point should have moved to get into the angular range.
+    // If it was only slightly outside (start_cross small), movement might be small.
+    // But if it was far outside, it should move significantly.
+    // For now, just verify it ends up in the angular range (checked below).
+    // If the initial violation was large, we expect significant movement.
+    if initial_start_cross > 0.1 {
+        let min_expected_movement = arc_radius * 0.3; // At least 30% of the radius for large violations
+        assert!(
+            movement > min_expected_movement,
+            "line4_start should have moved significantly when initially far outside angular range. \
+             Movement: {}, minimum expected: {} (30% of arc radius {}), initial start_cross: {}",
+            movement,
+            min_expected_movement,
+            arc_radius,
+            initial_start_cross
+        );
+    }
+
+    // Also verify the point is within the angular range by checking cross products
+    let cx = solved_arc.center.x;
+    let cy = solved_arc.center.y;
+    let ax = solved_arc.a.x;
+    let ay = solved_arc.a.y;
+    let bx = solved_arc.b.x;
+    let by = solved_arc.b.y;
+    let px = solved_line4_start.x;
+    let py = solved_line4_start.y;
+
+    // For a CCW arc, the point should be:
+    // - CCW from the start vector (start_cross < 0)
+    // - Before the end (end is CCW from point, so end_cross < 0)
+    let start_cross = (ax - cx) * (cy - py) - (ay - cy) * (cx - px);
+    let end_cross = (bx - cx) * (cy - py) - (by - cy) * (cx - px);
+
+    // Debug logs intentionally removed to keep tests quiet by default.
+
+    // Allow small tolerance for numerical precision, but point should be clearly in range
+    assert!(
+        start_cross < 0.01,
+        "Point should be CCW from start angle (or very close to boundary). start_cross: {}",
+        start_cross
+    );
+    assert!(
+        end_cross < 1e-6,
+        "Point should be before end angle (end is CCW from point). end_cross: {}",
+        end_cross
+    );
 }

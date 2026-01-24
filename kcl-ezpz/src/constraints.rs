@@ -529,6 +529,7 @@ impl Constraint {
                 let by = current_assignments[layout.index_of(circular_arc.end.id_y())];
                 let px = current_assignments[layout.index_of(point.id_x())];
                 let py = current_assignments[layout.index_of(point.id_y())];
+
                 let arc_radius = libm::hypot(cx - ax, cy - ay);
                 let dist_constraint = Constraint::Distance(circular_arc.center, *point, arc_radius);
                 // Write the distance residual into residual0.
@@ -540,7 +541,11 @@ impl Constraint {
                     residual2,
                     degenerate,
                 );
+
                 // Calculate the angle residuals.
+                // For a CCW arc from start to end, a point is in range when:
+                // - The point is CCW from the start vector (start_cross <= 0)
+                // - The end is CCW from the point, meaning the point comes before the end (end_cross < 0)
                 let start_cross = (ax - cx) * (cy - py) - (ay - cy) * (cx - px);
                 *residual1 = if start_cross <= 0.0 {
                     0.0
@@ -548,7 +553,7 @@ impl Constraint {
                     -start_cross
                 };
                 let end_cross = (bx - cx) * (cy - py) - (by - cy) * (cx - px);
-                *residual2 = if end_cross >= 0.0 { 0.0 } else { end_cross };
+                *residual2 = if end_cross < 0.0 { 0.0 } else { end_cross };
             }
             Constraint::ArcLength(circular_arc, d) => {
                 // Residual math, see ezpz-sympy for notebook.
@@ -1462,7 +1467,9 @@ impl Constraint {
                     row2,
                     degenerate,
                 );
-                // Residual 1: the point should be above the start angle, on the circle.
+
+                // Residual 1: the point should be CCW from the start angle, on the circle.
+                // For a CCW arc, satisfied when start_cross <= 0
                 let start_cross = (ax - cx) * (cy - py) - (ay - cy) * (cx - px);
                 let start_weight = if start_cross > 0.0 {
                     1.0
@@ -1504,20 +1511,20 @@ impl Constraint {
                         partial_derivative: r1dpy,
                     },
                 ]);
-                // Residual 2: the point should be below the end angle, on the circle.
-                // Partial derivatives, res2
+
+                // Residual 2: the end should be CCW from the point (point comes before end).
+                // For a CCW arc, satisfied when end_cross < 0
                 let end_cross = (bx - cx) * (cy - py) - (by - cy) * (cx - px);
                 let end_weight = if end_cross > 0.0 {
-                    0.0
+                    1.0
                 } else if end_cross == 0.0 {
                     0.5
                 } else {
-                    1.0
+                    0.0
                 };
+                // Partial derivatives
                 let r2dpx = (by - cy) * end_weight;
                 let r2dpy = -(bx - cx) * end_weight;
-                // let _r2dax = 0;
-                // let _r2day = 0;
                 let r2dbx = (cy - py) * end_weight;
                 let r2dby = -(cx - px) * end_weight;
                 let r2dcx = -(by - py) * end_weight;
