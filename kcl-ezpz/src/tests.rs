@@ -765,7 +765,7 @@ pub fn assert_nearly_eq(l: f64, r: f64) {
     );
 }
 
-/// Test that reproduces a bug where adding a point_arc_coincident constraint
+/// Test that reproduces a bug where adding a `point_arc_coincident` constraint
 /// causes the solver to produce dramatically different results from the initial guesses,
 /// even when the point is already basically on the arc.
 #[test]
@@ -816,13 +816,13 @@ fn point_basically_already_on_arc_should_not_cause_much_change_in_sketch() {
     );
 
     // Calculate how much the solution changed from the initial guesses
-    let change_line3_start = solved_line3_start.euclidean_distance(initial_line3_start);
-    let change_line3_end = solved_line3_end.euclidean_distance(initial_line3_end);
+    let _change_line3_start = solved_line3_start.euclidean_distance(initial_line3_start);
+    let _change_line3_end = solved_line3_end.euclidean_distance(initial_line3_end);
     let change_line4_start = solved_line4_start.euclidean_distance(initial_line4_start);
-    let change_line4_end = solved_line4_end.euclidean_distance(initial_line4_end);
-    let change_arc_center = solved_arc.center.euclidean_distance(initial_arc_center);
-    let change_arc_a = solved_arc.a.euclidean_distance(initial_arc_a);
-    let change_arc_b = solved_arc.b.euclidean_distance(initial_arc_b);
+    let _change_line4_end = solved_line4_end.euclidean_distance(initial_line4_end);
+    let _change_arc_center = solved_arc.center.euclidean_distance(initial_arc_center);
+    let _change_arc_a = solved_arc.a.euclidean_distance(initial_arc_a);
+    let _change_arc_b = solved_arc.b.euclidean_distance(initial_arc_b);
 
     // The bug is that these changes are dramatically large even though line4_start
     // is already basically on the arc. We expect the solver to make minimal changes.
@@ -835,15 +835,15 @@ fn point_basically_already_on_arc_should_not_cause_much_change_in_sketch() {
     let solved_without_line4_end = solved_without.get_point("line4end").unwrap();
     let solved_without_arc = solved_without.get_arc("arc1").unwrap();
 
-    let diff_line3_start = solved_line3_start.euclidean_distance(solved_without_line3_start);
-    let diff_line3_end = solved_line3_end.euclidean_distance(solved_without_line3_end);
-    let diff_line4_start = solved_line4_start.euclidean_distance(solved_without_line4_start);
-    let diff_line4_end = solved_line4_end.euclidean_distance(solved_without_line4_end);
-    let diff_arc_center = solved_arc
+    let _diff_line3_start = solved_line3_start.euclidean_distance(solved_without_line3_start);
+    let _diff_line3_end = solved_line3_end.euclidean_distance(solved_without_line3_end);
+    let _diff_line4_start = solved_line4_start.euclidean_distance(solved_without_line4_start);
+    let _diff_line4_end = solved_line4_end.euclidean_distance(solved_without_line4_end);
+    let _diff_arc_center = solved_arc
         .center
         .euclidean_distance(solved_without_arc.center);
-    let diff_arc_a = solved_arc.a.euclidean_distance(solved_without_arc.a);
-    let diff_arc_b = solved_arc.b.euclidean_distance(solved_without_arc.b);
+    let _diff_arc_a = solved_arc.a.euclidean_distance(solved_without_arc.a);
+    let _diff_arc_b = solved_arc.b.euclidean_distance(solved_without_arc.b);
 
     // Debug logs intentionally removed to keep tests quiet by default.
 
@@ -851,17 +851,16 @@ fn point_basically_already_on_arc_should_not_cause_much_change_in_sketch() {
     // This assertion will fail if the bug is present, showing the dramatic difference
     // We use a threshold that's much larger than the initial distance from the arc
     let max_expected_change = initial_distance_from_arc * 10.0;
-    if change_line4_start > max_expected_change {
-        panic!(
-            "BUG REPRODUCED: Adding point_arc_coincident constraint caused line4_start to move by {:.6}, \
-             but it was only {:.6} away from the arc initially. This is a dramatic change that shouldn't be necessary.",
-            change_line4_start, initial_distance_from_arc
-        );
-    }
+    assert!(
+        change_line4_start <= max_expected_change,
+        "BUG REPRODUCED: Adding point_arc_coincident constraint caused line4_start to move by {:.6}, \
+         but it was only {:.6} away from the arc initially. This is a dramatic change that shouldn't be necessary.",
+        change_line4_start, initial_distance_from_arc
+    );
 }
 
 /// Test that when a point is initially at the arc center (not on the arc's circumference
-/// within the angular range), the point_arc_coincident constraint should cause it to
+/// within the angular range), the `point_arc_coincident` constraint should cause it to
 /// move significantly to a point on the arc within the angular range.
 #[test]
 fn arc_center_point_coincident() {
