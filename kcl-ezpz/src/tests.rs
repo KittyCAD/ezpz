@@ -765,9 +765,18 @@ pub fn assert_nearly_eq(l: f64, r: f64) {
     );
 }
 
-/// Test that reproduces a bug where adding a `point_arc_coincident` constraint
-/// causes the solver to produce dramatically different results from the initial guesses,
-/// even when the point is already basically on the arc.
+/// Regression test for the bug that motivated this fix.
+///
+/// The bug report was: adding `point_arc_coincident(point, arc)` can cause the solver to
+/// "jump" to a very different configuration even when the point is already basically on the arc.
+///
+/// This test reproduces that bug by:
+/// - Solving a baseline problem without the `point_arc_coincident` constraint
+/// - Solving the same problem with the constraint added
+/// - Verifying that the initial guess is already close to the arc (distance-from-radius < 0.5)
+/// - Asserting that adding the constraint doesn't cause dramatic changes
+///
+/// This test encodes the stability goal: "don't move much if already almost satisfied".
 #[test]
 fn point_basically_already_on_arc_should_not_cause_much_change_in_sketch() {
     // First, solve without the point_arc_coincident constraint to get a baseline
@@ -860,9 +869,19 @@ fn point_basically_already_on_arc_should_not_cause_much_change_in_sketch() {
     );
 }
 
-/// Test that when a point is initially at the arc center (not on the arc's circumference
-/// within the angular range), the `point_arc_coincident` constraint should cause it to
-/// move significantly to a point on the arc within the angular range.
+/// Test the "other side" of the stability goal: when a point is NOT on the circle or not in range,
+/// the constraint SHOULD move it meaningfully.
+///
+/// This test verifies that:
+/// - If the point is initially outside the angular range (e.g., near the arc center or outside
+///   the angular span), the constraint should cause it to move significantly onto the arc
+/// - The point ends up both on the circle (correct radius) and within the angular range
+/// - If the initial angular violation is large, movement should be at least ~30% of the radius
+///
+/// This test encodes the correctness goal: "do move meaningfully if far from satisfied".
+/// Together with `point_basically_already_on_arc_should_not_cause_much_change_in_sketch`,
+/// these tests ensure the constraint is both stable (doesn't over-correct) and effective
+/// (does correct when needed).
 #[test]
 fn arc_center_point_coincident() {
     let solved = run("arc_center_point_coincident");

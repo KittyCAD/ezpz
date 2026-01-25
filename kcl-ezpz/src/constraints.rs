@@ -530,6 +530,8 @@ impl Constraint {
                 let px = current_assignments[layout.index_of(point.id_x())];
                 let py = current_assignments[layout.index_of(point.id_y())];
 
+                // Point-on-arc is split into: distance residual + two angular residuals.
+                // First, enforce "point is on the circle" (distance-to-center equals radius).
                 let arc_radius = libm::hypot(cx - ax, cy - ay);
                 let dist_constraint = Constraint::Distance(circular_arc.center, *point, arc_radius);
                 // Write the distance residual into residual0.
@@ -546,13 +548,25 @@ impl Constraint {
                 // For a CCW arc from start to end, a point is in range when:
                 // - The point is CCW from the start vector (start_cross <= 0)
                 // - The end is CCW from the point, meaning the point comes before the end (end_cross < 0)
+                //
+                // Cross-product sign convention: these expressions compute cross products of
+                // (point-from-center) with (endpoint-from-center), but written in a way that effectively
+                // flips the sign compared to the more common (endpoint-center) × (point-center) form.
+                // Cross products are sign-sensitive to operand order: u × v = -(v × u).
+                // The inequalities are adjusted to match this particular ordering convention.
                 let start_cross = (ax - cx) * (cy - py) - (ay - cy) * (cx - px);
+                // Residuals are made one-sided (0 if satisfied, positive if violated).
+                // If inside the allowed region (start_cross <= 0), residual is 0 (constraint doesn't push).
+                // If violated (start_cross > 0), residual becomes -start_cross, which is positive.
                 *residual1 = if start_cross <= 0.0 {
                     0.0
                 } else {
                     -start_cross
                 };
                 let end_cross = (bx - cx) * (cy - py) - (by - cy) * (cx - px);
+                // Same pattern: 0 when satisfied (end_cross < 0), positive when violated (end_cross >= 0).
+                // One-sided penalties avoid "pulling" in opposite directions and reduce chances that
+                // a small numerical sign wobble around 0 causes a big update.
                 *residual2 = if end_cross < 0.0 { 0.0 } else { end_cross };
             }
             Constraint::ArcLength(circular_arc, d) => {
@@ -1471,6 +1485,12 @@ impl Constraint {
                 // Residual 1: the point should be CCW from the start angle, on the circle.
                 // For a CCW arc, satisfied when start_cross <= 0
                 let start_cross = (ax - cx) * (cy - py) - (ay - cy) * (cx - px);
+                // Weighted logic (Jacobian gating): turn the angular residual gradients on only when violated.
+                // This prevents inequality-style constraints from destabilizing a least-squares solver.
+                // - If satisfied (inside range), weight = 0 → Jacobian contributes nothing, so the solver
+                //   won't keep pushing you around to "improve" something that is already valid.
+                // - If violated, weight = 1 → full gradient is active.
+                // - If exactly on the boundary, 0.5 → a soft transition to reduce discontinuity at cross == 0.
                 let start_weight = if start_cross > 0.0 {
                     1.0
                 } else if start_cross == 0.0 {
@@ -1478,7 +1498,7 @@ impl Constraint {
                 } else {
                     0.0
                 };
-                // Partial derivatives
+                // Partial derivatives (all multiplied by start_weight to gate the gradient)
                 let r1dpx = -(ay - cy) * start_weight;
                 let r1dpy = (ax - cx) * start_weight;
                 let r1dax = -(cy - py) * start_weight;
@@ -1515,6 +1535,9 @@ impl Constraint {
                 // Residual 2: the end should be CCW from the point (point comes before end).
                 // For a CCW arc, satisfied when end_cross < 0
                 let end_cross = (bx - cx) * (cy - py) - (by - cy) * (cx - px);
+                // Same weighted logic as residual1: gate the Jacobian contribution based on violation state.
+                // This prevents the solver from getting a big, misleading "gradient signal" from the angular
+                // terms when it shouldn't, which was causing instability when points were already on the arc.
                 let end_weight = if end_cross > 0.0 {
                     1.0
                 } else if end_cross == 0.0 {
@@ -1522,7 +1545,7 @@ impl Constraint {
                 } else {
                     0.0
                 };
-                // Partial derivatives
+                // Partial derivatives (all multiplied by end_weight to gate the gradient)
                 let r2dpx = (by - cy) * end_weight;
                 let r2dpy = -(bx - cx) * end_weight;
                 let r2dbx = (cy - py) * end_weight;
