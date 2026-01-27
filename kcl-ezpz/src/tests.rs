@@ -489,6 +489,157 @@ fn arc_length() {
     assert!(solved.is_satisfied());
 }
 
+/// Test that mirrors the trim_arc2_left_side scenario from modeling-app.
+///
+/// This test represents a trim operation where:
+/// - Two arcs intersect
+/// - arc1 should remain unchanged (its parameters shouldn't change when PointArcCoincident is added)
+/// - arc2 should be trimmed to end at the intersection point
+/// - When PointArcCoincident is added for the intersection point on arc2, arc1's parameters should remain unchanged
+///
+/// This test mirrors the KCL code from the modeling-app test:
+/// ```
+/// sketch(on = YZ) {
+///   arc1 = sketch2::arc(start = [var 0mm, var 5mm], end = [var 0mm, var -5mm], center = [var 30mm, var 0mm])
+///   arc2 = sketch2::arc(start = [var 5mm, var 0mm], end = [var -5mm, var 0mm], center = [var 0mm, var -30mm])
+/// }
+/// ```
+#[test]
+fn test_trim_arc2_left_side_arc1_should_remain_fixed() {
+    let mut ids = IdGenerator::default();
+
+    // Create two arcs matching the trim test scenario:
+    // arc1: start = (0, 5), end = (0, -5), center = (30, 0)
+    // arc2: start = (5, 0), end = (-5, 0), center = (0, -30)
+    let arc1_center = DatumPoint::new(&mut ids);
+    let arc1_start = DatumPoint::new(&mut ids);
+    let arc1_end = DatumPoint::new(&mut ids);
+    let arc1 = DatumCircularArc {
+        center: arc1_center,
+        start: arc1_start,
+        end: arc1_end,
+    };
+
+    let arc2_center = DatumPoint::new(&mut ids);
+    let arc2_start = DatumPoint::new(&mut ids);
+    let arc2_end = DatumPoint::new(&mut ids);
+    let arc2 = DatumCircularArc {
+        center: arc2_center,
+        start: arc2_start,
+        end: arc2_end,
+    };
+
+    // Expected values for arc1 (matching the modeling-app test)
+    // These should remain unchanged when PointArcCoincident is added
+    let arc1_center_x_expected = 30.0;
+    let arc1_center_y_expected = 0.0;
+    let arc1_start_x_expected = 0.0;
+    let arc1_start_y_expected = 5.0;
+    let arc1_end_x_expected = 0.0;
+    let arc1_end_y_expected = -5.0;
+
+    // Initial guesses matching the trim test scenario
+    let initial_guesses = vec![
+        // arc1: start = (0, 5), end = (0, -5), center = (30, 0)
+        (arc1_center.id_x(), 30.0),
+        (arc1_center.id_y(), 0.0),
+        (arc1_start.id_x(), 0.0),
+        (arc1_start.id_y(), 5.0),
+        (arc1_end.id_x(), 0.0),
+        (arc1_end.id_y(), -5.0),
+        // arc2: start = (5, 0), end = (-5, 0), center = (0, -30)
+        (arc2_center.id_x(), 0.0),
+        (arc2_center.id_y(), -30.0),
+        (arc2_start.id_x(), 5.0),
+        (arc2_start.id_y(), 0.0),
+        // arc2.end will become the intersection point after trimming
+        (arc2_end.id_x(), -5.0),
+        (arc2_end.id_y(), 0.0),
+    ];
+
+    // Now solve with PointArcCoincident added (this is what the trim operation does)
+    // The bug is that adding PointArcCoincident causes arc1's parameters to change
+    // even though they should remain at the expected values
+    let constraints_with_trim = vec![
+        // Define both arcs
+        ConstraintRequest::highest_priority(Constraint::Arc(arc1)),
+        ConstraintRequest::highest_priority(Constraint::Arc(arc2)),
+        // Fix arc1's parameters to the expected values (matching the modeling-app test)
+        // These should NOT change when PointArcCoincident is added
+        ConstraintRequest::highest_priority(Constraint::Fixed(
+            arc1_center.id_x(),
+            arc1_center_x_expected,
+        )),
+        ConstraintRequest::highest_priority(Constraint::Fixed(
+            arc1_center.id_y(),
+            arc1_center_y_expected,
+        )),
+        ConstraintRequest::highest_priority(Constraint::Fixed(
+            arc1_start.id_x(),
+            arc1_start_x_expected,
+        )),
+        ConstraintRequest::highest_priority(Constraint::Fixed(
+            arc1_start.id_y(),
+            arc1_start_y_expected,
+        )),
+        ConstraintRequest::highest_priority(Constraint::Fixed(
+            arc1_end.id_x(),
+            arc1_end_x_expected,
+        )),
+        ConstraintRequest::highest_priority(Constraint::Fixed(
+            arc1_end.id_y(),
+            arc1_end_y_expected,
+        )),
+        // Fix arc2's start and center
+        ConstraintRequest::highest_priority(Constraint::Fixed(arc2_center.id_x(), 0.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(arc2_center.id_y(), -30.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(arc2_start.id_x(), 5.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(arc2_start.id_y(), 0.0)),
+        // The intersection point (arc2.end) should be on arc2 (this is what causes the bug)
+        // In the trim scenario, arc2.end becomes the intersection point
+        ConstraintRequest::highest_priority(Constraint::PointArcCoincident(arc2, arc2_end)),
+        // Also add that arc2.end is on arc1 (matching the coincident constraint
+        // in the modeling-app test: sketch2::coincident([arc2.end, arc1]))
+        ConstraintRequest::highest_priority(Constraint::PointArcCoincident(arc1, arc2_end)),
+    ];
+
+    let trim_outcome = solve(&constraints_with_trim, initial_guesses, Config::default())
+        .expect("trim constraint system should converge");
+
+    assert!(
+        trim_outcome.is_satisfied(),
+        "the constraint should be satisfied"
+    );
+
+    // Verify that arc1's parameters remain at their fixed values
+    // The bug on kurt-point-on-arc is that these fixed values are violated
+    // when PointArcCoincident is added, even though they're explicitly fixed
+    assert_nearly_eq(
+        trim_outcome.final_values[arc1_center.id_x() as usize],
+        arc1_center_x_expected,
+    );
+    assert_nearly_eq(
+        trim_outcome.final_values[arc1_center.id_y() as usize],
+        arc1_center_y_expected,
+    );
+    assert_nearly_eq(
+        trim_outcome.final_values[arc1_start.id_x() as usize],
+        arc1_start_x_expected,
+    );
+    assert_nearly_eq(
+        trim_outcome.final_values[arc1_start.id_y() as usize],
+        arc1_start_y_expected,
+    );
+    assert_nearly_eq(
+        trim_outcome.final_values[arc1_end.id_x() as usize],
+        arc1_end_x_expected,
+    );
+    assert_nearly_eq(
+        trim_outcome.final_values[arc1_end.id_y() as usize],
+        arc1_end_y_expected,
+    );
+}
+
 fn solve_arc_length_case(
     arc_center_x: f64,
     arc_center_y: f64,

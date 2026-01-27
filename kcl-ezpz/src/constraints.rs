@@ -544,30 +544,54 @@ impl Constraint {
                     degenerate,
                 );
 
+                // If the point is already within the CCW angular range, do not apply angular penalties.
+                // This avoids large jumps for near-satisfied constraints while keeping distance enforcement.
+                let start_angle = libm::atan2(ay - cy, ax - cx);
+                let end_angle = libm::atan2(by - cy, bx - cx);
+                let point_angle = libm::atan2(py - cy, px - cx);
+                let mut end_angle_ccw = end_angle;
+                let mut point_angle_ccw = point_angle;
+                if end_angle_ccw < start_angle {
+                    end_angle_ccw += std::f64::consts::TAU;
+                }
+                if point_angle_ccw < start_angle {
+                    point_angle_ccw += std::f64::consts::TAU;
+                }
+                if point_angle_ccw <= end_angle_ccw {
+                    *residual1 = 0.0;
+                    *residual2 = 0.0;
+                    return;
+                }
+
                 // Calculate the angle residuals.
-                // For a CCW arc from start to end, a point is in range when:
-                // - The point is CCW from the start vector (start_cross <= 0)
-                // - The end is CCW from the point, meaning the point comes before the end (end_cross < 0)
-                //
-                // Cross-product sign convention: these expressions compute cross products of
-                // (point-from-center) with (endpoint-from-center), but written in a way that effectively
-                // flips the sign compared to the more common (endpoint-center) × (point-center) form.
-                // Cross products are sign-sensitive to operand order: u × v = -(v × u).
-                // The inequalities are adjusted to match this particular ordering convention.
-                let start_cross = (ax - cx) * (cy - py) - (ay - cy) * (cx - px);
-                // Residuals are made one-sided (0 if satisfied, positive if violated).
-                // If inside the allowed region (start_cross <= 0), residual is 0 (constraint doesn't push).
-                // If violated (start_cross > 0), residual becomes -start_cross, which is positive.
+                // We allow either orientation (CW or CCW) and pick the one that best fits the point.
+                // This keeps point-on-arc stable for nearly-satisfied points while still enforcing range.
+                let start_cross_raw = (ax - cx) * (cy - py) - (ay - cy) * (cx - px);
+                let end_cross_raw = (bx - cx) * (cy - py) - (by - cy) * (cx - px);
+                let ccw_ok = start_cross_raw <= 0.0 && end_cross_raw >= 0.0;
+                let cw_ok = start_cross_raw >= 0.0 && end_cross_raw <= 0.0;
+                let dir = if ccw_ok {
+                    1.0
+                } else if cw_ok {
+                    -1.0
+                } else {
+                    let ccw_violation = start_cross_raw.max(0.0) + (-end_cross_raw).max(0.0);
+                    let cw_violation = (-start_cross_raw).max(0.0) + end_cross_raw.max(0.0);
+                    if ccw_violation <= cw_violation {
+                        1.0
+                    } else {
+                        -1.0
+                    }
+                };
+                let start_cross = start_cross_raw * dir;
+                let end_cross = end_cross_raw * dir;
+                // One-sided penalties for the chosen orientation.
                 *residual1 = if start_cross <= 0.0 {
                     0.0
                 } else {
                     -start_cross
                 };
-                let end_cross = (bx - cx) * (cy - py) - (by - cy) * (cx - px);
-                // Same pattern: 0 when satisfied (end_cross < 0), positive when violated (end_cross >= 0).
-                // One-sided penalties avoid "pulling" in opposite directions and reduce chances that
-                // a small numerical sign wobble around 0 causes a big update.
-                *residual2 = if end_cross < 0.0 { 0.0 } else { end_cross };
+                *residual2 = if end_cross >= 0.0 { 0.0 } else { end_cross };
             }
             Constraint::ArcLength(circular_arc, d) => {
                 // Residual math, see ezpz-sympy for notebook.
@@ -1482,9 +1506,42 @@ impl Constraint {
                     degenerate,
                 );
 
-                // Residual 1: the point should be CCW from the start angle, on the circle.
-                // For a CCW arc, satisfied when start_cross <= 0
-                let start_cross = (ax - cx) * (cy - py) - (ay - cy) * (cx - px);
+                // If the point is already within the CCW angular range, skip angular Jacobians.
+                let start_angle = libm::atan2(ay - cy, ax - cx);
+                let end_angle = libm::atan2(by - cy, bx - cx);
+                let point_angle = libm::atan2(py - cy, px - cx);
+                let mut end_angle_ccw = end_angle;
+                let mut point_angle_ccw = point_angle;
+                if end_angle_ccw < start_angle {
+                    end_angle_ccw += std::f64::consts::TAU;
+                }
+                if point_angle_ccw < start_angle {
+                    point_angle_ccw += std::f64::consts::TAU;
+                }
+                if point_angle_ccw <= end_angle_ccw {
+                    return;
+                }
+
+                // Residual 1: the point should be within the arc range.
+                // Choose the orientation (CW or CCW) that best fits the point.
+                let start_cross_raw = (ax - cx) * (cy - py) - (ay - cy) * (cx - px);
+                let end_cross_raw = (bx - cx) * (cy - py) - (by - cy) * (cx - px);
+                let ccw_ok = start_cross_raw <= 0.0 && end_cross_raw >= 0.0;
+                let cw_ok = start_cross_raw >= 0.0 && end_cross_raw <= 0.0;
+                let dir = if ccw_ok {
+                    1.0
+                } else if cw_ok {
+                    -1.0
+                } else {
+                    let ccw_violation = start_cross_raw.max(0.0) + (-end_cross_raw).max(0.0);
+                    let cw_violation = (-start_cross_raw).max(0.0) + end_cross_raw.max(0.0);
+                    if ccw_violation <= cw_violation {
+                        1.0
+                    } else {
+                        -1.0
+                    }
+                };
+                let start_cross = start_cross_raw * dir;
                 // Weighted logic (Jacobian gating): turn the angular residual gradients on only when violated.
                 // This prevents inequality-style constraints from destabilizing a least-squares solver.
                 // - If satisfied (inside range), weight = 0 → Jacobian contributes nothing, so the solver
@@ -1498,13 +1555,13 @@ impl Constraint {
                 } else {
                     0.0
                 };
-                // Partial derivatives (all multiplied by start_weight to gate the gradient)
-                let r1dpx = -(ay - cy) * start_weight;
-                let r1dpy = (ax - cx) * start_weight;
-                let r1dax = -(cy - py) * start_weight;
-                let r1day = (cx - px) * start_weight;
-                let r1dcx = (ay - py) * start_weight;
-                let r1dcy = -(ax - px) * start_weight;
+                // Partial derivatives (all multiplied by start_weight and dir)
+                let r1dpx = -(ay - cy) * start_weight * dir;
+                let r1dpy = (ax - cx) * start_weight * dir;
+                let r1dax = -(cy - py) * start_weight * dir;
+                let r1day = (cx - px) * start_weight * dir;
+                let r1dcx = (ay - py) * start_weight * dir;
+                let r1dcy = -(ax - px) * start_weight * dir;
                 row1.extend([
                     JacobianVar {
                         id: id_cx,
@@ -1534,24 +1591,24 @@ impl Constraint {
 
                 // Residual 2: the end should be CCW from the point (point comes before end).
                 // For a CCW arc, satisfied when end_cross < 0
-                let end_cross = (bx - cx) * (cy - py) - (by - cy) * (cx - px);
+                let end_cross = end_cross_raw * dir;
                 // Same weighted logic as residual1: gate the Jacobian contribution based on violation state.
                 // This prevents the solver from getting a big, misleading "gradient signal" from the angular
                 // terms when it shouldn't, which was causing instability when points were already on the arc.
                 let end_weight = if end_cross > 0.0 {
-                    1.0
+                    0.0
                 } else if end_cross == 0.0 {
                     0.5
                 } else {
-                    0.0
+                    1.0
                 };
-                // Partial derivatives (all multiplied by end_weight to gate the gradient)
-                let r2dpx = (by - cy) * end_weight;
-                let r2dpy = -(bx - cx) * end_weight;
-                let r2dbx = (cy - py) * end_weight;
-                let r2dby = -(cx - px) * end_weight;
-                let r2dcx = -(by - py) * end_weight;
-                let r2dcy = (bx - px) * end_weight;
+                // Partial derivatives (all multiplied by end_weight and dir)
+                let r2dpx = (by - cy) * end_weight * dir;
+                let r2dpy = -(bx - cx) * end_weight * dir;
+                let r2dbx = (cy - py) * end_weight * dir;
+                let r2dby = -(cx - px) * end_weight * dir;
+                let r2dcx = -(by - py) * end_weight * dir;
+                let r2dcy = (bx - px) * end_weight * dir;
                 row2.extend([
                     JacobianVar {
                         id: id_cx,
