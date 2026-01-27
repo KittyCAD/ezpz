@@ -552,12 +552,11 @@ impl Constraint {
 
                 // Calculate the angle residuals.
                 // Use the arc's orientation (start -> end) to decide CW/CCW.
-                let arc_dir =
-                    if (ax - cx) * (by - cy) - (ay - cy) * (bx - cx) >= 0.0 {
-                        1.0
-                    } else {
-                        -1.0
-                    };
+                let arc_dir = if (ax - cx) * (by - cy) - (ay - cy) * (bx - cx) >= 0.0 {
+                    1.0
+                } else {
+                    -1.0
+                };
                 let start_cross_raw = (ax - cx) * (cy - py) - (ay - cy) * (cx - px);
                 let end_cross_raw = (bx - cx) * (cy - py) - (by - cy) * (cx - px);
                 let dir = arc_dir;
@@ -1495,12 +1494,11 @@ impl Constraint {
                 if distance_mag <= ANGULAR_DISTANCE_TOLERANCE {
                     return;
                 }
-                let arc_dir =
-                    if (ax - cx) * (by - cy) - (ay - cy) * (bx - cx) >= 0.0 {
-                        1.0
-                    } else {
-                        -1.0
-                    };
+                let arc_dir = if (ax - cx) * (by - cy) - (ay - cy) * (bx - cx) >= 0.0 {
+                    1.0
+                } else {
+                    -1.0
+                };
                 let start_cross_raw = (ax - cx) * (cy - py) - (ay - cy) * (cx - px);
                 let end_cross_raw = (bx - cx) * (cy - py) - (by - cy) * (cx - px);
                 let dir = arc_dir;
