@@ -453,10 +453,10 @@ impl Constraint {
             Constraint::VerticalPointLineDistance(point, line, desired_distance) => {
                 // See notebook:
                 // https://github.com/KittyCAD/ezpz-sympy/blob/main/main.py
-                // Residual:
-                // m = (qy-py)/(qx-px)
-                // actual = ay - (m * (ax - px) + py)
-                // residual = actual - desired_distance
+                // Residual (scaled to avoid dividing by dx):
+                // dx = qx - px
+                // dy = qy - py
+                // r = (ay - py - desired) * dx - dy * (ax - px)
                 let ax = current_assignments[layout.index_of(point.id_x())];
                 let ay = current_assignments[layout.index_of(point.id_y())];
                 let px = current_assignments[layout.index_of(line.p0.id_x())];
@@ -470,8 +470,7 @@ impl Constraint {
                     *degenerate = true;
                     return;
                 }
-                let residual =
-                    ay - desired_distance - py - (ax - px) * (-py + qy) * (-px + qx).recip();
+                let residual = (ay - py - desired_distance) * dx - dy * (ax - px);
                 *residual0 = residual;
             }
             Constraint::HorizontalPointLineDistance(point, line, d) => {
@@ -1285,7 +1284,7 @@ impl Constraint {
                 let id_qx = line.p1.id_x();
                 let id_qy = line.p1.id_y();
                 let ax = current_assignments[layout.index_of(id_ax)];
-                // `ay` is not used in the math, because partial derivative of ay is 1.
+                let ay = current_assignments[layout.index_of(id_ay)];
                 let px = current_assignments[layout.index_of(id_px)];
                 let py = current_assignments[layout.index_of(id_py)];
                 let qx = current_assignments[layout.index_of(id_qx)];
@@ -1297,12 +1296,14 @@ impl Constraint {
                     *degenerate = true;
                     return;
                 }
-                let dpx = (ax - qx) * (py - qy) * (px - qx).powi(-2);
-                let dpy = (-ax + qx) * (px - qx).recip();
-                let dqx = -(ax - px) * (py - qy) * (px - qx).powi(-2);
-                let dqy = (ax - px) * (px - qx).recip();
-                let dax = (-py + qy) * (px - qx).recip();
-                let day = 1.0;
+                // Residual is scaled by dx: r = (ay - py - d) * dx - dy * (ax - px)
+                // Partial derivatives for the scaled residual:
+                let dax = -dy;
+                let day = dx;
+                let dpx = qy - ay;
+                let dpy = ax - qx;
+                let dqx = ay - py;
+                let dqy = -(ax - px);
                 row0.extend([
                     JacobianVar {
                         id: id_ax,
