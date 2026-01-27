@@ -453,10 +453,10 @@ impl Constraint {
             Constraint::VerticalPointLineDistance(point, line, desired_distance) => {
                 // See notebook:
                 // https://github.com/KittyCAD/ezpz-sympy/blob/main/main.py
-                // Residual:
-                // m = (qy-py)/(qx-px)
-                // actual = ay - (m * (ax - px) + py)
-                // residual = actual - desired_distance
+                // Residual (scaled to avoid dividing by dx):
+                // dx = qx - px
+                // dy = qy - py
+                // r = (ay - py - desired) * dx - dy * (ax - px)
                 let ax = current_assignments[layout.index_of(point.id_x())];
                 let ay = current_assignments[layout.index_of(point.id_y())];
                 let px = current_assignments[layout.index_of(line.p0.id_x())];
@@ -470,8 +470,7 @@ impl Constraint {
                     *degenerate = true;
                     return;
                 }
-                let residual =
-                    ay - desired_distance - py - (ax - px) * (-py + qy) * (-px + qx).recip();
+                let residual = (ay - py - desired_distance) * dx - dy * (ax - px);
                 *residual0 = residual;
             }
             Constraint::HorizontalPointLineDistance(point, line, d) => {
@@ -529,6 +528,9 @@ impl Constraint {
                 let by = current_assignments[layout.index_of(circular_arc.end.id_y())];
                 let px = current_assignments[layout.index_of(point.id_x())];
                 let py = current_assignments[layout.index_of(point.id_y())];
+
+                // Point-on-arc is split into: distance residual + two angular residuals.
+                // First, enforce "point is on the circle" (distance-to-center equals radius).
                 let arc_radius = libm::hypot(cx - ax, cy - ay);
                 let dist_constraint = Constraint::Distance(circular_arc.center, *point, arc_radius);
                 // Write the distance residual into residual0.
@@ -540,14 +542,32 @@ impl Constraint {
                     residual2,
                     degenerate,
                 );
+                let distance_mag = residual0.abs();
+                const ANGULAR_DISTANCE_TOLERANCE: f64 = 0.05;
+                if distance_mag <= ANGULAR_DISTANCE_TOLERANCE {
+                    *residual1 = 0.0;
+                    *residual2 = 0.0;
+                    return;
+                }
+
                 // Calculate the angle residuals.
-                let start_cross = (ax - cx) * (cy - py) - (ay - cy) * (cx - px);
+                // Use the arc's orientation (start -> end) to decide CW/CCW.
+                let arc_dir = if (ax - cx) * (by - cy) - (ay - cy) * (bx - cx) >= 0.0 {
+                    1.0
+                } else {
+                    -1.0
+                };
+                let start_cross_raw = (ax - cx) * (cy - py) - (ay - cy) * (cx - px);
+                let end_cross_raw = (bx - cx) * (cy - py) - (by - cy) * (cx - px);
+                let dir = arc_dir;
+                let start_cross = start_cross_raw * dir;
+                let end_cross = end_cross_raw * dir;
+                // One-sided penalties for the chosen orientation.
                 *residual1 = if start_cross <= 0.0 {
                     0.0
                 } else {
                     -start_cross
                 };
-                let end_cross = (bx - cx) * (cy - py) - (by - cy) * (cx - px);
                 *residual2 = if end_cross >= 0.0 { 0.0 } else { end_cross };
             }
             Constraint::ArcLength(circular_arc, d) => {
@@ -1242,7 +1262,7 @@ impl Constraint {
                 let id_qx = line.p1.id_x();
                 let id_qy = line.p1.id_y();
                 let ax = current_assignments[layout.index_of(id_ax)];
-                // `ay` is not used in the math, because partial derivative of ay is 1.
+                let ay = current_assignments[layout.index_of(id_ay)];
                 let px = current_assignments[layout.index_of(id_px)];
                 let py = current_assignments[layout.index_of(id_py)];
                 let qx = current_assignments[layout.index_of(id_qx)];
@@ -1254,12 +1274,14 @@ impl Constraint {
                     *degenerate = true;
                     return;
                 }
-                let dpx = (ax - qx) * (py - qy) * (px - qx).powi(-2);
-                let dpy = (-ax + qx) * (px - qx).recip();
-                let dqx = -(ax - px) * (py - qy) * (px - qx).powi(-2);
-                let dqy = (ax - px) * (px - qx).recip();
-                let dax = (-py + qy) * (px - qx).recip();
-                let day = 1.0;
+                // Residual is scaled by dx: r = (ay - py - d) * dx - dy * (ax - px)
+                // Partial derivatives for the scaled residual:
+                let dax = -dy;
+                let day = dx;
+                let dpx = qy - ay;
+                let dpy = ax - qx;
+                let dqx = ay - py;
+                let dqy = -(ax - px);
                 row0.extend([
                     JacobianVar {
                         id: id_ax,
@@ -1462,8 +1484,31 @@ impl Constraint {
                     row2,
                     degenerate,
                 );
-                // Residual 1: the point should be above the start angle, on the circle.
-                let start_cross = (ax - cx) * (cy - py) - (ay - cy) * (cx - px);
+
+                // Residual 1: the point should be within the arc range.
+                // Use the arc's orientation (start -> end) to decide CW/CCW.
+                let distance = libm::hypot(cx - px, cy - py);
+                let distance_residual = distance - arc_radius;
+                let distance_mag = distance_residual.abs();
+                const ANGULAR_DISTANCE_TOLERANCE: f64 = 0.05;
+                if distance_mag <= ANGULAR_DISTANCE_TOLERANCE {
+                    return;
+                }
+                let arc_dir = if (ax - cx) * (by - cy) - (ay - cy) * (bx - cx) >= 0.0 {
+                    1.0
+                } else {
+                    -1.0
+                };
+                let start_cross_raw = (ax - cx) * (cy - py) - (ay - cy) * (cx - px);
+                let end_cross_raw = (bx - cx) * (cy - py) - (by - cy) * (cx - px);
+                let dir = arc_dir;
+                let start_cross = start_cross_raw * dir;
+                // Weighted logic (Jacobian gating): turn the angular residual gradients on only when violated.
+                // This prevents inequality-style constraints from destabilizing a least-squares solver.
+                // - If satisfied (inside range), weight = 0 → Jacobian contributes nothing, so the solver
+                //   won't keep pushing you around to "improve" something that is already valid.
+                // - If violated, weight = 1 → full gradient is active.
+                // - If exactly on the boundary, 0.5 → a soft transition to reduce discontinuity at cross == 0.
                 let start_weight = if start_cross > 0.0 {
                     1.0
                 } else if start_cross == 0.0 {
@@ -1471,13 +1516,13 @@ impl Constraint {
                 } else {
                     0.0
                 };
-                // Partial derivatives
-                let r1dpx = -(ay - cy) * start_weight;
-                let r1dpy = (ax - cx) * start_weight;
-                let r1dax = -(cy - py) * start_weight;
-                let r1day = (cx - px) * start_weight;
-                let r1dcx = (ay - py) * start_weight;
-                let r1dcy = -(ax - px) * start_weight;
+                // Partial derivatives (all multiplied by start_weight and dir)
+                let r1dpx = -(ay - cy) * start_weight * dir;
+                let r1dpy = (ax - cx) * start_weight * dir;
+                let r1dax = -(cy - py) * start_weight * dir;
+                let r1day = (cx - px) * start_weight * dir;
+                let r1dcx = (ay - py) * start_weight * dir;
+                let r1dcy = -(ax - px) * start_weight * dir;
                 row1.extend([
                     JacobianVar {
                         id: id_cx,
@@ -1504,9 +1549,13 @@ impl Constraint {
                         partial_derivative: r1dpy,
                     },
                 ]);
-                // Residual 2: the point should be below the end angle, on the circle.
-                // Partial derivatives, res2
-                let end_cross = (bx - cx) * (cy - py) - (by - cy) * (cx - px);
+
+                // Residual 2: the end should be CCW from the point (point comes before end).
+                // For a CCW arc, satisfied when end_cross < 0
+                let end_cross = end_cross_raw * dir;
+                // Same weighted logic as residual1: gate the Jacobian contribution based on violation state.
+                // This prevents the solver from getting a big, misleading "gradient signal" from the angular
+                // terms when it shouldn't, which was causing instability when points were already on the arc.
                 let end_weight = if end_cross > 0.0 {
                     0.0
                 } else if end_cross == 0.0 {
@@ -1514,14 +1563,13 @@ impl Constraint {
                 } else {
                     1.0
                 };
-                let r2dpx = (by - cy) * end_weight;
-                let r2dpy = -(bx - cx) * end_weight;
-                // let _r2dax = 0;
-                // let _r2day = 0;
-                let r2dbx = (cy - py) * end_weight;
-                let r2dby = -(cx - px) * end_weight;
-                let r2dcx = -(by - py) * end_weight;
-                let r2dcy = (bx - px) * end_weight;
+                // Partial derivatives (all multiplied by end_weight and dir)
+                let r2dpx = (by - cy) * end_weight * dir;
+                let r2dpy = -(bx - cx) * end_weight * dir;
+                let r2dbx = (cy - py) * end_weight * dir;
+                let r2dby = -(cx - px) * end_weight * dir;
+                let r2dcx = -(by - py) * end_weight * dir;
+                let r2dcy = (bx - px) * end_weight * dir;
                 row2.extend([
                     JacobianVar {
                         id: id_cx,

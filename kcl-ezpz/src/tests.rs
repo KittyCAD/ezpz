@@ -489,6 +489,157 @@ fn arc_length() {
     assert!(solved.is_satisfied());
 }
 
+/// Test that mirrors the `trim_arc2_left_side` scenario from modeling-app.
+///
+/// This test represents a trim operation where:
+/// - Two arcs intersect
+/// - arc1 should remain unchanged (its parameters shouldn't change when `PointArcCoincident` is added)
+/// - arc2 should be trimmed to end at the intersection point
+/// - When `PointArcCoincident` is added for the intersection point on arc2, arc1's parameters should remain unchanged
+///
+/// This test mirrors the KCL code from the modeling-app test:
+/// ```
+/// sketch(on = YZ) {
+///   arc1 = sketch2::arc(start = [var 0mm, var 5mm], end = [var 0mm, var -5mm], center = [var 30mm, var 0mm])
+///   arc2 = sketch2::arc(start = [var 5mm, var 0mm], end = [var -5mm, var 0mm], center = [var 0mm, var -30mm])
+/// }
+/// ```
+#[test]
+fn test_trim_arc2_left_side_arc1_should_remain_fixed() {
+    let mut ids = IdGenerator::default();
+
+    // Create two arcs matching the trim test scenario:
+    // arc1: start = (0, 5), end = (0, -5), center = (30, 0)
+    // arc2: start = (5, 0), end = (-5, 0), center = (0, -30)
+    let arc1_center = DatumPoint::new(&mut ids);
+    let arc1_start = DatumPoint::new(&mut ids);
+    let arc1_end = DatumPoint::new(&mut ids);
+    let arc1 = DatumCircularArc {
+        center: arc1_center,
+        start: arc1_start,
+        end: arc1_end,
+    };
+
+    let arc2_center = DatumPoint::new(&mut ids);
+    let arc2_start = DatumPoint::new(&mut ids);
+    let arc2_end = DatumPoint::new(&mut ids);
+    let arc2 = DatumCircularArc {
+        center: arc2_center,
+        start: arc2_start,
+        end: arc2_end,
+    };
+
+    // Expected values for arc1 (matching the modeling-app test)
+    // These should remain unchanged when PointArcCoincident is added
+    let arc1_center_x_expected = 30.0;
+    let arc1_center_y_expected = 0.0;
+    let arc1_start_x_expected = 0.0;
+    let arc1_start_y_expected = 5.0;
+    let arc1_end_x_expected = 0.0;
+    let arc1_end_y_expected = -5.0;
+
+    // Initial guesses matching the trim test scenario
+    let initial_guesses = vec![
+        // arc1: start = (0, 5), end = (0, -5), center = (30, 0)
+        (arc1_center.id_x(), 30.0),
+        (arc1_center.id_y(), 0.0),
+        (arc1_start.id_x(), 0.0),
+        (arc1_start.id_y(), 5.0),
+        (arc1_end.id_x(), 0.0),
+        (arc1_end.id_y(), -5.0),
+        // arc2: start = (5, 0), end = (-5, 0), center = (0, -30)
+        (arc2_center.id_x(), 0.0),
+        (arc2_center.id_y(), -30.0),
+        (arc2_start.id_x(), 5.0),
+        (arc2_start.id_y(), 0.0),
+        // arc2.end will become the intersection point after trimming
+        (arc2_end.id_x(), -5.0),
+        (arc2_end.id_y(), 0.0),
+    ];
+
+    // Now solve with PointArcCoincident added (this is what the trim operation does)
+    // The bug is that adding PointArcCoincident causes arc1's parameters to change
+    // even though they should remain at the expected values
+    let constraints_with_trim = vec![
+        // Define both arcs
+        ConstraintRequest::highest_priority(Constraint::Arc(arc1)),
+        ConstraintRequest::highest_priority(Constraint::Arc(arc2)),
+        // Fix arc1's parameters to the expected values (matching the modeling-app test)
+        // These should NOT change when PointArcCoincident is added
+        ConstraintRequest::highest_priority(Constraint::Fixed(
+            arc1_center.id_x(),
+            arc1_center_x_expected,
+        )),
+        ConstraintRequest::highest_priority(Constraint::Fixed(
+            arc1_center.id_y(),
+            arc1_center_y_expected,
+        )),
+        ConstraintRequest::highest_priority(Constraint::Fixed(
+            arc1_start.id_x(),
+            arc1_start_x_expected,
+        )),
+        ConstraintRequest::highest_priority(Constraint::Fixed(
+            arc1_start.id_y(),
+            arc1_start_y_expected,
+        )),
+        ConstraintRequest::highest_priority(Constraint::Fixed(
+            arc1_end.id_x(),
+            arc1_end_x_expected,
+        )),
+        ConstraintRequest::highest_priority(Constraint::Fixed(
+            arc1_end.id_y(),
+            arc1_end_y_expected,
+        )),
+        // Fix arc2's start and center
+        ConstraintRequest::highest_priority(Constraint::Fixed(arc2_center.id_x(), 0.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(arc2_center.id_y(), -30.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(arc2_start.id_x(), 5.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(arc2_start.id_y(), 0.0)),
+        // The intersection point (arc2.end) should be on arc2 (this is what causes the bug)
+        // In the trim scenario, arc2.end becomes the intersection point
+        ConstraintRequest::highest_priority(Constraint::PointArcCoincident(arc2, arc2_end)),
+        // Also add that arc2.end is on arc1 (matching the coincident constraint
+        // in the modeling-app test: sketch2::coincident([arc2.end, arc1]))
+        ConstraintRequest::highest_priority(Constraint::PointArcCoincident(arc1, arc2_end)),
+    ];
+
+    let trim_outcome = solve(&constraints_with_trim, initial_guesses, Config::default())
+        .expect("trim constraint system should converge");
+
+    assert!(
+        trim_outcome.is_satisfied(),
+        "the constraint should be satisfied"
+    );
+
+    // Verify that arc1's parameters remain at their fixed values
+    // The bug on kurt-point-on-arc is that these fixed values are violated
+    // when PointArcCoincident is added, even though they're explicitly fixed
+    assert_nearly_eq(
+        trim_outcome.final_values[arc1_center.id_x() as usize],
+        arc1_center_x_expected,
+    );
+    assert_nearly_eq(
+        trim_outcome.final_values[arc1_center.id_y() as usize],
+        arc1_center_y_expected,
+    );
+    assert_nearly_eq(
+        trim_outcome.final_values[arc1_start.id_x() as usize],
+        arc1_start_x_expected,
+    );
+    assert_nearly_eq(
+        trim_outcome.final_values[arc1_start.id_y() as usize],
+        arc1_start_y_expected,
+    );
+    assert_nearly_eq(
+        trim_outcome.final_values[arc1_end.id_x() as usize],
+        arc1_end_x_expected,
+    );
+    assert_nearly_eq(
+        trim_outcome.final_values[arc1_end.id_y() as usize],
+        arc1_end_y_expected,
+    );
+}
+
 fn solve_arc_length_case(
     arc_center_x: f64,
     arc_center_y: f64,
@@ -762,5 +913,229 @@ pub fn assert_nearly_eq(l: f64, r: f64) {
     assert!(
         diff < EPSILON,
         "LHS was {l}, RHS was {r}, difference was {diff}"
+    );
+}
+
+/// Regression test for the bug that motivated this fix.
+///
+/// The bug report was: adding `point_arc_coincident(point, arc)` can cause the solver to
+/// "jump" to a very different configuration even when the point is already basically on the arc.
+///
+/// This test reproduces that bug by:
+/// - Solving a baseline problem without the `point_arc_coincident` constraint
+/// - Solving the same problem with the constraint added
+/// - Verifying that the initial guess is already close to the arc (distance-from-radius < 0.5)
+/// - Asserting that adding the constraint doesn't cause dramatic changes
+///
+/// This test encodes the stability goal: "don't move much if already almost satisfied".
+#[test]
+fn point_basically_already_on_arc_should_not_cause_much_change_in_sketch() {
+    // First, solve without the point_arc_coincident constraint to get a baseline
+    let txt_without = std::fs::read_to_string(
+        "../test_cases/arc_line_coincident_bug/problem_without_arc_constraint.md",
+    )
+    .unwrap();
+    let problem_without = parse_problem(&txt_without);
+    let system_without = problem_without.to_constraint_system().unwrap();
+    let solved_without = system_without
+        .solve_with_config_analysis(Default::default())
+        .unwrap();
+
+    // Now solve with the point_arc_coincident constraint
+    let solved_with = run("arc_line_coincident_bug");
+
+    // Initial guesses
+    let initial_line3_start = Point { x: 4.32, y: 3.72 };
+    let initial_line3_end = Point { x: 1.06, y: -3.26 };
+    let initial_line4_start = Point { x: -2.32, y: -2.96 };
+    let initial_line4_end = Point { x: -7.01, y: -2.77 };
+    let initial_arc_center = Point { x: 1.06, y: -3.26 };
+    let initial_arc_a = Point { x: -1.44, y: -0.99 };
+    let initial_arc_b = Point { x: 2.49, y: -0.2 };
+
+    // Get the solved values
+    let solved_line3_start = solved_with.get_point("line3start").unwrap();
+    let solved_line3_end = solved_with.get_point("line3end").unwrap();
+    let solved_line4_start = solved_with.get_point("line4start").unwrap();
+    let solved_line4_end = solved_with.get_point("line4end").unwrap();
+    let solved_arc = solved_with.get_arc("arc1").unwrap();
+
+    // Calculate how far line4_start is from the arc in the initial guess
+    // The arc center is at (1.06, -3.26) and arc.a is at (-1.44, -0.99)
+    // So the radius is the distance from center to arc.a
+    let initial_arc_radius = initial_arc_center.euclidean_distance(initial_arc_a);
+    let initial_line4_start_to_center = initial_line4_start.euclidean_distance(initial_arc_center);
+    let initial_distance_from_arc = (initial_line4_start_to_center - initial_arc_radius).abs();
+
+    // Verify that line4_start is already very close to the arc (within a reasonable tolerance)
+    // This should be a small value, showing the point is already basically on the arc
+    assert!(
+        initial_distance_from_arc < 0.5,
+        "line4_start should be close to the arc initially. Distance from arc: {}",
+        initial_distance_from_arc
+    );
+
+    // Calculate how much the solution changed from the initial guesses
+    let _change_line3_start = solved_line3_start.euclidean_distance(initial_line3_start);
+    let _change_line3_end = solved_line3_end.euclidean_distance(initial_line3_end);
+    let change_line4_start = solved_line4_start.euclidean_distance(initial_line4_start);
+    let _change_line4_end = solved_line4_end.euclidean_distance(initial_line4_end);
+    let _change_arc_center = solved_arc.center.euclidean_distance(initial_arc_center);
+    let _change_arc_a = solved_arc.a.euclidean_distance(initial_arc_a);
+    let _change_arc_b = solved_arc.b.euclidean_distance(initial_arc_b);
+
+    // The bug is that these changes are dramatically large even though line4_start
+    // is already basically on the arc. We expect the solver to make minimal changes.
+    // Debug logs intentionally removed to keep tests quiet by default.
+
+    // Compare with the solution without the constraint
+    let solved_without_line3_start = solved_without.get_point("line3start").unwrap();
+    let solved_without_line3_end = solved_without.get_point("line3end").unwrap();
+    let solved_without_line4_start = solved_without.get_point("line4start").unwrap();
+    let solved_without_line4_end = solved_without.get_point("line4end").unwrap();
+    let solved_without_arc = solved_without.get_arc("arc1").unwrap();
+
+    let _diff_line3_start = solved_line3_start.euclidean_distance(solved_without_line3_start);
+    let _diff_line3_end = solved_line3_end.euclidean_distance(solved_without_line3_end);
+    let _diff_line4_start = solved_line4_start.euclidean_distance(solved_without_line4_start);
+    let _diff_line4_end = solved_line4_end.euclidean_distance(solved_without_line4_end);
+    let _diff_arc_center = solved_arc
+        .center
+        .euclidean_distance(solved_without_arc.center);
+    let _diff_arc_a = solved_arc.a.euclidean_distance(solved_without_arc.a);
+    let _diff_arc_b = solved_arc.b.euclidean_distance(solved_without_arc.b);
+
+    // Debug logs intentionally removed to keep tests quiet by default.
+
+    // The test demonstrates the bug: adding the constraint causes dramatic changes
+    // This assertion will fail if the bug is present, showing the dramatic difference
+    // We use a threshold that's much larger than the initial distance from the arc
+    let max_expected_change = initial_distance_from_arc * 10.0;
+    assert!(
+        change_line4_start <= max_expected_change,
+        "BUG REPRODUCED: Adding point_arc_coincident constraint caused line4_start to move by {:.6}, \
+         but it was only {:.6} away from the arc initially. This is a dramatic change that shouldn't be necessary.",
+        change_line4_start,
+        initial_distance_from_arc
+    );
+}
+
+/// Test the "other side" of the stability goal: when a point is NOT on the circle or not in range,
+/// the constraint SHOULD move it meaningfully.
+///
+/// This test verifies that:
+/// - If the point is initially outside the angular range (e.g., near the arc center or outside
+///   the angular span), the constraint should cause it to move significantly onto the arc
+/// - The point ends up both on the circle (correct radius) and within the angular range
+/// - If the initial angular violation is large, movement should be at least ~30% of the radius
+///
+/// This test encodes the correctness goal: "do move meaningfully if far from satisfied".
+/// Together with `point_basically_already_on_arc_should_not_cause_much_change_in_sketch`,
+/// these tests ensure the constraint is both stable (doesn't over-correct) and effective
+/// (does correct when needed).
+#[test]
+fn arc_center_point_coincident() {
+    let solved = run("arc_center_point_coincident");
+
+    // Initial guesses from the problem file
+    let initial_line4_start = Point { x: -1.16, y: -2.63 };
+    let initial_arc_center = Point { x: 0.55, y: -3.31 };
+
+    // Get the solved values
+    let solved_line4_start = solved.get_point("line4start").unwrap();
+    let solved_arc = solved.get_arc("arc1").unwrap();
+
+    // Check initial angular position relative to the arc
+    let initial_arc_a = Point { x: 2.25, y: -3.99 };
+    let initial_arc_b = Point { x: 1.43, y: -1.71 };
+
+    // Calculate cross products to check if point is in angular range initially
+    let cx = initial_arc_center.x;
+    let cy = initial_arc_center.y;
+    let ax = initial_arc_a.x;
+    let ay = initial_arc_a.y;
+    let bx = initial_arc_b.x;
+    let by = initial_arc_b.y;
+    let px = initial_line4_start.x;
+    let py = initial_line4_start.y;
+
+    let initial_start_cross = (ax - cx) * (cy - py) - (ay - cy) * (cx - px);
+    let initial_end_cross = (bx - cx) * (cy - py) - (by - cy) * (cx - px);
+
+    // Debug logs intentionally removed to keep tests quiet by default.
+
+    // The point should initially NOT be in the angular range
+    // (either start_cross > 0 or end_cross >= 0)
+    let initially_in_range = initial_start_cross <= 0.0 && initial_end_cross < 0.0;
+    assert!(
+        !initially_in_range,
+        "line4_start should initially NOT be in the angular range. start_cross: {}, end_cross: {}",
+        initial_start_cross, initial_end_cross
+    );
+
+    // Calculate how much the point moved
+    let movement = solved_line4_start.euclidean_distance(initial_line4_start);
+    // Debug logs intentionally removed to keep tests quiet by default.
+
+    // Verify the point is now on the arc (at the correct radius)
+    let arc_radius = solved_arc.center.euclidean_distance(solved_arc.a);
+    let point_to_center_dist = solved_line4_start.euclidean_distance(solved_arc.center);
+    let distance_from_arc = (point_to_center_dist - arc_radius).abs();
+    // Debug logs intentionally removed to keep tests quiet by default.
+
+    // The point should be on the arc (within tolerance)
+    assert!(
+        distance_from_arc < 0.01,
+        "line4_start should be on the arc after solving. Distance from arc: {}, arc radius: {}",
+        distance_from_arc,
+        arc_radius
+    );
+
+    // The point should have moved to get into the angular range.
+    // If it was only slightly outside (start_cross small), movement might be small.
+    // But if it was far outside, it should move significantly.
+    // For now, just verify it ends up in the angular range (checked below).
+    // If the initial violation was large, we expect significant movement.
+    if initial_start_cross > 0.1 {
+        let min_expected_movement = arc_radius * 0.3; // At least 30% of the radius for large violations
+        assert!(
+            movement > min_expected_movement,
+            "line4_start should have moved significantly when initially far outside angular range. \
+             Movement: {}, minimum expected: {} (30% of arc radius {}), initial start_cross: {}",
+            movement,
+            min_expected_movement,
+            arc_radius,
+            initial_start_cross
+        );
+    }
+
+    // Also verify the point is within the angular range by checking cross products
+    let cx = solved_arc.center.x;
+    let cy = solved_arc.center.y;
+    let ax = solved_arc.a.x;
+    let ay = solved_arc.a.y;
+    let bx = solved_arc.b.x;
+    let by = solved_arc.b.y;
+    let px = solved_line4_start.x;
+    let py = solved_line4_start.y;
+
+    // For a CCW arc, the point should be:
+    // - CCW from the start vector (start_cross < 0)
+    // - Before the end (end is CCW from point, so end_cross < 0)
+    let start_cross = (ax - cx) * (cy - py) - (ay - cy) * (cx - px);
+    let end_cross = (bx - cx) * (cy - py) - (by - cy) * (cx - px);
+
+    // Debug logs intentionally removed to keep tests quiet by default.
+
+    // Allow small tolerance for numerical precision, but point should be clearly in range
+    assert!(
+        start_cross < 0.01,
+        "Point should be CCW from start angle (or very close to boundary). start_cross: {}",
+        start_cross
+    );
+    assert!(
+        end_cross < 1e-6,
+        "Point should be before end angle (end is CCW from point). end_cross: {}",
+        end_cross
     );
 }
