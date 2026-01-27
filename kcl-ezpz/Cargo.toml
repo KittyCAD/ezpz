@@ -1,6 +1,6 @@
 [package]
 name = "kcl-ezpz"
-version = "0.2.15"
+version = "0.2.16"
 edition = "2024"
 description = "A constraint solver for KCL and Zoo Design Studio"
 repository = "https://github.com/KittyCAD/ezpz"
