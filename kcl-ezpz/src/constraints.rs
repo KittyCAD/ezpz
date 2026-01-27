@@ -542,46 +542,25 @@ impl Constraint {
                     residual2,
                     degenerate,
                 );
-
-                // If the point is already within the CCW angular range, do not apply angular penalties.
-                // This avoids large jumps for near-satisfied constraints while keeping distance enforcement.
-                let start_angle = libm::atan2(ay - cy, ax - cx);
-                let end_angle = libm::atan2(by - cy, bx - cx);
-                let point_angle = libm::atan2(py - cy, px - cx);
-                let mut end_angle_ccw = end_angle;
-                let mut point_angle_ccw = point_angle;
-                if end_angle_ccw < start_angle {
-                    end_angle_ccw += std::f64::consts::TAU;
-                }
-                if point_angle_ccw < start_angle {
-                    point_angle_ccw += std::f64::consts::TAU;
-                }
-                if point_angle_ccw <= end_angle_ccw {
+                let distance_mag = residual0.abs();
+                const ANGULAR_DISTANCE_TOLERANCE: f64 = 0.05;
+                if distance_mag <= ANGULAR_DISTANCE_TOLERANCE {
                     *residual1 = 0.0;
                     *residual2 = 0.0;
                     return;
                 }
 
                 // Calculate the angle residuals.
-                // We allow either orientation (CW or CCW) and pick the one that best fits the point.
-                // This keeps point-on-arc stable for nearly-satisfied points while still enforcing range.
-                let start_cross_raw = (ax - cx) * (cy - py) - (ay - cy) * (cx - px);
-                let end_cross_raw = (bx - cx) * (cy - py) - (by - cy) * (cx - px);
-                let ccw_ok = start_cross_raw <= 0.0 && end_cross_raw >= 0.0;
-                let cw_ok = start_cross_raw >= 0.0 && end_cross_raw <= 0.0;
-                let dir = if ccw_ok {
-                    1.0
-                } else if cw_ok {
-                    -1.0
-                } else {
-                    let ccw_violation = start_cross_raw.max(0.0) + (-end_cross_raw).max(0.0);
-                    let cw_violation = (-start_cross_raw).max(0.0) + end_cross_raw.max(0.0);
-                    if ccw_violation <= cw_violation {
+                // Use the arc's orientation (start -> end) to decide CW/CCW.
+                let arc_dir =
+                    if (ax - cx) * (by - cy) - (ay - cy) * (bx - cx) >= 0.0 {
                         1.0
                     } else {
                         -1.0
-                    }
-                };
+                    };
+                let start_cross_raw = (ax - cx) * (cy - py) - (ay - cy) * (cx - px);
+                let end_cross_raw = (bx - cx) * (cy - py) - (by - cy) * (cx - px);
+                let dir = arc_dir;
                 let start_cross = start_cross_raw * dir;
                 let end_cross = end_cross_raw * dir;
                 // One-sided penalties for the chosen orientation.
@@ -1507,41 +1486,24 @@ impl Constraint {
                     degenerate,
                 );
 
-                // If the point is already within the CCW angular range, skip angular Jacobians.
-                let start_angle = libm::atan2(ay - cy, ax - cx);
-                let end_angle = libm::atan2(by - cy, bx - cx);
-                let point_angle = libm::atan2(py - cy, px - cx);
-                let mut end_angle_ccw = end_angle;
-                let mut point_angle_ccw = point_angle;
-                if end_angle_ccw < start_angle {
-                    end_angle_ccw += std::f64::consts::TAU;
-                }
-                if point_angle_ccw < start_angle {
-                    point_angle_ccw += std::f64::consts::TAU;
-                }
-                if point_angle_ccw <= end_angle_ccw {
+                // Residual 1: the point should be within the arc range.
+                // Use the arc's orientation (start -> end) to decide CW/CCW.
+                let distance = libm::hypot(cx - px, cy - py);
+                let distance_residual = distance - arc_radius;
+                let distance_mag = distance_residual.abs();
+                const ANGULAR_DISTANCE_TOLERANCE: f64 = 0.05;
+                if distance_mag <= ANGULAR_DISTANCE_TOLERANCE {
                     return;
                 }
-
-                // Residual 1: the point should be within the arc range.
-                // Choose the orientation (CW or CCW) that best fits the point.
-                let start_cross_raw = (ax - cx) * (cy - py) - (ay - cy) * (cx - px);
-                let end_cross_raw = (bx - cx) * (cy - py) - (by - cy) * (cx - px);
-                let ccw_ok = start_cross_raw <= 0.0 && end_cross_raw >= 0.0;
-                let cw_ok = start_cross_raw >= 0.0 && end_cross_raw <= 0.0;
-                let dir = if ccw_ok {
-                    1.0
-                } else if cw_ok {
-                    -1.0
-                } else {
-                    let ccw_violation = start_cross_raw.max(0.0) + (-end_cross_raw).max(0.0);
-                    let cw_violation = (-start_cross_raw).max(0.0) + end_cross_raw.max(0.0);
-                    if ccw_violation <= cw_violation {
+                let arc_dir =
+                    if (ax - cx) * (by - cy) - (ay - cy) * (bx - cx) >= 0.0 {
                         1.0
                     } else {
                         -1.0
-                    }
-                };
+                    };
+                let start_cross_raw = (ax - cx) * (cy - py) - (ay - cy) * (cx - px);
+                let end_cross_raw = (bx - cx) * (cy - py) - (by - cy) * (cx - px);
+                let dir = arc_dir;
                 let start_cross = start_cross_raw * dir;
                 // Weighted logic (Jacobian gating): turn the angular residual gradients on only when violated.
                 // This prevents inequality-style constraints from destabilizing a least-squares solver.
