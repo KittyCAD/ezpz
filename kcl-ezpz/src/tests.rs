@@ -489,13 +489,13 @@ fn arc_length() {
     assert!(solved.is_satisfied());
 }
 
-/// Test that mirrors the trim_arc2_left_side scenario from modeling-app.
+/// Test that mirrors the `trim_arc2_left_side` scenario from modeling-app.
 ///
 /// This test represents a trim operation where:
 /// - Two arcs intersect
-/// - arc1 should remain unchanged (its parameters shouldn't change when PointArcCoincident is added)
+/// - arc1 should remain unchanged (its parameters shouldn't change when `PointArcCoincident` is added)
 /// - arc2 should be trimmed to end at the intersection point
-/// - When PointArcCoincident is added for the intersection point on arc2, arc1's parameters should remain unchanged
+/// - When `PointArcCoincident` is added for the intersection point on arc2, arc1's parameters should remain unchanged
 ///
 /// This test mirrors the KCL code from the modeling-app test:
 /// ```
