@@ -35,23 +35,6 @@ impl Constraint {
         ]
     }
 
-    /// Ensure the arc starts at the line's `p1`, and is tangential
-    /// (i.e. moves smoothly from the line into an arc).
-    /// Note: this does not add an arc constraint, you probably want to
-    /// use [`Self::Arc`] too.
-    pub fn tangential_arc(arc: DatumCircularArc, line: DatumLineSegment) -> [Self; 2] {
-        [
-            Self::PointsCoincident(line.p1, arc.start),
-            Self::lines_perpendicular([
-                line,
-                DatumLineSegment {
-                    p0: arc.center,
-                    p1: arc.start,
-                },
-            ]),
-        ]
-    }
-
     /// Constrains these two lines to be parallel, and to have the given perpendicular distance.
     pub fn parallel_lines_distance(lines: [DatumLineSegment; 2], distance: f64) -> [Self; 2] {
         [
