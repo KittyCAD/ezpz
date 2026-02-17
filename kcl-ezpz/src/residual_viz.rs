@@ -15,6 +15,115 @@ const ZERO_RESIDUAL_THRESHOLD: f64 = 0.08;
 /// Turquoise color for the zero-residual locus (R, G, B).
 const TURQUOISE: [u8; 3] = [64, 224, 208];
 
+/// Example point (world coords) for PointsCoincident: red = current, green = solved-to (the fixed point).
+const EXAMPLE_POINT_X: f64 = 3.0;
+const EXAMPLE_POINT_Y: f64 = 2.0;
+
+/// Example point for Distance viz; further out so red and green don't sit on top of each other.
+const DISTANCE_EXAMPLE_POINT_X: f64 = 4.5;
+const DISTANCE_EXAMPLE_POINT_Y: f64 = 3.0;
+
+fn world_to_pixel(
+    x: f64,
+    y: f64,
+    x_min: f64,
+    x_max: f64,
+    y_min: f64,
+    y_max: f64,
+    width: u32,
+    height: u32,
+) -> (i32, i32) {
+    let px = (x - x_min) / (x_max - x_min) * (width as f64);
+    let py = (y_max - y) / (y_max - y_min) * (height as f64);
+    (px.round() as i32, py.round() as i32)
+}
+
+fn draw_filled_circle(buf: &mut image::RgbImage, cx: i32, cy: i32, radius_px: i32, color: [u8; 3]) {
+    let w = buf.width() as i32;
+    let h = buf.height() as i32;
+    for dy in -radius_px..=radius_px {
+        for dx in -radius_px..=radius_px {
+            if dx * dx + dy * dy <= radius_px * radius_px {
+                let px = cx + dx;
+                let py = cy + dy;
+                if px >= 0 && px < w && py >= 0 && py < h {
+                    buf.put_pixel(px as u32, py as u32, image::Rgb(color));
+                }
+            }
+        }
+    }
+}
+
+fn draw_line_segment(
+    buf: &mut image::RgbImage,
+    x0: i32,
+    y0: i32,
+    x1: i32,
+    y1: i32,
+    color: [u8; 3],
+) {
+    let w = buf.width() as i32;
+    let h = buf.height() as i32;
+    let dx = (x1 - x0).abs();
+    let dy = (y1 - y0).abs();
+    let steps = (dx.max(dy)).max(1);
+    for i in 0..=steps {
+        let t = (i as f64) / (steps as f64);
+        let px = (x0 as f64 + (x1 - x0) as f64 * t).round() as i32;
+        let py = (y0 as f64 + (y1 - y0) as f64 * t).round() as i32;
+        if px >= 0 && px < w && py >= 0 && py < h {
+            buf.put_pixel(px as u32, py as u32, image::Rgb(color));
+        }
+    }
+}
+
+/// Draws an arrow from (from_px, from_py) toward (to_px, to_py), but only length_fraction of the
+/// full distance (e.g. 0.5 = half length) so the arrow doesn't sit under the green dot.
+fn draw_arrow(
+    buf: &mut image::RgbImage,
+    from_px: i32,
+    from_py: i32,
+    to_px: i32,
+    to_py: i32,
+    color: [u8; 3],
+    head_size_px: i32,
+    length_fraction: f64,
+) {
+    let w = buf.width() as i32;
+    let h = buf.height() as i32;
+    let dx = to_px - from_px;
+    let dy = to_py - from_py;
+    let len = libm::hypot(dx as f64, dy as f64);
+    if len < 1.0 {
+        return;
+    }
+    let ux = dx as f64 / len;
+    let uy = dy as f64 / len;
+    let actual_len = len * length_fraction;
+    let tip_px = from_px + (ux * actual_len).round() as i32;
+    let tip_py = from_py + (uy * actual_len).round() as i32;
+    let steps = (actual_len as i32).max(2);
+    for i in 0..=steps {
+        let t = (i as f64) / (steps as f64);
+        let px = from_px + (ux * actual_len * t).round() as i32;
+        let py = from_py + (uy * actual_len * t).round() as i32;
+        if px >= 0 && px < w && py >= 0 && py < h {
+            buf.put_pixel(px as u32, py as u32, image::Rgb(color));
+        }
+    }
+    let back_px = tip_px - (ux * (head_size_px as f64)).round() as i32;
+    let back_py = tip_py - (uy * (head_size_px as f64)).round() as i32;
+    let perp_x = (-uy * (head_size_px as f64 * 0.6)).round() as i32;
+    let perp_y = (ux * (head_size_px as f64 * 0.6)).round() as i32;
+    let c1x = back_px + perp_x;
+    let c1y = back_py + perp_y;
+    let c2x = back_px - perp_x;
+    let c2y = back_py - perp_y;
+    draw_line_segment(buf, tip_px, tip_py, c1x, c1y, color);
+    draw_line_segment(buf, tip_px, tip_py, c2x, c2y, color);
+    draw_line_segment(buf, c1x, c1y, c2x, c2y, color);
+}
+
 /// Renders the residual field for a "point coincident with fixed point" constraint
 /// into an image buffer. One point is fixed at `(fixed_x, fixed_y)`; the other is
 /// varied over the grid. Residual is (dx, dy); we plot magnitude (concentric rings).
@@ -73,6 +182,22 @@ pub fn render_points_coincident_residual_to_image(
             buf.put_pixel(px, py, pixel);
         }
     }
+    let (ex_px, ex_py) = world_to_pixel(
+        EXAMPLE_POINT_X,
+        EXAMPLE_POINT_Y,
+        x_min,
+        x_max,
+        y_min,
+        y_max,
+        width,
+        height,
+    );
+    let (sol_px, sol_py) =
+        world_to_pixel(fixed_x, fixed_y, x_min, x_max, y_min, y_max, width, height);
+    // Green = constraint solution (PointsCoincident ⇒ must coincide with fixed point).
+    draw_arrow(&mut buf, ex_px, ex_py, sol_px, sol_py, [200, 0, 0], 6, 0.5);
+    draw_filled_circle(&mut buf, ex_px, ex_py, 5, [255, 0, 0]);
+    draw_filled_circle(&mut buf, sol_px, sol_py, 5, [0, 180, 0]);
     buf
 }
 
@@ -136,6 +261,28 @@ pub fn render_distance_residual_to_image(
             buf.put_pixel(px, py, pixel);
         }
     }
+    let ex_x = DISTANCE_EXAMPLE_POINT_X;
+    let ex_y = DISTANCE_EXAMPLE_POINT_Y;
+    let dx = ex_x - fixed_x;
+    let dy = ex_y - fixed_y;
+    let dist_to_ex = libm::hypot(dx, dy);
+    // Green = constraint solution: the unique point on the circle (radius target_distance
+    // around fixed) in the same radial direction as the example (where the solver would land).
+    let (sol_x, sol_y) = if dist_to_ex > 1e-10 {
+        let ux = dx / dist_to_ex;
+        let uy = dy / dist_to_ex;
+        (
+            fixed_x + ux * target_distance,
+            fixed_y + uy * target_distance,
+        )
+    } else {
+        (fixed_x + target_distance, fixed_y)
+    };
+    let (ex_px, ex_py) = world_to_pixel(ex_x, ex_y, x_min, x_max, y_min, y_max, width, height);
+    let (sol_px, sol_py) = world_to_pixel(sol_x, sol_y, x_min, x_max, y_min, y_max, width, height);
+    draw_arrow(&mut buf, ex_px, ex_py, sol_px, sol_py, [200, 0, 0], 6, 0.5);
+    draw_filled_circle(&mut buf, ex_px, ex_py, 5, [255, 0, 0]);
+    draw_filled_circle(&mut buf, sol_px, sol_py, 5, [0, 180, 0]);
     buf
 }
 
