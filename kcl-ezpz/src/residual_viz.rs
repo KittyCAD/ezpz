@@ -10,7 +10,7 @@ use std::io;
 use std::path::Path;
 
 /// Residual magnitude below this is drawn as turquoise (zero/satisfied).
-const ZERO_RESIDUAL_THRESHOLD: f64 = 1.2;
+const ZERO_RESIDUAL_THRESHOLD: f64 = 0.08;
 
 /// Turquoise color for the zero-residual locus (R, G, B).
 const TURQUOISE: [u8; 3] = [64, 224, 208];
