@@ -26,6 +26,9 @@ pub mod datatypes;
 mod error;
 /// IDs of various entities, points, scalars etc.
 mod id;
+/// Residual field visualization (optional).
+#[cfg(feature = "residual-viz")]
+pub mod residual_viz;
 mod solve_outcome;
 /// Numeric solver using sparse matrices.
 mod solver;

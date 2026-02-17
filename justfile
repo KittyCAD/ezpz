@@ -69,6 +69,11 @@ new-test name:
     mkdir test_cases/{{name}}
     touch test_cases/{{name}}/problem.md
 
+# Regenerate residual-viz baseline images (run when residual math or viz changes).
+# Sets TWENTY_TWENTY=overwrite so twenty_twenty writes the current output to the baseline paths.
+residual-viz-overwrite:
+    TWENTY_TWENTY=overwrite cargo test -p kcl-ezpz --features residual-viz residual_viz::tests
+
 publish version:
     cargo publish -p kcl-ezpz --dry-run
     git tag {{version}}
