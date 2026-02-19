@@ -31,6 +31,10 @@ pub enum Constraint {
     /// Note this constraint is directional: making circle C
     /// tangent to PQ will produce a different solution to QP.
     LineTangentToCircle(DatumLineSegment, DatumCircle),
+    /// These two circles should be tangent.
+    /// This could include internal tangency (where one circle is inside the other),
+    /// or external (where they're adjacent).
+    CircleTangentToCircle(DatumCircle, DatumCircle),
     /// These two points should be a given distance apart.
     Distance(DatumPoint, DatumPoint, f64),
     /// These two points should be a given vertical distance apart.
@@ -101,6 +105,10 @@ impl Constraint {
             Constraint::LineTangentToCircle(line, circle) => {
                 row0.extend(line.all_variables());
                 row0.extend(circle.all_variables());
+            }
+            Constraint::CircleTangentToCircle(circle0, circle1) => {
+                row0.extend(circle0.all_variables());
+                row0.extend(circle1.all_variables());
             }
             Constraint::Distance(p0, p1, _dist) => {
                 row0.extend(p0.all_variables());
@@ -255,6 +263,29 @@ impl Constraint {
                 let signed_distance_to_line = cross_2d / mag_v;
                 let residual = signed_distance_to_line - radius;
                 *residual0 = residual;
+            }
+            Constraint::CircleTangentToCircle(circle0, circle1) => {
+                // Get current state of the entities.
+                let cx0 = current_assignments[layout.index_of(circle0.center.id_x())];
+                let cy0 = current_assignments[layout.index_of(circle0.center.id_y())];
+                let r0 = current_assignments[layout.index_of(circle0.radius.id)];
+                let cx1 = current_assignments[layout.index_of(circle1.center.id_x())];
+                let cy1 = current_assignments[layout.index_of(circle1.center.id_y())];
+                let r1 = current_assignments[layout.index_of(circle1.radius.id)];
+
+                // Evaluate residuals for both internal and external tangency
+                // See https://github.com/KittyCAD/ezpz-sympy/pull/1
+                let square_dist = (cx0 - cx1).powi(2) + (cy0 - cy1).powi(2);
+                let res_internal = square_dist - (r0 - r1).powi(2);
+                let res_external = square_dist - (r0 + r1).powi(2);
+
+                // Use whichever kind of tangency has a smaller residual.
+                let smaller_residual = if res_external.powi(2) <= res_internal.powi(2) {
+                    res_external
+                } else {
+                    res_internal
+                };
+                *residual0 = smaller_residual;
             }
             Constraint::Distance(p0, p1, expected_distance) => {
                 let p0_x = current_assignments[layout.index_of(p0.id_x())];
@@ -642,6 +673,7 @@ impl Constraint {
     pub(crate) fn residual_dim(&self) -> usize {
         match self {
             Constraint::LineTangentToCircle(..) => 1,
+            Constraint::CircleTangentToCircle(..) => 1,
             Constraint::Distance(..) => 1,
             Constraint::VerticalDistance(..) => 1,
             Constraint::HorizontalDistance(..) => 1,
@@ -765,6 +797,100 @@ impl Constraint {
                     },
                 ];
                 row0.extend(jvars.as_slice());
+            }
+            Constraint::CircleTangentToCircle(circle0, circle1) => {
+                // Get current state of the entities.
+                let cx0_id = circle0.center.id_x();
+                let cy0_id = circle0.center.id_y();
+                let r0_id = circle0.radius.id;
+                let cx1_id = circle1.center.id_x();
+                let cy1_id = circle1.center.id_y();
+                let r1_id = circle1.radius.id;
+                let cx0 = current_assignments[layout.index_of(cx0_id)];
+                let cy0 = current_assignments[layout.index_of(cy0_id)];
+                let r0 = current_assignments[layout.index_of(r0_id)];
+                let cx1 = current_assignments[layout.index_of(cx1_id)];
+                let cy1 = current_assignments[layout.index_of(cy1_id)];
+                let r1 = current_assignments[layout.index_of(r1_id)];
+
+                // Evaluate residuals for both internal and external tangency
+                // See https://github.com/KittyCAD/ezpz-sympy/pull/1
+                let square_dist = (cx0 - cx1).powi(2) + (cy0 - cy1).powi(2);
+                let res_internal = square_dist - (r0 - r1).powi(2);
+                let res_external = square_dist - (r0 + r1).powi(2);
+                // Partial derivatives, for both internal and external tangency.
+                let d_int_c0x = 2.0 * cx0 - 2.0 * cx1;
+                let d_int_c0y = 2.0 * cy0 - 2.0 * cy1;
+                let d_int_r0 = -2.0 * r0 + 2.0 * r1;
+                let d_int_c1x = -2.0 * cx0 + 2.0 * cx1;
+                let d_int_c1y = -2.0 * cy0 + 2.0 * cy1;
+                let d_int_r1 = 2.0 * r0 - 2.0 * r1;
+                let d_ext_c0x = 2.0 * cx0 - 2.0 * cx1;
+                let d_ext_c0y = 2.0 * cy0 - 2.0 * cy1;
+                let d_ext_r0 = -2.0 * r0 - 2.0 * r1;
+                let d_ext_c1x = -2.0 * cx0 + 2.0 * cx1;
+                let d_ext_c1y = -2.0 * cy0 + 2.0 * cy1;
+                let d_ext_r1 = -2.0 * r0 - 2.0 * r1;
+
+                // Use whichever kind of tangency has a smaller residual.
+                let pds = if res_external.powi(2) <= res_internal.powi(2) {
+                    // Use external
+                    [
+                        JacobianVar {
+                            id: cx0_id,
+                            partial_derivative: d_ext_c0x,
+                        },
+                        JacobianVar {
+                            id: cy0_id,
+                            partial_derivative: d_ext_c0y,
+                        },
+                        JacobianVar {
+                            id: r0_id,
+                            partial_derivative: d_ext_r0,
+                        },
+                        JacobianVar {
+                            id: cx1_id,
+                            partial_derivative: d_ext_c1x,
+                        },
+                        JacobianVar {
+                            id: cy1_id,
+                            partial_derivative: d_ext_c1y,
+                        },
+                        JacobianVar {
+                            id: r1_id,
+                            partial_derivative: d_ext_r1,
+                        },
+                    ]
+                } else {
+                    // Use internal
+                    [
+                        JacobianVar {
+                            id: cx0_id,
+                            partial_derivative: d_int_c0x,
+                        },
+                        JacobianVar {
+                            id: cy0_id,
+                            partial_derivative: d_int_c0y,
+                        },
+                        JacobianVar {
+                            id: r0_id,
+                            partial_derivative: d_int_r0,
+                        },
+                        JacobianVar {
+                            id: cx1_id,
+                            partial_derivative: d_int_c1x,
+                        },
+                        JacobianVar {
+                            id: cy1_id,
+                            partial_derivative: d_int_c1y,
+                        },
+                        JacobianVar {
+                            id: r1_id,
+                            partial_derivative: d_int_r1,
+                        },
+                    ]
+                };
+                row0.extend(pds.as_slice());
             }
             Constraint::Distance(p0, p1, _expected_distance) => {
                 // Residual: R = sqrt((x1-x2)**2 + (y1-y2)**2) - d
@@ -1774,6 +1900,7 @@ impl Constraint {
     pub fn constraint_kind(&self) -> &'static str {
         match self {
             Constraint::LineTangentToCircle(..) => "LineTangentToCircle",
+            Constraint::CircleTangentToCircle(..) => "CircleTangentToCircle",
             Constraint::Distance(..) => "Distance",
             Constraint::VerticalDistance(..) => "VerticalDistance",
             Constraint::HorizontalDistance(..) => "HorizontalDistance",
