@@ -31,6 +31,10 @@ pub enum Constraint {
     /// Note this constraint is directional: making circle C
     /// tangent to PQ will produce a different solution to QP.
     LineTangentToCircle(DatumLineSegment, DatumCircle),
+    /// These two circles should be tangent.
+    /// This could include internal tangency (where one circle is inside the other),
+    /// or external (where they're adjacent).
+    CircleTangentToCircle(DatumCircle, DatumCircle),
     /// These two points should be a given distance apart.
     Distance(DatumPoint, DatumPoint, f64),
     /// These two points should be a given vertical distance apart.
@@ -101,6 +105,10 @@ impl Constraint {
             Constraint::LineTangentToCircle(line, circle) => {
                 row0.extend(line.all_variables());
                 row0.extend(circle.all_variables());
+            }
+            Constraint::CircleTangentToCircle(circle0, circle1) => {
+                row0.extend(circle0.all_variables());
+                row0.extend(circle1.all_variables());
             }
             Constraint::Distance(p0, p1, _dist) => {
                 row0.extend(p0.all_variables());
@@ -255,6 +263,32 @@ impl Constraint {
                 let signed_distance_to_line = cross_2d / mag_v;
                 let residual = signed_distance_to_line - radius;
                 *residual0 = residual;
+            }
+            Constraint::CircleTangentToCircle(circle_a, circle_b) => {
+                // Get current state of the entities.
+                let ax = current_assignments[layout.index_of(circle_a.center.id_x())];
+                let ay = current_assignments[layout.index_of(circle_a.center.id_y())];
+                let ar = current_assignments[layout.index_of(circle_a.radius.id)];
+                let bx = current_assignments[layout.index_of(circle_b.center.id_x())];
+                let by = current_assignments[layout.index_of(circle_b.center.id_y())];
+                let br = current_assignments[layout.index_of(circle_b.radius.id)];
+
+                // Evaluate residuals for both internal and external tangency
+                // See https://github.com/KittyCAD/ezpz-sympy/pull/1
+                let residual_internal =
+                    -((ax - bx).powi(2) + (ay - by).powi(2)).sqrt() + (ar - br).abs();
+                let residual_external = ar + br - ((ax - bx).powi(2) + (ay - by).powi(2)).sqrt();
+                let is_internal =
+                    (((ax - bx).powi(2) + (ay - by).powi(2)).sqrt() - (ar - br).abs()).abs()
+                        < (ar + br - ((ax - bx).powi(2) + (ay - by).powi(2)).sqrt()).abs();
+
+                // Use whichever kind of tangency has a smaller residual.
+                let smaller_residual = if is_internal {
+                    residual_internal
+                } else {
+                    residual_external
+                };
+                *residual0 = smaller_residual;
             }
             Constraint::Distance(p0, p1, expected_distance) => {
                 let p0_x = current_assignments[layout.index_of(p0.id_x())];
@@ -642,6 +676,7 @@ impl Constraint {
     pub(crate) fn residual_dim(&self) -> usize {
         match self {
             Constraint::LineTangentToCircle(..) => 1,
+            Constraint::CircleTangentToCircle(..) => 1,
             Constraint::Distance(..) => 1,
             Constraint::VerticalDistance(..) => 1,
             Constraint::HorizontalDistance(..) => 1,
@@ -765,6 +800,83 @@ impl Constraint {
                     },
                 ];
                 row0.extend(jvars.as_slice());
+            }
+            Constraint::CircleTangentToCircle(circle_a, circle_b) => {
+                // Get current state of the entities.
+                let ax_id = circle_a.center.id_x();
+                let ay_id = circle_a.center.id_y();
+                let ar_id = circle_a.radius.id;
+                let bx_id = circle_b.center.id_x();
+                let by_id = circle_b.center.id_y();
+                let br_id = circle_b.radius.id;
+                let ax = current_assignments[layout.index_of(ax_id)];
+                let ay = current_assignments[layout.index_of(ay_id)];
+                let ar = current_assignments[layout.index_of(ar_id)];
+                let bx = current_assignments[layout.index_of(bx_id)];
+                let by = current_assignments[layout.index_of(by_id)];
+                let br = current_assignments[layout.index_of(br_id)];
+
+                // Is the current state of affairs closer to internal or external tangency?
+                // We should steer the system towards whichever is closer.
+                let is_internal =
+                    (((ax - bx).powi(2) + (ay - by).powi(2)).sqrt() - (ar - br).abs()).abs()
+                        < (ar + br - ((ax - bx).powi(2) + (ay - by).powi(2)).sqrt()).abs();
+
+                // Evaluate residuals for both internal and external tangency
+                // See https://github.com/KittyCAD/ezpz-sympy/pull/1
+                let pd_ax = (-ax + bx) * ((ax - bx).powi(2) + (ay - by).powi(2)).sqrt().recip();
+                let pd_ay = (-ay + by) * ((ax - bx).powi(2) + (ay - by).powi(2)).sqrt().recip();
+                let pd_bx = -(-ax + bx) * ((ax - bx).powi(2) + (ay - by).powi(2)).sqrt().recip();
+                let pd_by = -(-ay + by) * ((ax - bx).powi(2) + (ay - by).powi(2)).sqrt().recip();
+                // The partial derivative of the radius depends on whether we're steering towards
+                // internal/external tangency. Because the internal tangency residual has an
+                // absolute value, we don't differentiate it directly, we just check whether
+                // the sign is positive or negative (i.e. which radius is larger) and differentiate
+                // that specific equation for that specific case.
+                let pd_ar_internal_ra_greater = 1.0;
+                let pd_br_internal_ra_greater = -1.0;
+                let pd_ar_internal_rb_greater = -1.0;
+                let pd_br_internal_rb_greater = 1.0;
+                let pd_ar_external = 1.0;
+                let pd_br_external = 1.0;
+                let (pd_ar, pd_br) = if is_internal {
+                    if ar > br {
+                        (pd_ar_internal_ra_greater, pd_br_internal_ra_greater)
+                    } else {
+                        (pd_ar_internal_rb_greater, pd_br_internal_rb_greater)
+                    }
+                } else {
+                    (pd_ar_external, pd_br_external)
+                };
+
+                // Done!
+                let pds = [
+                    JacobianVar {
+                        id: ax_id,
+                        partial_derivative: pd_ax,
+                    },
+                    JacobianVar {
+                        id: ay_id,
+                        partial_derivative: pd_ay,
+                    },
+                    JacobianVar {
+                        id: ar_id,
+                        partial_derivative: pd_ar,
+                    },
+                    JacobianVar {
+                        id: bx_id,
+                        partial_derivative: pd_bx,
+                    },
+                    JacobianVar {
+                        id: by_id,
+                        partial_derivative: pd_by,
+                    },
+                    JacobianVar {
+                        id: br_id,
+                        partial_derivative: pd_br,
+                    },
+                ];
+                row0.extend(pds.as_slice());
             }
             Constraint::Distance(p0, p1, _expected_distance) => {
                 // Residual: R = sqrt((x1-x2)**2 + (y1-y2)**2) - d
@@ -1774,6 +1886,7 @@ impl Constraint {
     pub fn constraint_kind(&self) -> &'static str {
         match self {
             Constraint::LineTangentToCircle(..) => "LineTangentToCircle",
+            Constraint::CircleTangentToCircle(..) => "CircleTangentToCircle",
             Constraint::Distance(..) => "Distance",
             Constraint::VerticalDistance(..) => "VerticalDistance",
             Constraint::HorizontalDistance(..) => "HorizontalDistance",
