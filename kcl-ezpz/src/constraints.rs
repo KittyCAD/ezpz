@@ -264,26 +264,29 @@ impl Constraint {
                 let residual = signed_distance_to_line - radius;
                 *residual0 = residual;
             }
-            Constraint::CircleTangentToCircle(circle0, circle1) => {
+            Constraint::CircleTangentToCircle(circle_a, circle_b) => {
                 // Get current state of the entities.
-                let cx0 = current_assignments[layout.index_of(circle0.center.id_x())];
-                let cy0 = current_assignments[layout.index_of(circle0.center.id_y())];
-                let r0 = current_assignments[layout.index_of(circle0.radius.id)];
-                let cx1 = current_assignments[layout.index_of(circle1.center.id_x())];
-                let cy1 = current_assignments[layout.index_of(circle1.center.id_y())];
-                let r1 = current_assignments[layout.index_of(circle1.radius.id)];
+                let ax = current_assignments[layout.index_of(circle_a.center.id_x())];
+                let ay = current_assignments[layout.index_of(circle_a.center.id_y())];
+                let ar = current_assignments[layout.index_of(circle_a.radius.id)];
+                let bx = current_assignments[layout.index_of(circle_b.center.id_x())];
+                let by = current_assignments[layout.index_of(circle_b.center.id_y())];
+                let br = current_assignments[layout.index_of(circle_b.radius.id)];
 
                 // Evaluate residuals for both internal and external tangency
                 // See https://github.com/KittyCAD/ezpz-sympy/pull/1
-                let square_dist = (cx0 - cx1).powi(2) + (cy0 - cy1).powi(2);
-                let res_internal = square_dist - (r0 - r1).powi(2);
-                let res_external = square_dist - (r0 + r1).powi(2);
+                let residual_internal =
+                    -((ax - bx).powi(2) + (ay - by).powi(2)).sqrt() + (ar - br).abs();
+                let residual_external = ar + br - ((ax - bx).powi(2) + (ay - by).powi(2)).sqrt();
+                let is_internal =
+                    (((ax - bx).powi(2) + (ay - by).powi(2)).sqrt() - (ar - br).abs()).abs()
+                        < (ar + br - ((ax - bx).powi(2) + (ay - by).powi(2)).sqrt()).abs();
 
                 // Use whichever kind of tangency has a smaller residual.
-                let smaller_residual = if res_external.powi(2) <= res_internal.powi(2) {
-                    res_external
+                let smaller_residual = if is_internal {
+                    residual_internal
                 } else {
-                    res_internal
+                    residual_external
                 };
                 *residual0 = smaller_residual;
             }
@@ -798,98 +801,81 @@ impl Constraint {
                 ];
                 row0.extend(jvars.as_slice());
             }
-            Constraint::CircleTangentToCircle(circle0, circle1) => {
+            Constraint::CircleTangentToCircle(circle_a, circle_b) => {
                 // Get current state of the entities.
-                let cx0_id = circle0.center.id_x();
-                let cy0_id = circle0.center.id_y();
-                let r0_id = circle0.radius.id;
-                let cx1_id = circle1.center.id_x();
-                let cy1_id = circle1.center.id_y();
-                let r1_id = circle1.radius.id;
-                let cx0 = current_assignments[layout.index_of(cx0_id)];
-                let cy0 = current_assignments[layout.index_of(cy0_id)];
-                let r0 = current_assignments[layout.index_of(r0_id)];
-                let cx1 = current_assignments[layout.index_of(cx1_id)];
-                let cy1 = current_assignments[layout.index_of(cy1_id)];
-                let r1 = current_assignments[layout.index_of(r1_id)];
+                let ax_id = circle_a.center.id_x();
+                let ay_id = circle_a.center.id_y();
+                let ar_id = circle_a.radius.id;
+                let bx_id = circle_b.center.id_x();
+                let by_id = circle_b.center.id_y();
+                let br_id = circle_b.radius.id;
+                let ax = current_assignments[layout.index_of(ax_id)];
+                let ay = current_assignments[layout.index_of(ay_id)];
+                let ar = current_assignments[layout.index_of(ar_id)];
+                let bx = current_assignments[layout.index_of(bx_id)];
+                let by = current_assignments[layout.index_of(by_id)];
+                let br = current_assignments[layout.index_of(br_id)];
+
+                // Is the current state of affairs closer to internal or external tangency?
+                // We should steer the system towards whichever is closer.
+                let is_internal =
+                    (((ax - bx).powi(2) + (ay - by).powi(2)).sqrt() - (ar - br).abs()).abs()
+                        < (ar + br - ((ax - bx).powi(2) + (ay - by).powi(2)).sqrt()).abs();
 
                 // Evaluate residuals for both internal and external tangency
                 // See https://github.com/KittyCAD/ezpz-sympy/pull/1
-                let square_dist = (cx0 - cx1).powi(2) + (cy0 - cy1).powi(2);
-                let res_internal = square_dist - (r0 - r1).powi(2);
-                let res_external = square_dist - (r0 + r1).powi(2);
-                // Partial derivatives, for both internal and external tangency.
-                let d_int_c0x = 2.0 * cx0 - 2.0 * cx1;
-                let d_int_c0y = 2.0 * cy0 - 2.0 * cy1;
-                let d_int_r0 = -2.0 * r0 + 2.0 * r1;
-                let d_int_c1x = -2.0 * cx0 + 2.0 * cx1;
-                let d_int_c1y = -2.0 * cy0 + 2.0 * cy1;
-                let d_int_r1 = 2.0 * r0 - 2.0 * r1;
-                let d_ext_c0x = 2.0 * cx0 - 2.0 * cx1;
-                let d_ext_c0y = 2.0 * cy0 - 2.0 * cy1;
-                let d_ext_r0 = -2.0 * r0 - 2.0 * r1;
-                let d_ext_c1x = -2.0 * cx0 + 2.0 * cx1;
-                let d_ext_c1y = -2.0 * cy0 + 2.0 * cy1;
-                let d_ext_r1 = -2.0 * r0 - 2.0 * r1;
-
-                // Use whichever kind of tangency has a smaller residual.
-                let pds = if res_external.powi(2) <= res_internal.powi(2) {
-                    // Use external
-                    [
-                        JacobianVar {
-                            id: cx0_id,
-                            partial_derivative: d_ext_c0x,
-                        },
-                        JacobianVar {
-                            id: cy0_id,
-                            partial_derivative: d_ext_c0y,
-                        },
-                        JacobianVar {
-                            id: r0_id,
-                            partial_derivative: d_ext_r0,
-                        },
-                        JacobianVar {
-                            id: cx1_id,
-                            partial_derivative: d_ext_c1x,
-                        },
-                        JacobianVar {
-                            id: cy1_id,
-                            partial_derivative: d_ext_c1y,
-                        },
-                        JacobianVar {
-                            id: r1_id,
-                            partial_derivative: d_ext_r1,
-                        },
-                    ]
+                let pd_ax = (-ax + bx) * ((ax - bx).powi(2) + (ay - by).powi(2)).sqrt().recip();
+                let pd_ay = (-ay + by) * ((ax - bx).powi(2) + (ay - by).powi(2)).sqrt().recip();
+                let pd_bx = -(-ax + bx) * ((ax - bx).powi(2) + (ay - by).powi(2)).sqrt().recip();
+                let pd_by = -(-ay + by) * ((ax - bx).powi(2) + (ay - by).powi(2)).sqrt().recip();
+                // The partial derivative of the radius depends on whether we're steering towards
+                // internal/external tangency. Because the internal tangency residual has an
+                // absolute value, we don't differentiate it directly, we just check whether
+                // the sign is positive or negative (i.e. which radius is larger) and differentiate
+                // that specific equation for that specific case.
+                let pd_ar_internal_ra_greater = 1.0;
+                let pd_br_internal_ra_greater = -1.0;
+                let pd_ar_internal_rb_greater = -1.0;
+                let pd_br_internal_rb_greater = 1.0;
+                let pd_ar_external = 1.0;
+                let pd_br_external = 1.0;
+                let (pd_ar, pd_br) = if is_internal {
+                    if ar > br {
+                        (pd_ar_internal_ra_greater, pd_br_internal_ra_greater)
+                    } else {
+                        (pd_ar_internal_rb_greater, pd_br_internal_rb_greater)
+                    }
                 } else {
-                    // Use internal
-                    [
-                        JacobianVar {
-                            id: cx0_id,
-                            partial_derivative: d_int_c0x,
-                        },
-                        JacobianVar {
-                            id: cy0_id,
-                            partial_derivative: d_int_c0y,
-                        },
-                        JacobianVar {
-                            id: r0_id,
-                            partial_derivative: d_int_r0,
-                        },
-                        JacobianVar {
-                            id: cx1_id,
-                            partial_derivative: d_int_c1x,
-                        },
-                        JacobianVar {
-                            id: cy1_id,
-                            partial_derivative: d_int_c1y,
-                        },
-                        JacobianVar {
-                            id: r1_id,
-                            partial_derivative: d_int_r1,
-                        },
-                    ]
+                    (pd_ar_external, pd_br_external)
                 };
+
+                // Done!
+                let pds = [
+                    JacobianVar {
+                        id: ax_id,
+                        partial_derivative: pd_ax,
+                    },
+                    JacobianVar {
+                        id: ay_id,
+                        partial_derivative: pd_ay,
+                    },
+                    JacobianVar {
+                        id: ar_id,
+                        partial_derivative: pd_ar,
+                    },
+                    JacobianVar {
+                        id: bx_id,
+                        partial_derivative: pd_bx,
+                    },
+                    JacobianVar {
+                        id: by_id,
+                        partial_derivative: pd_by,
+                    },
+                    JacobianVar {
+                        id: br_id,
+                        partial_derivative: pd_br,
+                    },
+                ];
                 row0.extend(pds.as_slice());
             }
             Constraint::Distance(p0, p1, _expected_distance) => {
