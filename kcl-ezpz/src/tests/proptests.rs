@@ -4,7 +4,9 @@ use proptest::prelude::*;
 
 use crate::{
     Config, Constraint, ConstraintRequest, EPSILON, Id, IdGenerator,
-    datatypes::inputs::{DatumCircularArc, DatumLineSegment, DatumPoint},
+    datatypes::inputs::{
+        DatumCircle, DatumCircularArc, DatumDistance, DatumLineSegment, DatumPoint,
+    },
     datatypes::outputs::Point,
     solve,
     tests::assert_nearly_eq,
@@ -293,6 +295,36 @@ proptest! {
         );
     }
 
+    #[test]
+    fn circle_circle_tangent(
+        ax in -50.0..50.0f64,
+        ay in -50.0..50.0f64,
+        ar in 1.0..50.0f64,
+        br in 1.0..50.0f64,
+        guess_offset in -0.25..0.25f64,
+        is_internal in any::<bool>(),
+        positive_side in any::<bool>(),
+    ) {
+        // Internal tangency has a center distance of |ra-rb|. Keep it away from zero
+        // so we don't generate singular center-center distances.
+        if is_internal {
+            prop_assume!((ar - br).abs() > 1.0);
+        }
+        let expected_center_distance = if is_internal { (ar - br).abs() } else { ar + br };
+        let side_sign = if positive_side { 1.0 } else { -1.0 };
+        let bx_guess = ax + side_sign * (expected_center_distance + guess_offset);
+
+        test_circle_circle_tangent(
+            ax,
+            ay,
+            ar,
+            bx_guess,
+            ay,
+            br,
+            is_internal,
+        );
+    }
+
 }
 
 /// Given an arc, and a randomly-chosen percentage of the circle, constraint the arc
@@ -480,6 +512,68 @@ fn test_point_arc_coincident(
     let actual_distance = p.euclidean_distance(center);
     let expected_distance = arc_radius;
     assert_nearly_eq(actual_distance, expected_distance);
+}
+
+fn test_circle_circle_tangent(
+    ax: f64,
+    ay: f64,
+    ar: f64,
+    bx_guess: f64,
+    by: f64,
+    br: f64,
+    is_internal: bool,
+) {
+    let mut ids = IdGenerator::default();
+    let circle_a = DatumCircle {
+        center: DatumPoint::new(&mut ids),
+        radius: DatumDistance::new(ids.next_id()),
+    };
+    let circle_b = DatumCircle {
+        center: DatumPoint::new(&mut ids),
+        radius: DatumDistance::new(ids.next_id()),
+    };
+    let initial_guesses = vec![
+        (circle_a.center.id_x(), ax),
+        (circle_a.center.id_y(), ay),
+        (circle_a.radius.id, ar),
+        (circle_b.center.id_x(), bx_guess),
+        (circle_b.center.id_y(), by),
+        (circle_b.radius.id, br),
+    ];
+    let requests = [
+        ConstraintRequest::highest_priority(Constraint::Fixed(circle_a.center.id_x(), ax)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(circle_a.center.id_y(), ay)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(circle_a.radius.id, ar)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(circle_b.center.id_y(), by)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(circle_b.radius.id, br)),
+        ConstraintRequest::highest_priority(Constraint::CircleTangentToCircle(circle_a, circle_b)),
+    ];
+
+    let outcome = solve(&requests, initial_guesses, Config::default())
+        .expect("this constraint system should converge and be solvable");
+
+    assert!(
+        outcome.is_satisfied(),
+        "the tangent constraint should be satisfied"
+    );
+    assert!(
+        outcome.warnings.is_empty(),
+        "this simple system should not emit warnings"
+    );
+
+    let solved_ax = outcome.final_values[circle_a.center.id_x() as usize];
+    let solved_ay = outcome.final_values[circle_a.center.id_y() as usize];
+    let solved_bx = outcome.final_values[circle_b.center.id_x() as usize];
+    let solved_by = outcome.final_values[circle_b.center.id_y() as usize];
+    let solved_ar = outcome.final_values[circle_a.radius.id as usize];
+    let solved_br = outcome.final_values[circle_b.radius.id as usize];
+    let center_dist = libm::hypot(solved_ax - solved_bx, solved_ay - solved_by);
+
+    if is_internal {
+        assert_nearly_eq(center_dist, (solved_ar - solved_br).abs());
+    } else {
+        assert_nearly_eq(center_dist, solved_ar + solved_br);
+    }
 }
 
 /// `desired_distance` is a SIGNED distance, so 1 and -1 are opposite sides of the line.
