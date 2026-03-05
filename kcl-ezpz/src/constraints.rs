@@ -37,6 +37,8 @@ pub enum Constraint {
     CircleTangentToCircle(DatumCircle, DatumCircle),
     /// These two points should be a given distance apart.
     Distance(DatumPoint, DatumPoint, f64),
+    /// These two points should have distance equal to the given variable.
+    DistanceVar(DatumPoint, DatumPoint, DatumDistance),
     /// These two points should be a given vertical distance apart.
     VerticalDistance(DatumPoint, DatumPoint, f64),
     /// These two points should be a given horizontal distance apart.
@@ -113,6 +115,11 @@ impl Constraint {
             Constraint::Distance(p0, p1, _dist) => {
                 row0.extend(p0.all_variables());
                 row0.extend(p1.all_variables());
+            }
+            Constraint::DistanceVar(p0, p1, d) => {
+                row0.extend(p0.all_variables());
+                row0.extend(p1.all_variables());
+                row0.extend(d.all_variables());
             }
             Constraint::VerticalDistance(p0, p1, _dist) => {
                 row0.extend([p0.id_y(), p1.id_y()]);
@@ -299,6 +306,15 @@ impl Constraint {
                 let p1 = V::new(p1_x, p1_y);
                 let actual_distance = p0.euclidean_distance(p1);
                 *residual0 = actual_distance - expected_distance;
+            }
+            Constraint::DistanceVar(p, q, d) => {
+                let px = current_assignments[layout.index_of(p.id_x())];
+                let py = current_assignments[layout.index_of(p.id_y())];
+                let qx = current_assignments[layout.index_of(q.id_x())];
+                let qy = current_assignments[layout.index_of(q.id_y())];
+                let d = current_assignments[layout.index_of(d.id)];
+                let residual = -d + ((px - qx).powi(2) + (py - qy).powi(2)).sqrt();
+                *residual0 = residual;
             }
             Constraint::VerticalDistance(p0, p1, expected_distance) => {
                 let p0_y = current_assignments[layout.index_of(p0.id_y())];
@@ -678,6 +694,7 @@ impl Constraint {
             Constraint::LineTangentToCircle(..) => 1,
             Constraint::CircleTangentToCircle(..) => 1,
             Constraint::Distance(..) => 1,
+            Constraint::DistanceVar(..) => 1,
             Constraint::VerticalDistance(..) => 1,
             Constraint::HorizontalDistance(..) => 1,
             Constraint::Vertical(..) => 1,
@@ -918,6 +935,43 @@ impl Constraint {
                         JacobianVar {
                             id: p1.id_y(),
                             partial_derivative: dr_dy1,
+                        },
+                    ]
+                    .as_slice(),
+                );
+            }
+            Constraint::DistanceVar(p, q, d) => {
+                let px = current_assignments[layout.index_of(p.id_x())];
+                let py = current_assignments[layout.index_of(p.id_y())];
+                let qx = current_assignments[layout.index_of(q.id_x())];
+                let qy = current_assignments[layout.index_of(q.id_y())];
+                // let d = current_assignments[layout.index_of(d.id)];
+                let df_dpx = (px - qx) * ((px - qx).powi(2) + (py - qy).powi(2)).sqrt().recip();
+                let df_dpy = (py - qy) * ((px - qx).powi(2) + (py - qy).powi(2)).sqrt().recip();
+                let df_dqx = -(px - qx) * ((px - qx).powi(2) + (py - qy).powi(2)).sqrt().recip();
+                let df_dqy = -(py - qy) * ((px - qx).powi(2) + (py - qy).powi(2)).sqrt().recip();
+                let df_dd = -1.0;
+                row0.extend(
+                    [
+                        JacobianVar {
+                            id: p.id_x(),
+                            partial_derivative: df_dpx,
+                        },
+                        JacobianVar {
+                            id: p.id_y(),
+                            partial_derivative: df_dpy,
+                        },
+                        JacobianVar {
+                            id: q.id_x(),
+                            partial_derivative: df_dqx,
+                        },
+                        JacobianVar {
+                            id: q.id_y(),
+                            partial_derivative: df_dqy,
+                        },
+                        JacobianVar {
+                            id: d.id,
+                            partial_derivative: df_dd,
                         },
                     ]
                     .as_slice(),
@@ -1888,6 +1942,7 @@ impl Constraint {
             Constraint::LineTangentToCircle(..) => "LineTangentToCircle",
             Constraint::CircleTangentToCircle(..) => "CircleTangentToCircle",
             Constraint::Distance(..) => "Distance",
+            Constraint::DistanceVar(..) => "DistanceVar",
             Constraint::VerticalDistance(..) => "VerticalDistance",
             Constraint::HorizontalDistance(..) => "HorizontalDistance",
             Constraint::Vertical(..) => "Vertical",
