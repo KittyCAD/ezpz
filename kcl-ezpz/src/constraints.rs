@@ -945,11 +945,16 @@ impl Constraint {
                 let py = current_assignments[layout.index_of(p.id_y())];
                 let qx = current_assignments[layout.index_of(q.id_x())];
                 let qy = current_assignments[layout.index_of(q.id_y())];
-                // let d = current_assignments[layout.index_of(d.id)];
-                let df_dpx = (px - qx) * ((px - qx).powi(2) + (py - qy).powi(2)).sqrt().recip();
-                let df_dpy = (py - qy) * ((px - qx).powi(2) + (py - qy).powi(2)).sqrt().recip();
-                let df_dqx = -(px - qx) * ((px - qx).powi(2) + (py - qy).powi(2)).sqrt().recip();
-                let df_dqy = -(py - qy) * ((px - qx).powi(2) + (py - qy).powi(2)).sqrt().recip();
+                let current_dist = V::new(px, py).euclidean_distance(V::new(qx, qy));
+                if current_dist < EPSILON {
+                    *degenerate = true;
+                    return;
+                }
+                let div_dist = ((px - qx).powi(2) + (py - qy).powi(2)).sqrt().recip();
+                let df_dpx = (px - qx) * div_dist;
+                let df_dpy = (py - qy) * div_dist;
+                let df_dqx = -(px - qx) * div_dist;
+                let df_dqy = -(py - qy) * div_dist;
                 let df_dd = -1.0;
                 row0.extend(
                     [
