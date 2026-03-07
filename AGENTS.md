@@ -1,8 +1,8 @@
 # AGENTS.md
 
 ## Setup commands
-- Run tests: `cargo nextest run -p kcl-ezpz`
-- Get test coverage: `cargo llvm-cov nextest -p kcl-ezpz`
+- Run tests: `cargo nextest run -p ezpz`
+- Get test coverage: `cargo llvm-cov nextest -p ezpz`
 - Don't modify the `newtonls-faer` crate.
 - Always run `cargo fmt` when finishing a task.
 

@@ -8,8 +8,8 @@ pub(crate) trait Datum {
 
 /// A distance that can be determined by the constraint solver.
 /// ```
-/// use kcl_ezpz::datatypes::inputs::DatumDistance;
-/// use kcl_ezpz::IdGenerator;
+/// use ezpz::datatypes::inputs::DatumDistance;
+/// use ezpz::IdGenerator;
 ///
 /// let mut ids = IdGenerator::default();
 /// let dist = DatumDistance::new(ids.next_id());
@@ -24,8 +24,8 @@ pub struct DatumDistance {
 impl DatumDistance {
     /// Create a new `DatumDistance`.
     /// ```
-    /// use kcl_ezpz::datatypes::inputs::DatumDistance;
-    /// use kcl_ezpz::IdGenerator;
+    /// use ezpz::datatypes::inputs::DatumDistance;
+    /// use ezpz::IdGenerator;
     ///
     /// let mut ids = IdGenerator::default();
     /// let dist = DatumDistance::new(ids.next_id());
@@ -43,8 +43,8 @@ impl Datum for DatumDistance {
 
 /// 2D point, whose position can be determined by the constraint solver.
 /// ```
-/// use kcl_ezpz::datatypes::inputs::DatumPoint;
-/// use kcl_ezpz::IdGenerator;
+/// use ezpz::datatypes::inputs::DatumPoint;
+/// use ezpz::IdGenerator;
 ///
 /// let mut ids = IdGenerator::default();
 /// let p = DatumPoint::new(&mut ids);
@@ -61,8 +61,8 @@ pub struct DatumPoint {
 impl DatumPoint {
     /// Create a new `DatumPoint` from an ID generator.
     /// ```
-    /// use kcl_ezpz::datatypes::inputs::DatumPoint;
-    /// use kcl_ezpz::IdGenerator;
+    /// use ezpz::datatypes::inputs::DatumPoint;
+    /// use ezpz::IdGenerator;
     ///
     /// let mut ids = IdGenerator::default();
     /// let p = DatumPoint::new(&mut ids);
@@ -76,8 +76,8 @@ impl DatumPoint {
 
     /// Create a new `DatumPoint` with these specific IDs.
     /// ```
-    /// use kcl_ezpz::datatypes::inputs::DatumPoint;
-    /// use kcl_ezpz::IdGenerator;
+    /// use ezpz::datatypes::inputs::DatumPoint;
+    /// use ezpz::IdGenerator;
     ///
     /// let x_id = 4;
     /// let y_id = 4;
@@ -121,8 +121,8 @@ pub struct DatumLineSegment {
 impl DatumLineSegment {
     /// Create a new `LineSegment`.
     /// ```
-    /// use kcl_ezpz::datatypes::inputs::{DatumLineSegment, DatumPoint};
-    /// use kcl_ezpz::IdGenerator;
+    /// use ezpz::datatypes::inputs::{DatumLineSegment, DatumPoint};
+    /// use ezpz::IdGenerator;
     ///
     /// let mut ids = IdGenerator::default();
     /// let p = DatumPoint::new(&mut ids);

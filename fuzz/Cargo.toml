@@ -16,5 +16,5 @@ bench = false
 
 [dependencies]
 arbitrary = { version = "1.4.2", features = ["derive"] }
-kcl-ezpz = { path = "../kcl-ezpz", features = ["fuzz"] }
+ezpz = { path = "../ezpz", features = ["fuzz"] }
 libfuzzer-sys = "0.4"

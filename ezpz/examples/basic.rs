@@ -1,5 +1,5 @@
 //! A basic example for how to use the constraint solver.
-use kcl_ezpz::{
+use ezpz::{
     Config, Constraint, ConstraintRequest, IdGenerator, datatypes::inputs::DatumPoint, solve,
 };
 

@@ -33,11 +33,11 @@ test-with-coverage:
 
 # Flamegraph our benchmarks
 flamegraph:
-    cargo flamegraph -p kcl-ezpz --bench solver_bench
+    cargo flamegraph -p ezpz --bench solver_bench
 
 # Run benchmarks
 bench:
-    cargo criterion -p kcl-ezpz --bench solver_bench
+    cargo criterion -p ezpz --bench solver_bench
     git restore test_cases/massive_parallel_system/problem.md
 
 # Check formatting and typos.
@@ -72,13 +72,13 @@ new-test name:
 # Regenerate residual-viz baseline images (run when residual math or viz changes).
 # Sets TWENTY_TWENTY=overwrite so twenty_twenty writes the current output to the baseline paths.
 residual-viz-overwrite:
-    TWENTY_TWENTY=overwrite cargo test -p kcl-ezpz --features residual-viz residual_viz::tests
+    TWENTY_TWENTY=overwrite cargo test -p ezpz --features residual-viz residual_viz::tests
 
 publish version:
-    cargo publish -p kcl-ezpz --dry-run
+    cargo publish -p ezpz --dry-run
     git tag {{version}}
     git push --tags
-    cargo publish -p kcl-ezpz
+    cargo publish -p ezpz
 
 [linux]
 [windows]
@@ -105,7 +105,7 @@ install-viz-deps:
     sudo apt install -y pkg-config libfontconfig1-dev
 
 mutants:
-    cargo mutants -p kcl-ezpz
+    cargo mutants -p ezpz
 
 mutants-iterate:
-    cargo mutants -p kcl-ezpz --iterate
+    cargo mutants -p ezpz --iterate

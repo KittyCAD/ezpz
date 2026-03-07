@@ -1,5 +1,5 @@
 [package]
-name = "kcl-ezpz"
+name = "ezpz"
 version = "0.2.18"
 edition = "2024"
 description = "A constraint solver for KCL and Zoo Design Studio"

@@ -45,7 +45,7 @@ const EPSILON: f64 = 1e-4;
 /// Given some initial guesses, constrain them.
 /// Returns the same variables in the same order, but constrained.
 /// ```
-/// use kcl_ezpz::{Config, solve, Constraint, ConstraintRequest, datatypes::inputs::DatumPoint, IdGenerator};
+/// use ezpz::{Config, solve, Constraint, ConstraintRequest, datatypes::inputs::DatumPoint, IdGenerator};
 ///
 /// // Define the geometry.
 /// let mut ids = IdGenerator::default();
@@ -91,7 +91,7 @@ pub fn solve(
 /// Should not be called on every iteration of a system when you change the initial values!
 /// Just call this when you change the constraint structure.
 /// ```
-/// use kcl_ezpz::{Config, solve_analysis, Constraint, ConstraintRequest, datatypes::inputs::DatumPoint, IdGenerator};
+/// use ezpz::{Config, solve_analysis, Constraint, ConstraintRequest, datatypes::inputs::DatumPoint, IdGenerator};
 ///
 /// // Define the geometry.
 /// let mut ids = IdGenerator::default();

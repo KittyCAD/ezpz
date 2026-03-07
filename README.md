@@ -6,11 +6,11 @@ Constraint solver for use in Zoo Design Studio, or wherever you want to use it.
 
 This project has 3 Rust crates:
 
- - `kcl-ezpz`: The core constraint solver library. **This is the primary crate for ezpz.**
- - `ezpz-cli`: A CLI tool that lets you easily solve, analyze and benchmark constraint systems using `kcl-ezpz`.
- - `ezpz-wasm`: A WebAssembly library that wraps `kcl-ezpz` and exposes a few core functions. Intended for the ezpz maintainers to check if `kcl-ezpz` compiles and works in WebAssembly, and to benchmark its performance vs. native code.
+ - `ezpz`: The core constraint solver library. **This is the primary crate for ezpz.**
+ - `ezpz-cli`: A CLI tool that lets you easily solve, analyze and benchmark constraint systems using `ezpz`.
+ - `ezpz-wasm`: A WebAssembly library that wraps `ezpz` and exposes a few core functions. Intended for the ezpz maintainers to check if `ezpz` compiles and works in WebAssembly, and to benchmark its performance vs. native code.
   - Users probably won't need to use this library yourself, it's really intended as a sample application for the maintainers to test with.
-  - Users should probably integrate `kcl-ezpz` into your web projects directly.
+  - Users should probably integrate `ezpz` into your web projects directly.
 
 ## Development
 
