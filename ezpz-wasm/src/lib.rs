@@ -1,4 +1,4 @@
-use kcl_ezpz::{
+use ezpz::{
     Config, Constraint, ConstraintRequest, IdGenerator,
     datatypes::inputs::{DatumLineSegment, DatumPoint},
     solve,

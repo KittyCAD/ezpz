@@ -1,6 +1,6 @@
 //! Parse the ezpz text format, which describes a constraint system,
 //! then solve that system.
-use kcl_ezpz::{datatypes::outputs::Point, textual::Problem};
+use ezpz::{datatypes::outputs::Point, textual::Problem};
 use std::str::FromStr;
 
 const EPSILON: f64 = 1e-5;

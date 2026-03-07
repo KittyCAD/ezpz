@@ -508,7 +508,7 @@ mod tests {
     use std::path::PathBuf;
 
     /// Baseline path for visual regression (committed in repo). Update with
-    /// `TWENTY_TWENTY=overwrite cargo test -p kcl-ezpz --features residual-viz residual_viz`.
+    /// `TWENTY_TWENTY=overwrite cargo test -p ezpz --features residual-viz residual_viz`.
     const POINTS_COINCIDENT_BASELINE: &str = concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/tests/residual_viz_baselines/points_coincident.png"

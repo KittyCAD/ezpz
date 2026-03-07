@@ -2,7 +2,7 @@ use crate::Constraint;
 
 /// A constraint that EZPZ should solve for.
 /// ```
-/// use kcl_ezpz::{Constraint, ConstraintRequest};
+/// use ezpz::{Constraint, ConstraintRequest};
 /// let var = 2;
 /// let constraint = Constraint::Fixed(var, 14.2);
 /// let priority = 3;
@@ -23,7 +23,7 @@ pub struct ConstraintRequest {
 impl ConstraintRequest {
     /// Create a new constraint request.
     /// ```
-    /// use kcl_ezpz::{Constraint, ConstraintRequest};
+    /// use ezpz::{Constraint, ConstraintRequest};
     /// let var = 2;
     /// let constraint = Constraint::Fixed(var, 14.2);
     /// let priority = 3;
@@ -38,7 +38,7 @@ impl ConstraintRequest {
 
     /// Create a new constraint request with the highest priority.
     /// ```
-    /// use kcl_ezpz::{Constraint, ConstraintRequest};
+    /// use ezpz::{Constraint, ConstraintRequest};
     /// let var = 2;
     /// let constraint = Constraint::Fixed(var, 14.2);
     /// let constraint_req = ConstraintRequest::highest_priority(constraint);

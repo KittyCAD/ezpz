@@ -4,7 +4,7 @@ pub type Id = u32;
 
 /// Generates an incrementing sequence of IDs starting from 0.
 /// ```
-/// use kcl_ezpz::{datatypes::inputs::DatumPoint, IdGenerator};
+/// use ezpz::{datatypes::inputs::DatumPoint, IdGenerator};
 /// let mut ids = IdGenerator::default();
 /// // This point has two variables, its X and Y.
 /// let p = DatumPoint::new(&mut ids);

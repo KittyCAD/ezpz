@@ -37,7 +37,7 @@ impl std::fmt::Display for Angle {
 impl Angle {
     /// Create an angle of this many degrees.
     /// ```
-    /// use kcl_ezpz::datatypes::Angle;
+    /// use ezpz::datatypes::Angle;
     /// let half_turn = Angle::from_degrees(180.0);
     /// ```
     pub fn from_degrees(degrees: f64) -> Self {
@@ -49,7 +49,7 @@ impl Angle {
 
     /// Create an angle of this many radians.
     /// ```
-    /// use kcl_ezpz::datatypes::Angle;
+    /// use ezpz::datatypes::Angle;
     /// let half_turn = Angle::from_radians(std::f64::consts::PI);
     /// ```
     pub fn from_radians(radians: f64) -> Self {
@@ -61,7 +61,7 @@ impl Angle {
 
     /// How large is this angle, in degrees?
     /// ```
-    /// use kcl_ezpz::datatypes::Angle;
+    /// use ezpz::datatypes::Angle;
     /// assert_eq!(180.0, Angle::from_degrees(180.0).to_degrees());
     /// assert_eq!(180.0, Angle::from_radians(std::f64::consts::PI).to_degrees());
     /// ```
@@ -75,7 +75,7 @@ impl Angle {
 
     /// How large is this angle, in radians?
     /// ```
-    /// use kcl_ezpz::datatypes::Angle;
+    /// use ezpz::datatypes::Angle;
     /// assert_eq!(std::f64::consts::PI, Angle::from_radians(std::f64::consts::PI).to_radians());
     /// assert_eq!(std::f64::consts::PI, Angle::from_degrees(180.0).to_radians());
     /// ```

@@ -7,7 +7,7 @@ use std::{
 };
 
 use clap::Parser;
-use kcl_ezpz::{
+use ezpz::{
     Constraint, FailureOutcome, Warning,
     datatypes::outputs::{self, Point},
     textual::{Outcome, Problem},

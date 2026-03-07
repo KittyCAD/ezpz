@@ -584,13 +584,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "ezpz"
+version = "0.2.18"
+dependencies = [
+ "arbitrary",
+ "criterion",
+ "faer",
+ "image 0.25.9",
+ "indexmap",
+ "libm",
+ "mutants",
+ "proptest",
+ "thiserror 2.0.17",
+ "twenty-twenty",
+ "winnow",
+]
+
+[[package]]
 name = "ezpz-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
  "colored",
- "kcl-ezpz",
+ "ezpz",
  "libm",
  "plotters",
 ]
@@ -600,7 +617,7 @@ name = "ezpz-fuzz"
 version = "0.0.0"
 dependencies = [
  "arbitrary",
- "kcl-ezpz",
+ "ezpz",
  "libfuzzer-sys",
 ]
 
@@ -608,8 +625,8 @@ dependencies = [
 name = "ezpz-wasm"
 version = "0.1.0"
 dependencies = [
+ "ezpz",
  "faer",
- "kcl-ezpz",
  "wasm-bindgen",
 ]
 
@@ -1103,23 +1120,6 @@ checksum = "464a3709c7f55f1f721e5389aa6ea4e3bc6aba669353300af094b29ffbdde1d8"
 dependencies = [
  "once_cell",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "kcl-ezpz"
-version = "0.2.18"
-dependencies = [
- "arbitrary",
- "criterion",
- "faer",
- "image 0.25.9",
- "indexmap",
- "libm",
- "mutants",
- "proptest",
- "thiserror 2.0.17",
- "twenty-twenty",
- "winnow",
 ]
 
 [[package]]
