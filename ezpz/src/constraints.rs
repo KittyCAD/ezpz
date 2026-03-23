@@ -252,7 +252,7 @@ impl Constraint {
                 let mag_u = u.magnitude();
 
                 // Handle degenerate line case
-                if mag_u < EPSILON {
+                if mag_u <= EPSILON {
                     // TODO: Could revert to point circle constraint here
                     *residual0 = 0.0;
                     *degenerate = true;
@@ -264,7 +264,7 @@ impl Constraint {
                 let cen_dist = abs_cross_uv / mag_u;
 
                 // Handle ambiguous case where circle center is on the line
-                if cen_dist < EPSILON {
+                if cen_dist <= EPSILON {
                     *residual0 = 0.0;
                     *degenerate = true;
                     return;
@@ -762,7 +762,7 @@ impl Constraint {
                 let mag_u = u.magnitude();
 
                 // Handle degenerate line case
-                if mag_u < EPSILON {
+                if mag_u <= EPSILON {
                     // TODO: Could revert to point circle constraint here
                     *degenerate = true;
                     return;
@@ -774,7 +774,7 @@ impl Constraint {
                 let cen_dist = abs_cross_uv / mag_u;
 
                 // Handle ambiguous case where circle center is on the line
-                if cen_dist < EPSILON {
+                if cen_dist <= EPSILON {
                     *degenerate = true;
                     return;
                 }
