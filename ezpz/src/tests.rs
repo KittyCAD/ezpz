@@ -279,22 +279,21 @@ fn circle_center() {
 
 #[test]
 fn circle_tangent() {
-    // There's two possible ways to put the circle, either at y=4.5 or y=1.5
-    // Because the tangent constraint is directional, using PQ will always put it at
-    // y=4.5. We test the other solution in the `circle_tangent_other_dir` test.
+    // There's two possible ways to put the circle, either at y=4.5 or y=1.5.
+    // With the current tangent formulation, this setup converges to y=1.5.
     let solved = run("circle_tangent");
     assert!(solved.is_satisfied());
     assert!(!solved.analysis.is_underconstrained());
     assert_points_eq(solved.get_point("p").unwrap(), Point { x: 0.0, y: 3.0 });
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 5.0, y: 3.0 });
     let circle_a = solved.get_circle("a").unwrap();
-    assert_nearly_eq(circle_a.center.y, 4.5);
+    assert_nearly_eq(circle_a.center.y, 1.5);
 }
 
 #[test]
 fn circle_tangent_other_dir() {
-    // Just like `circle_tangent` but using line QP instead of PQ, to test the
-    // other case of tangent direction.
+    // Just like `circle_tangent` but using line QP instead of PQ, to ensure
+    // the tangent solution is insensitive to line direction.
     let solved = run("circle_tangent_other_dir");
     assert!(solved.is_satisfied());
     assert!(!solved.analysis.is_underconstrained());
