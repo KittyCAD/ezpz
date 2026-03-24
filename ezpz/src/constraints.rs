@@ -109,7 +109,7 @@ impl std::fmt::Debug for JacobianVar {
 
 impl Constraint {
     /// For each row of the Jacobian matrix, which variables are involved in them?
-    pub(crate) fn nonzeroes(&self, row0: &mut Vec<Id>, row1: &mut Vec<Id>, row2: &mut Vec<Id>) {
+    pub(crate) fn nonzeroes(&self, row0: &mut Vec<Id>, row1: &mut Vec<Id>, _row2: &mut Vec<Id>) {
         match self {
             Constraint::LineTangentToCircle(line, circle) => {
                 row0.extend(line.all_variables());
@@ -160,8 +160,8 @@ impl Constraint {
                     Constraint::Distance(arc.center, arc.start, *radius),
                     Constraint::Distance(arc.center, arc.end, *radius),
                 );
-                constraints.0.nonzeroes(row0, row1, row2);
-                constraints.1.nonzeroes(row1, row0, row2);
+                constraints.0.nonzeroes(row0, row1, _row2);
+                constraints.1.nonzeroes(row1, row0, _row2);
             }
             Constraint::Arc(arc) => {
                 row0.extend(arc.all_variables());
@@ -212,7 +212,7 @@ impl Constraint {
                 },
                 AngleKind::Other(*angle),
             )
-            .nonzeroes(row0, row1, row2),
+            .nonzeroes(row0, row1, _row2),
         }
     }
 
@@ -228,7 +228,7 @@ impl Constraint {
         current_assignments: &[f64],
         residual0: &mut f64,
         residual1: &mut f64,
-        residual2: &mut f64,
+        _residual2: &mut f64,
         degenerate: &mut bool,
     ) {
         match self {
@@ -425,7 +425,7 @@ impl Constraint {
                     current_assignments,
                     residual0,
                     residual1,
-                    residual2,
+                    _residual2,
                     degenerate,
                 );
                 constraints.1.residual(
@@ -433,7 +433,7 @@ impl Constraint {
                     current_assignments,
                     residual1,
                     residual0,
-                    residual2,
+                    _residual2,
                     degenerate,
                 );
             }
@@ -676,7 +676,7 @@ impl Constraint {
                 current_assignments,
                 residual0,
                 residual1,
-                residual2,
+                _residual2,
                 degenerate,
             ),
         }
@@ -735,7 +735,7 @@ impl Constraint {
         current_assignments: &[f64],
         row0: &mut Vec<JacobianVar>,
         row1: &mut Vec<JacobianVar>,
-        row2: &mut Vec<JacobianVar>,
+        _row2: &mut Vec<JacobianVar>,
         degenerate: &mut bool,
     ) {
         match self {
@@ -1279,7 +1279,7 @@ impl Constraint {
                     current_assignments,
                     row0,
                     row1,
-                    row2,
+                    _row2,
                     degenerate,
                 );
                 constraints.1.jacobian_rows(
@@ -1287,7 +1287,7 @@ impl Constraint {
                     current_assignments,
                     row1,
                     row0,
-                    row2,
+                    _row2,
                     degenerate,
                 );
             }
@@ -1979,7 +1979,7 @@ impl Constraint {
                 },
                 AngleKind::Other(*angle),
             )
-            .jacobian_rows(layout, current_assignments, row0, row1, row2, degenerate),
+            .jacobian_rows(layout, current_assignments, row0, row1, _row2, degenerate),
         }
     }
 
