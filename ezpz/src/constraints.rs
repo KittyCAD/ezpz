@@ -2283,8 +2283,8 @@ fn get_line_ends(
 fn classify_point_arc_coincident(s: V, e: V, p: V) -> PointArcCoincidentPart {
     // NOTE: This assumes the arc has CCW orientation from start to end
     let two_pi = 2.0 * PI;
-    let a_sp = libm::atan2(s.cross_2d(&p), s.dot(&p)).rem_euclid(two_pi);
-    let a_se = libm::atan2(s.cross_2d(&e), s.dot(&e)).rem_euclid(two_pi);
+    let a_sp = s.signed_angle(p).rem_euclid(two_pi);
+    let a_se = s.signed_angle(e).rem_euclid(two_pi);
 
     if a_sp < a_se {
         PointArcCoincidentPart::Interior
