@@ -185,21 +185,10 @@ impl Constraint {
                 row1.extend(b.all_variables());
             }
             Constraint::PointArcCoincident(circular_arc, point) => {
-                // Residual 0 is just distance between arc center and the point.
-                // We can use any arbitrary distance, as this parameter is ignored in the Distance constraint's
-                // nonzeroes above.
-                let arbitrary_dist = 12345.6;
-                let dist_constraint =
-                    Constraint::Distance(circular_arc.center, *point, arbitrary_dist);
-                dist_constraint.nonzeroes(row0, row1, row2);
-                // Residual 1 is ensuring the point is above the arc's start degrees.
-                row1.extend(circular_arc.center.all_variables());
-                row1.extend(circular_arc.start.all_variables());
+                row0.extend(circular_arc.all_variables());
+                row0.extend(point.all_variables());
+                row1.extend(circular_arc.all_variables());
                 row1.extend(point.all_variables());
-                // Residual 2 is ensuring the point is above the arc's end degrees.
-                row2.extend(circular_arc.center.all_variables());
-                row2.extend(circular_arc.end.all_variables());
-                row2.extend(point.all_variables());
             }
             Constraint::ArcLength(circular_arc, _dist) => {
                 row0.extend(circular_arc.all_variables());
@@ -578,47 +567,52 @@ impl Constraint {
                 let by = current_assignments[layout.index_of(circular_arc.end.id_y())];
                 let px = current_assignments[layout.index_of(point.id_x())];
                 let py = current_assignments[layout.index_of(point.id_y())];
+                let o = V::new(cx, cy);
+                let s = V::new(ax, ay) - o;
+                let e = V::new(bx, by) - o;
+                let p = V::new(px, py) - o;
 
-                // Point-on-arc is split into: distance residual + two angular residuals.
-                // First, enforce "point is on the circle" (distance-to-center equals radius).
-                let arc_radius = libm::hypot(cx - ax, cy - ay);
-                let dist_constraint = Constraint::Distance(circular_arc.center, *point, arc_radius);
-                // Write the distance residual into residual0.
-                dist_constraint.residual(
-                    layout,
-                    current_assignments,
-                    residual0,
-                    residual1,
-                    residual2,
-                    degenerate,
-                );
-                let distance_mag = residual0.abs();
-                const ANGULAR_DISTANCE_TOLERANCE: f64 = 0.05;
-                if distance_mag <= ANGULAR_DISTANCE_TOLERANCE {
+                let r = s.magnitude();
+                let r_e = e.magnitude();
+                let r_p = p.magnitude();
+                if r < EPSILON || r_e < EPSILON || r_p < EPSILON {
+                    *residual0 = 0.0;
                     *residual1 = 0.0;
-                    *residual2 = 0.0;
+                    *degenerate = true;
                     return;
                 }
 
-                // Calculate the angle residuals.
-                // Use the arc's orientation (start -> end) to decide CW/CCW.
-                let arc_dir = if (ax - cx) * (by - cy) - (ay - cy) * (bx - cx) >= 0.0 {
-                    1.0
+                // TODO: Add signed angle helper
+
+                // NOTE: Angles calculated below are only used to determine which component of the
+                // piecewise residual function is currently active. This assumes the arc has CCW
+                // orientation from start to end.
+                let two_pi = 2.0 * PI;
+                let a_sp = libm::atan2(s.cross_2d(&p), s.dot(&p)).rem_euclid(two_pi);
+                let a_se = libm::atan2(s.cross_2d(&e), s.dot(&e)).rem_euclid(two_pi);
+
+                let f = if a_sp < a_se {
+                    // Point is inside arc, residual is projection to circle
+                    // Residual: f = p * (r/‖p‖ - 1)
+                    p * (r / r_p - 1.0)
                 } else {
-                    -1.0
+                    // Point is outside arc, residual is projection to closest boundary
+                    let f_s = s - p;
+                    let e_proj = e * (r / r_e);
+                    let f_e = e_proj - p;
+                    if f_e.magnitude_squared() < f_s.magnitude_squared() {
+                        // Point is closer to arc end
+                        // Residual: f = (r/r_e) * e - p
+                        f_e
+                    } else {
+                        // Point is closer to arc start
+                        // Residual: f = s - p
+                        f_s
+                    }
                 };
-                let start_cross_raw = (ax - cx) * (cy - py) - (ay - cy) * (cx - px);
-                let end_cross_raw = (bx - cx) * (cy - py) - (by - cy) * (cx - px);
-                let dir = arc_dir;
-                let start_cross = start_cross_raw * dir;
-                let end_cross = end_cross_raw * dir;
-                // One-sided penalties for the chosen orientation.
-                *residual1 = if start_cross <= 0.0 {
-                    0.0
-                } else {
-                    -start_cross
-                };
-                *residual2 = if end_cross >= 0.0 { 0.0 } else { end_cross };
+
+                *residual0 = f.x;
+                *residual1 = f.y;
             }
             Constraint::ArcLength(circular_arc, d) => {
                 // Residual math, see ezpz-sympy for notebook.
@@ -712,7 +706,7 @@ impl Constraint {
             Constraint::VerticalPointLineDistance(..) => 1,
             Constraint::HorizontalPointLineDistance(..) => 1,
             Constraint::Symmetric(..) => 2,
-            Constraint::PointArcCoincident(..) => 3,
+            Constraint::PointArcCoincident(..) => 2,
             Constraint::ArcLength(..) => 2,
             Constraint::ArcAngle(circular_arc, angle) => Constraint::LinesAtAngle(
                 DatumLineSegment {
@@ -1633,143 +1627,212 @@ impl Constraint {
                 ]);
             }
             Constraint::PointArcCoincident(circular_arc, point) => {
-                let cx = current_assignments[layout.index_of(circular_arc.center.id_x())];
-                let cy = current_assignments[layout.index_of(circular_arc.center.id_y())];
-                let ax = current_assignments[layout.index_of(circular_arc.start.id_x())];
-                let ay = current_assignments[layout.index_of(circular_arc.start.id_y())];
-                let bx = current_assignments[layout.index_of(circular_arc.end.id_x())];
-                let by = current_assignments[layout.index_of(circular_arc.end.id_y())];
-                let px = current_assignments[layout.index_of(point.id_x())];
-                let py = current_assignments[layout.index_of(point.id_y())];
-                let arc_radius = libm::hypot(cx - ax, cy - ay);
                 let id_cx = circular_arc.center.id_x();
                 let id_cy = circular_arc.center.id_y();
+
                 let id_ax = circular_arc.start.id_x();
                 let id_ay = circular_arc.start.id_y();
+
                 let id_bx = circular_arc.end.id_x();
                 let id_by = circular_arc.end.id_y();
+
                 let id_px = point.id_x();
                 let id_py = point.id_y();
-                // Residual 0: the point's distance from the arc's center should be the arc's radius.
-                let dist_constraint = Constraint::Distance(circular_arc.center, *point, arc_radius);
-                dist_constraint.jacobian_rows(
-                    layout,
-                    current_assignments,
-                    row0,
-                    row1,
-                    row2,
-                    degenerate,
-                );
 
-                // Residual 1: the point should be within the arc range.
-                // Use the arc's orientation (start -> end) to decide CW/CCW.
-                let distance = libm::hypot(cx - px, cy - py);
-                let distance_residual = distance - arc_radius;
-                let distance_mag = distance_residual.abs();
-                const ANGULAR_DISTANCE_TOLERANCE: f64 = 0.05;
-                if distance_mag <= ANGULAR_DISTANCE_TOLERANCE {
+                let cx = current_assignments[layout.index_of(id_cx)];
+                let cy = current_assignments[layout.index_of(id_cy)];
+
+                let ax = current_assignments[layout.index_of(id_ax)];
+                let ay = current_assignments[layout.index_of(id_ay)];
+
+                let bx = current_assignments[layout.index_of(id_bx)];
+                let by = current_assignments[layout.index_of(id_by)];
+
+                let px = current_assignments[layout.index_of(id_px)];
+                let py = current_assignments[layout.index_of(id_py)];
+
+                let o = V::new(cx, cy);
+                let s = V::new(ax, ay) - o;
+                let e = V::new(bx, by) - o;
+                let p = V::new(px, py) - o;
+
+                let r = s.magnitude();
+                let r_e = e.magnitude();
+                let r_p = p.magnitude();
+                if r < EPSILON || r_e < EPSILON || r_p < EPSILON {
+                    *degenerate = true;
                     return;
                 }
-                let arc_dir = if (ax - cx) * (by - cy) - (ay - cy) * (bx - cx) >= 0.0 {
-                    1.0
+
+                // TODO: Should avoid calculating these angles again for the sake of classification.
+                // The case should be cached during residual evaluation and made available here
+                // instead.
+
+                // NOTE: Angles calculated below are only used to determine which component of the
+                // piecewise residual function is currently active. This assumes the arc has CCW
+                // orientation from start to end.
+                let two_pi = 2.0 * PI;
+                let a_sp = libm::atan2(s.cross_2d(&p), s.dot(&p)).rem_euclid(two_pi);
+                let a_se = libm::atan2(s.cross_2d(&e), s.dot(&e)).rem_euclid(two_pi);
+
+                let u_s = s * r.recip();
+                let u_e = e * r_e.recip();
+
+                let (j_s, j_e, j_p) = if a_sp < a_se {
+                    // Point is inside arc
+                    // Residual: f = p * (r/‖p‖ - 1)
+                    // ∂f/∂s = u_p u_sᵀ
+                    // ∂f/∂e = 0
+                    // ∂f/∂p = (r/r_p - 1)I - (r/r_p) u_p u_pᵀ
+                    let u_p = p * r_p.recip();
+                    let r_over_rp = r / r_p;
+                    (
+                        // ∂f/∂s
+                        [
+                            [u_p.x * u_s.x, u_p.y * u_s.x],
+                            [u_p.x * u_s.y, u_p.y * u_s.y],
+                        ],
+                        // ∂f/∂e
+                        [[0.0, 0.0], [0.0, 0.0]],
+                        // ∂f/∂p
+                        [
+                            [
+                                (r_over_rp - 1.0) - r_over_rp * u_p.x * u_p.x,
+                                -r_over_rp * u_p.y * u_p.x,
+                            ],
+                            [
+                                -r_over_rp * u_p.x * u_p.y,
+                                (r_over_rp - 1.0) - r_over_rp * u_p.y * u_p.y,
+                            ],
+                        ],
+                    )
                 } else {
-                    -1.0
+                    // Point is outside arc, residual is projection to closest boundary
+                    let f_s = s - p;
+                    let e_proj = e * (r / r_e);
+                    let f_e = e_proj - p;
+                    if f_e.magnitude_squared() < f_s.magnitude_squared() {
+                        // Point is closer to arc end
+                        // Residual: f = (r/r_e) * e - p
+                        // ∂f/∂s = u_e u_sᵀ
+                        // ∂f/∂e = (r/r_e)(I - u_e u_eᵀ)
+                        // ∂f/∂p = -I
+                        let r_over_re = r / r_e;
+                        (
+                            // ∂f/∂s
+                            [
+                                [u_e.x * u_s.x, u_e.y * u_s.x],
+                                [u_e.x * u_s.y, u_e.y * u_s.y],
+                            ],
+                            // ∂f/∂e
+                            [
+                                [
+                                    r_over_re * (1.0 - u_e.x * u_e.x),
+                                    -r_over_re * u_e.y * u_e.x,
+                                ],
+                                [
+                                    -r_over_re * u_e.x * u_e.y,
+                                    r_over_re * (1.0 - u_e.y * u_e.y),
+                                ],
+                            ],
+                            // ∂f/∂p
+                            [[-1.0, 0.0], [0.0, -1.0]],
+                        )
+                    } else {
+                        // Point is closer to arc start
+                        // Residual: f = s - p
+                        // ∂f/∂s = I
+                        // ∂f/∂e = 0
+                        // ∂f/∂p = -I
+                        (
+                            // ∂f/∂s
+                            [[1.0, 0.0], [0.0, 1.0]],
+                            // ∂f/∂e
+                            [[0.0, 0.0], [0.0, 0.0]],
+                            // ∂f/∂p
+                            [[-1.0, 0.0], [0.0, -1.0]],
+                        )
+                    }
                 };
-                let start_cross_raw = (ax - cx) * (cy - py) - (ay - cy) * (cx - px);
-                let end_cross_raw = (bx - cx) * (cy - py) - (by - cy) * (cx - px);
-                let dir = arc_dir;
-                let start_cross = start_cross_raw * dir;
-                // Weighted logic (Jacobian gating): turn the angular residual gradients on only when violated.
-                // This prevents inequality-style constraints from destabilizing a least-squares solver.
-                // - If satisfied (inside range), weight = 0 → Jacobian contributes nothing, so the solver
-                //   won't keep pushing you around to "improve" something that is already valid.
-                // - If violated, weight = 1 → full gradient is active.
-                // - If exactly on the boundary, 0.5 → a soft transition to reduce discontinuity at cross == 0.
-                let start_weight = if start_cross > 0.0 {
-                    1.0
-                } else if start_cross == 0.0 {
-                    0.5
-                } else {
-                    0.0
-                };
-                // Partial derivatives (all multiplied by start_weight and dir)
-                let r1dpx = -(ay - cy) * start_weight * dir;
-                let r1dpy = (ax - cx) * start_weight * dir;
-                let r1dax = -(cy - py) * start_weight * dir;
-                let r1day = (cx - px) * start_weight * dir;
-                let r1dcx = (ay - py) * start_weight * dir;
-                let r1dcy = -(ax - px) * start_weight * dir;
-                row1.extend([
+
+                // ∂f/∂o = -(∂f/∂s + ∂f/∂e + ∂f/∂p)
+                let j_o = [
+                    [
+                        -(j_s[0][0] + j_e[0][0] + j_p[0][0]),
+                        -(j_s[0][1] + j_e[0][1] + j_p[0][1]),
+                    ],
+                    [
+                        -(j_s[1][0] + j_e[1][0] + j_p[1][0]),
+                        -(j_s[1][1] + j_e[1][1] + j_p[1][1]),
+                    ],
+                ];
+
+                row0.extend([
                     JacobianVar {
                         id: id_cx,
-                        partial_derivative: r1dcx,
+                        partial_derivative: j_o[0][0],
                     },
                     JacobianVar {
                         id: id_cy,
-                        partial_derivative: r1dcy,
+                        partial_derivative: j_o[1][0],
                     },
                     JacobianVar {
                         id: id_ax,
-                        partial_derivative: r1dax,
+                        partial_derivative: j_s[0][0],
                     },
                     JacobianVar {
                         id: id_ay,
-                        partial_derivative: r1day,
-                    },
-                    JacobianVar {
-                        id: id_px,
-                        partial_derivative: r1dpx,
-                    },
-                    JacobianVar {
-                        id: id_py,
-                        partial_derivative: r1dpy,
-                    },
-                ]);
-
-                // Residual 2: the end should be CCW from the point (point comes before end).
-                // For a CCW arc, satisfied when end_cross < 0
-                let end_cross = end_cross_raw * dir;
-                // Same weighted logic as residual1: gate the Jacobian contribution based on violation state.
-                // This prevents the solver from getting a big, misleading "gradient signal" from the angular
-                // terms when it shouldn't, which was causing instability when points were already on the arc.
-                let end_weight = if end_cross > 0.0 {
-                    0.0
-                } else if end_cross == 0.0 {
-                    0.5
-                } else {
-                    1.0
-                };
-                // Partial derivatives (all multiplied by end_weight and dir)
-                let r2dpx = (by - cy) * end_weight * dir;
-                let r2dpy = -(bx - cx) * end_weight * dir;
-                let r2dbx = (cy - py) * end_weight * dir;
-                let r2dby = -(cx - px) * end_weight * dir;
-                let r2dcx = -(by - py) * end_weight * dir;
-                let r2dcy = (bx - px) * end_weight * dir;
-                row2.extend([
-                    JacobianVar {
-                        id: id_cx,
-                        partial_derivative: r2dcx,
-                    },
-                    JacobianVar {
-                        id: id_cy,
-                        partial_derivative: r2dcy,
+                        partial_derivative: j_s[1][0],
                     },
                     JacobianVar {
                         id: id_bx,
-                        partial_derivative: r2dbx,
+                        partial_derivative: j_e[0][0],
                     },
                     JacobianVar {
                         id: id_by,
-                        partial_derivative: r2dby,
+                        partial_derivative: j_e[1][0],
                     },
                     JacobianVar {
                         id: id_px,
-                        partial_derivative: r2dpx,
+                        partial_derivative: j_p[0][0],
                     },
                     JacobianVar {
                         id: id_py,
-                        partial_derivative: r2dpy,
+                        partial_derivative: j_p[1][0],
+                    },
+                ]);
+                row1.extend([
+                    JacobianVar {
+                        id: id_cx,
+                        partial_derivative: j_o[0][1],
+                    },
+                    JacobianVar {
+                        id: id_cy,
+                        partial_derivative: j_o[1][1],
+                    },
+                    JacobianVar {
+                        id: id_ax,
+                        partial_derivative: j_s[0][1],
+                    },
+                    JacobianVar {
+                        id: id_ay,
+                        partial_derivative: j_s[1][1],
+                    },
+                    JacobianVar {
+                        id: id_bx,
+                        partial_derivative: j_e[0][1],
+                    },
+                    JacobianVar {
+                        id: id_by,
+                        partial_derivative: j_e[1][1],
+                    },
+                    JacobianVar {
+                        id: id_px,
+                        partial_derivative: j_p[0][1],
+                    },
+                    JacobianVar {
+                        id: id_py,
+                        partial_derivative: j_p[1][1],
                     },
                 ]);
             }
