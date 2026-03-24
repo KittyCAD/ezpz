@@ -93,6 +93,13 @@ pub(crate) struct JacobianVar {
     pub partial_derivative: f64,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PointArcCoincidentPart {
+    Interior,
+    Start,
+    End,
+}
+
 #[cfg(feature = "dbg-jac")]
 impl std::fmt::Debug for JacobianVar {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -561,16 +568,19 @@ impl Constraint {
             Constraint::PointArcCoincident(circular_arc, point) => {
                 let cx = current_assignments[layout.index_of(circular_arc.center.id_x())];
                 let cy = current_assignments[layout.index_of(circular_arc.center.id_y())];
-                let ax = current_assignments[layout.index_of(circular_arc.start.id_x())];
-                let ay = current_assignments[layout.index_of(circular_arc.start.id_y())];
-                let bx = current_assignments[layout.index_of(circular_arc.end.id_x())];
-                let by = current_assignments[layout.index_of(circular_arc.end.id_y())];
+                let c = V::new(cx, cy);
+
+                let sx = current_assignments[layout.index_of(circular_arc.start.id_x())];
+                let sy = current_assignments[layout.index_of(circular_arc.start.id_y())];
+                let s = V::new(sx, sy) - c;
+
+                let ex = current_assignments[layout.index_of(circular_arc.end.id_x())];
+                let ey = current_assignments[layout.index_of(circular_arc.end.id_y())];
+                let e = V::new(ex, ey) - c;
+
                 let px = current_assignments[layout.index_of(point.id_x())];
                 let py = current_assignments[layout.index_of(point.id_y())];
-                let o = V::new(cx, cy);
-                let s = V::new(ax, ay) - o;
-                let e = V::new(bx, by) - o;
-                let p = V::new(px, py) - o;
+                let p = V::new(px, py) - c;
 
                 let r = s.magnitude();
                 let r_e = e.magnitude();
@@ -582,37 +592,28 @@ impl Constraint {
                     return;
                 }
 
-                // TODO: Add signed angle helper
+                let e_proj = e * (r / r_e);
 
-                // NOTE: Angles calculated below are only used to determine which component of the
-                // piecewise residual function is currently active. This assumes the arc has CCW
-                // orientation from start to end.
-                let two_pi = 2.0 * PI;
-                let a_sp = libm::atan2(s.cross_2d(&p), s.dot(&p)).rem_euclid(two_pi);
-                let a_se = libm::atan2(s.cross_2d(&e), s.dot(&e)).rem_euclid(two_pi);
-
-                let f = if a_sp < a_se {
-                    // Point is inside arc, residual is projection to circle
-                    // Residual: f = p * (r/‖p‖ - 1)
-                    p * (r / r_p - 1.0)
-                } else {
-                    // Point is outside arc, residual is projection to closest boundary
-                    let f_s = s - p;
-                    let e_proj = e * (r / r_e);
-                    let f_e = e_proj - p;
-                    if f_e.magnitude_squared() < f_s.magnitude_squared() {
-                        // Point is closer to arc end
-                        // Residual: f = (r/r_e) * e - p
-                        f_e
-                    } else {
-                        // Point is closer to arc start
-                        // Residual: f = s - p
-                        f_s
+                match classify_point_arc_coincident(s, e_proj, p) {
+                    PointArcCoincidentPart::Interior => {
+                        // Point is closest to arc interior
+                        let f = p * (r / r_p - 1.0);
+                        *residual0 = f.x;
+                        *residual1 = f.y;
                     }
-                };
-
-                *residual0 = f.x;
-                *residual1 = f.y;
+                    PointArcCoincidentPart::End => {
+                        // Point is closest to arc end
+                        let f = e_proj - p;
+                        *residual0 = f.x;
+                        *residual1 = f.y;
+                    }
+                    PointArcCoincidentPart::Start => {
+                        // Point is closest to arc start
+                        let f = s - p;
+                        *residual0 = f.x;
+                        *residual1 = f.y;
+                    }
+                }
             }
             Constraint::ArcLength(circular_arc, d) => {
                 // Residual math, see ezpz-sympy for notebook.
@@ -1629,32 +1630,27 @@ impl Constraint {
             Constraint::PointArcCoincident(circular_arc, point) => {
                 let id_cx = circular_arc.center.id_x();
                 let id_cy = circular_arc.center.id_y();
+                let cx = current_assignments[layout.index_of(id_cx)];
+                let cy = current_assignments[layout.index_of(id_cy)];
+                let c = V::new(cx, cy);
 
-                let id_ax = circular_arc.start.id_x();
-                let id_ay = circular_arc.start.id_y();
+                let id_sx = circular_arc.start.id_x();
+                let id_sy = circular_arc.start.id_y();
+                let sx = current_assignments[layout.index_of(id_sx)];
+                let sy = current_assignments[layout.index_of(id_sy)];
+                let s = V::new(sx, sy) - c;
 
-                let id_bx = circular_arc.end.id_x();
-                let id_by = circular_arc.end.id_y();
+                let id_ex = circular_arc.end.id_x();
+                let id_ey = circular_arc.end.id_y();
+                let ex = current_assignments[layout.index_of(id_ex)];
+                let ey = current_assignments[layout.index_of(id_ey)];
+                let e = V::new(ex, ey) - c;
 
                 let id_px = point.id_x();
                 let id_py = point.id_y();
-
-                let cx = current_assignments[layout.index_of(id_cx)];
-                let cy = current_assignments[layout.index_of(id_cy)];
-
-                let ax = current_assignments[layout.index_of(id_ax)];
-                let ay = current_assignments[layout.index_of(id_ay)];
-
-                let bx = current_assignments[layout.index_of(id_bx)];
-                let by = current_assignments[layout.index_of(id_by)];
-
                 let px = current_assignments[layout.index_of(id_px)];
                 let py = current_assignments[layout.index_of(id_py)];
-
-                let o = V::new(cx, cy);
-                let s = V::new(ax, ay) - o;
-                let e = V::new(bx, by) - o;
-                let p = V::new(px, py) - o;
+                let p = V::new(px, py) - c;
 
                 let r = s.magnitude();
                 let r_e = e.magnitude();
@@ -1664,54 +1660,38 @@ impl Constraint {
                     return;
                 }
 
-                // TODO: Should avoid calculating these angles again for the sake of classification.
-                // The case should be cached during residual evaluation and made available here
-                // instead.
-
-                // NOTE: Angles calculated below are only used to determine which component of the
-                // piecewise residual function is currently active. This assumes the arc has CCW
-                // orientation from start to end.
-                let two_pi = 2.0 * PI;
-                let a_sp = libm::atan2(s.cross_2d(&p), s.dot(&p)).rem_euclid(two_pi);
-                let a_se = libm::atan2(s.cross_2d(&e), s.dot(&e)).rem_euclid(two_pi);
-
                 let u_s = s * r.recip();
                 let u_e = e * r_e.recip();
+                let e_proj = e * (r / r_e);
 
-                let (j_s, j_e, j_p) = if a_sp < a_se {
-                    // Point is inside arc
-                    // Residual: f = p * (r/‖p‖ - 1)
-                    // ∂f/∂s = u_p u_sᵀ
-                    // ∂f/∂e = 0
-                    // ∂f/∂p = (r/r_p - 1)I - (r/r_p) u_p u_pᵀ
-                    let u_p = p * r_p.recip();
-                    let r_over_rp = r / r_p;
-                    (
-                        // ∂f/∂s
-                        [
-                            [u_p.x * u_s.x, u_p.y * u_s.x],
-                            [u_p.x * u_s.y, u_p.y * u_s.y],
-                        ],
-                        // ∂f/∂e
-                        [[0.0, 0.0], [0.0, 0.0]],
-                        // ∂f/∂p
-                        [
+                let (j_s, j_e, j_p) = match classify_point_arc_coincident(s, e_proj, p) {
+                    PointArcCoincidentPart::Interior => {
+                        // Point is inside arc
+                        // Residual: f = p * (r/‖p‖ - 1)
+                        // ∂f/∂s = u_p u_sᵀ
+                        // ∂f/∂e = 0
+                        // ∂f/∂p = (r/r_p - 1)I - (r/r_p) u_p u_pᵀ
+                        let u_p = p * r_p.recip();
+                        let r_over_rp = r / r_p;
+                        (
                             [
-                                (r_over_rp - 1.0) - r_over_rp * u_p.x * u_p.x,
-                                -r_over_rp * u_p.y * u_p.x,
+                                [u_p.x * u_s.x, u_p.y * u_s.x],
+                                [u_p.x * u_s.y, u_p.y * u_s.y],
                             ],
+                            [[0.0, 0.0], [0.0, 0.0]],
                             [
-                                -r_over_rp * u_p.x * u_p.y,
-                                (r_over_rp - 1.0) - r_over_rp * u_p.y * u_p.y,
+                                [
+                                    (r_over_rp - 1.0) - r_over_rp * u_p.x * u_p.x,
+                                    -r_over_rp * u_p.y * u_p.x,
+                                ],
+                                [
+                                    -r_over_rp * u_p.x * u_p.y,
+                                    (r_over_rp - 1.0) - r_over_rp * u_p.y * u_p.y,
+                                ],
                             ],
-                        ],
-                    )
-                } else {
-                    // Point is outside arc, residual is projection to closest boundary
-                    let f_s = s - p;
-                    let e_proj = e * (r / r_e);
-                    let f_e = e_proj - p;
-                    if f_e.magnitude_squared() < f_s.magnitude_squared() {
+                        )
+                    }
+                    PointArcCoincidentPart::End => {
                         // Point is closer to arc end
                         // Residual: f = (r/r_e) * e - p
                         // ∂f/∂s = u_e u_sᵀ
@@ -1719,12 +1699,10 @@ impl Constraint {
                         // ∂f/∂p = -I
                         let r_over_re = r / r_e;
                         (
-                            // ∂f/∂s
                             [
                                 [u_e.x * u_s.x, u_e.y * u_s.x],
                                 [u_e.x * u_s.y, u_e.y * u_s.y],
                             ],
-                            // ∂f/∂e
                             [
                                 [
                                     r_over_re * (1.0 - u_e.x * u_e.x),
@@ -1735,27 +1713,24 @@ impl Constraint {
                                     r_over_re * (1.0 - u_e.y * u_e.y),
                                 ],
                             ],
-                            // ∂f/∂p
                             [[-1.0, 0.0], [0.0, -1.0]],
                         )
-                    } else {
+                    }
+                    PointArcCoincidentPart::Start => {
                         // Point is closer to arc start
                         // Residual: f = s - p
                         // ∂f/∂s = I
                         // ∂f/∂e = 0
                         // ∂f/∂p = -I
                         (
-                            // ∂f/∂s
                             [[1.0, 0.0], [0.0, 1.0]],
-                            // ∂f/∂e
                             [[0.0, 0.0], [0.0, 0.0]],
-                            // ∂f/∂p
                             [[-1.0, 0.0], [0.0, -1.0]],
                         )
                     }
                 };
 
-                // ∂f/∂o = -(∂f/∂s + ∂f/∂e + ∂f/∂p)
+                // ∂f/∂c = -(∂f/∂s + ∂f/∂e + ∂f/∂p)
                 let j_o = [
                     [
                         -(j_s[0][0] + j_e[0][0] + j_p[0][0]),
@@ -1777,19 +1752,19 @@ impl Constraint {
                         partial_derivative: j_o[1][0],
                     },
                     JacobianVar {
-                        id: id_ax,
+                        id: id_sx,
                         partial_derivative: j_s[0][0],
                     },
                     JacobianVar {
-                        id: id_ay,
+                        id: id_sy,
                         partial_derivative: j_s[1][0],
                     },
                     JacobianVar {
-                        id: id_bx,
+                        id: id_ex,
                         partial_derivative: j_e[0][0],
                     },
                     JacobianVar {
-                        id: id_by,
+                        id: id_ey,
                         partial_derivative: j_e[1][0],
                     },
                     JacobianVar {
@@ -1811,19 +1786,19 @@ impl Constraint {
                         partial_derivative: j_o[1][1],
                     },
                     JacobianVar {
-                        id: id_ax,
+                        id: id_sx,
                         partial_derivative: j_s[0][1],
                     },
                     JacobianVar {
-                        id: id_ay,
+                        id: id_sy,
                         partial_derivative: j_s[1][1],
                     },
                     JacobianVar {
-                        id: id_bx,
+                        id: id_ex,
                         partial_derivative: j_e[0][1],
                     },
                     JacobianVar {
-                        id: id_by,
+                        id: id_ey,
                         partial_derivative: j_e[1][1],
                     },
                     JacobianVar {
@@ -2300,6 +2275,24 @@ fn get_line_ends(
     let p1_y_l1 = current_assignments[layout.index_of(line1.p1.id_y())];
     let l1 = (V::new(p0_x_l1, p0_y_l1), V::new(p1_x_l1, p1_y_l1));
     (l0, l1)
+}
+
+/// Returns the active part of the residual for an arc centered on the origin given its start point,
+/// its end point, and the point to constrain. Both start and end points are assumed to sit on the
+/// arc.
+fn classify_point_arc_coincident(s: V, e: V, p: V) -> PointArcCoincidentPart {
+    // NOTE: This assumes the arc has CCW orientation from start to end
+    let two_pi = 2.0 * PI;
+    let a_sp = libm::atan2(s.cross_2d(&p), s.dot(&p)).rem_euclid(two_pi);
+    let a_se = libm::atan2(s.cross_2d(&e), s.dot(&e)).rem_euclid(two_pi);
+
+    if a_sp < a_se {
+        PointArcCoincidentPart::Interior
+    } else if (e - p).magnitude_squared() < (s - p).magnitude_squared() {
+        PointArcCoincidentPart::End
+    } else {
+        PointArcCoincidentPart::Start
+    }
 }
 
 /// If we represent the line in the form (Ax + By + C),
