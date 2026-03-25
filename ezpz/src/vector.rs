@@ -4,6 +4,7 @@ pub(crate) struct V {
     pub y: f64,
 }
 
+#[allow(dead_code)]
 impl V {
     #[inline(always)]
     pub fn new(x: f64, y: f64) -> Self {

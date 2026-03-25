@@ -28,8 +28,6 @@ impl AsRef<Constraint> for ConstraintEntry<'_> {
 pub enum Constraint {
     /// This line must be tangent to the circle
     /// (i.e. touches its perimeter in exactly one place)
-    /// Note this constraint is directional: making circle C
-    /// tangent to PQ will produce a different solution to QP.
     LineTangentToCircle(DatumLineSegment, DatumCircle),
     /// These two circles should be tangent.
     /// This could include internal tangency (where one circle is inside the other),
@@ -245,27 +243,30 @@ impl Constraint {
                 let radius = current_assignments[layout.index_of(circle.radius.id)];
                 let circle_center = V::new(center_x, center_y);
 
-                // Calculate the signed distance from the circle's center to the line
-                // Formula: distance = (v × w) / |v|
-                // where v is the line vector and w is the vector from p1 to the center.
-                let v = p1 - p0;
-                // let v = p0 - p1;
-                let mag_v = v.magnitude();
-                if mag_v < EPSILON {
-                    // If line has no length, then the residual is 0, regardless of anything else.
+                // Calculate the unsigned distance from the circle's center to the line.
+                let u = p1 - p0;
+                let mag_u = u.magnitude();
+
+                // Handle degenerate line case
+                if mag_u <= EPSILON {
+                    // TODO: Could revert to point circle constraint here
                     *residual0 = 0.0;
                     *degenerate = true;
                     return;
                 }
-                let w = circle_center - p1;
 
-                // Signed cross product (no absolute value).
-                let cross_2d = v.cross_2d(&w);
-                // Div-by-zero check:
-                // already handled case where mag_v < EPSILON above and early-returned.
-                let signed_distance_to_line = cross_2d / mag_v;
-                let residual = signed_distance_to_line - radius;
-                *residual0 = residual;
+                let v = circle_center - p0;
+                let abs_cross_uv = u.cross_2d(&v).abs();
+                let cen_dist = abs_cross_uv / mag_u;
+
+                // Handle ambiguous case where circle center is on the line
+                if cen_dist <= EPSILON {
+                    *residual0 = 0.0;
+                    *degenerate = true;
+                    return;
+                }
+
+                *residual0 = cen_dist - radius;
             }
             Constraint::CircleTangentToCircle(circle_a, circle_b) => {
                 // Get current state of the entities.
@@ -740,14 +741,8 @@ impl Constraint {
     ) {
         match self {
             Constraint::LineTangentToCircle(line, circle) => {
-                // Residual: R = ((x1-x0)*(yc-y0) - (y1-y0)*(xc-x0)) / sqrt((x1-x0)**2 + (y1-y0)**2) - r
-                // ∂R/∂x0 = (-(x0 - x1)*((x0 - x1)*(y0 - yc) - (x0 - xc)*(y0 - y1)) + (y1 - yc)*((x0 - x1)**2 + (y0 - y1)**2))/((x0 - x1)**2 + (y0 - y1)**2)**(3/2)
-                // ∂R/∂y0 = ((-x1 + xc)*((x0 - x1)**2 + (y0 - y1)**2) - (y0 - y1)*((x0 - x1)*(y0 - yc) - (x0 - xc)*(y0 - y1)))/((x0 - x1)**2 + (y0 - y1)**2)**(3/2)
-                // ∂R/∂x1 = ((x0 - x1)*((x0 - x1)*(y0 - yc) - (x0 - xc)*(y0 - y1)) + (-y0 + yc)*((x0 - x1)**2 + (y0 - y1)**2))/((x0 - x1)**2 + (y0 - y1)**2)**(3/2)
-                // ∂R/∂y1 = ((x0 - xc)*((x0 - x1)**2 + (y0 - y1)**2) + (y0 - y1)*((x0 - x1)*(y0 - yc) - (x0 - xc)*(y0 - y1)))/((x0 - x1)**2 + (y0 - y1)**2)**(3/2)
-                // ∂R/∂xc = (y0 - y1)/sqrt((x0 - x1)**2 + (y0 - y1)**2)
-                // ∂R/∂yc = (-x0 + x1)/sqrt((x0 - x1)**2 + (y0 - y1)**2)
-                // ∂R/∂r = -1
+                // Residual: R = abs(cross(u, v)) / |u| - r
+                // where u = p1 - p0 and v = c - p0.
                 let x0 = current_assignments[layout.index_of(line.p0.id_x())];
                 let y0 = current_assignments[layout.index_of(line.p0.id_y())];
                 let p0 = V::new(x0, y0);
@@ -756,29 +751,43 @@ impl Constraint {
                 let p1 = V::new(x1, y1);
                 let xc = current_assignments[layout.index_of(circle.center.id_x())];
                 let yc = current_assignments[layout.index_of(circle.center.id_y())];
+                let center = V::new(xc, yc);
 
-                // Calculate common terms.
-                let d = p0 - p1;
-                let mag_v = d.magnitude();
-                let mag_v_sq = d.magnitude_squared();
-                let mag_v_cubed = mag_v.powi(3);
+                let u = p1 - p0;
+                let mag_u = u.magnitude();
 
-                if mag_v_sq < EPSILON {
+                // Handle degenerate line case
+                if mag_u <= EPSILON {
+                    // TODO: Could revert to point circle constraint here
                     *degenerate = true;
                     return;
                 }
 
-                // Cross product term that appears in the derivatives.
-                let cross_term = d.x * (p0.y - yc) - (p0.x - xc) * d.y;
+                let v = center - p0;
+                let cross_uv = u.cross_2d(&v);
+                let abs_cross_uv = cross_uv.abs();
+                let cen_dist = abs_cross_uv / mag_u;
 
-                let dr_dx0 = (-d.x * cross_term + (y1 - yc) * mag_v_sq) / mag_v_cubed;
-                let dr_dy0 = ((-x1 + xc) * mag_v_sq - d.y * cross_term) / mag_v_cubed;
-                let dr_dx1 = (d.x * cross_term + (-y0 + yc) * mag_v_sq) / mag_v_cubed;
-                let dr_dy1 = ((x0 - xc) * mag_v_sq + d.y * cross_term) / mag_v_cubed;
+                // Handle ambiguous case where circle center is on the line
+                if cen_dist <= EPSILON {
+                    *degenerate = true;
+                    return;
+                }
 
-                let dr_dxc = (y0 - y1) / mag_v;
-                let dr_dyc = (-x0 + x1) / mag_v;
+                let mag_u_cubed = mag_u * mag_u * mag_u;
+                let sign_cross_uv = cross_uv.signum();
 
+                let dr_du_x = -(u.x * abs_cross_uv) / mag_u_cubed + (v.y * sign_cross_uv) / mag_u;
+                let dr_du_y = -(u.y * abs_cross_uv) / mag_u_cubed - (v.x * sign_cross_uv) / mag_u;
+                let dr_dv_x = -(u.y * sign_cross_uv) / mag_u;
+                let dr_dv_y = (u.x * sign_cross_uv) / mag_u;
+
+                let dr_dx0 = -(dr_du_x + dr_dv_x);
+                let dr_dy0 = -(dr_du_y + dr_dv_y);
+                let dr_dx1 = dr_du_x;
+                let dr_dy1 = dr_du_y;
+                let dr_dxc = dr_dv_x;
+                let dr_dyc = dr_dv_y;
                 let dr_dr = -1.0;
 
                 let jvars = [
