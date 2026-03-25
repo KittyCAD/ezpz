@@ -8,6 +8,7 @@ use crate::{
         outputs::Point,
     },
     textual::{OutcomeAnalysis, Problem},
+    vector::V,
 };
 
 mod proptests;
@@ -913,6 +914,112 @@ pub fn assert_nearly_eq(l: f64, r: f64) {
         diff < EPSILON,
         "LHS was {l}, RHS was {r}, difference was {diff}"
     );
+}
+
+#[track_caller]
+fn assert_point_on_arc_ccw(point: Point, center: Point, start: Point, end: Point) {
+    let radius = start.euclidean_distance(center);
+    assert_nearly_eq(point.euclidean_distance(center), radius);
+
+    let s = V {
+        x: start.x - center.x,
+        y: start.y - center.y,
+    };
+    let e = V {
+        x: end.x - center.x,
+        y: end.y - center.y,
+    };
+    let p = V {
+        x: point.x - center.x,
+        y: point.y - center.y,
+    };
+
+    let two_pi = 2.0 * PI;
+    let a_sp = s.signed_angle(p).rem_euclid(two_pi);
+    let a_se = s.signed_angle(e).rem_euclid(two_pi);
+
+    let a_sp = if a_sp > two_pi - EPSILON { 0.0 } else { a_sp };
+    assert!(
+        a_sp <= a_se + EPSILON,
+        "point {point} is not on the CCW arc from {start} to {end} around {center}"
+    );
+}
+
+fn solve_point_arc_coincident_with_fixed_arc(
+    center_point: Point,
+    start_point: Point,
+    end_point: Point,
+    initial_point: Point,
+) -> Point {
+    let mut ids = IdGenerator::default();
+    let center = DatumPoint::new(&mut ids);
+    let start = DatumPoint::new(&mut ids);
+    let end = DatumPoint::new(&mut ids);
+    let point = DatumPoint::new(&mut ids);
+    let arc = DatumCircularArc { center, start, end };
+
+    let constraints = vec![
+        ConstraintRequest::highest_priority(Constraint::PointArcCoincident(arc, point)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(center.id_x(), center_point.x)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(center.id_y(), center_point.y)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(start.id_x(), start_point.x)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(start.id_y(), start_point.y)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(end.id_x(), end_point.x)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(end.id_y(), end_point.y)),
+    ];
+    let initial_guesses = vec![
+        (center.id_x(), center_point.x),
+        (center.id_y(), center_point.y),
+        (start.id_x(), start_point.x),
+        (start.id_y(), start_point.y),
+        (end.id_x(), end_point.x),
+        (end.id_y(), end_point.y),
+        (point.id_x(), initial_point.x),
+        (point.id_y(), initial_point.y),
+    ];
+
+    let outcome = solve(&constraints, initial_guesses, Config::default())
+        .expect("fixed arc point-arc coincident case should solve");
+    assert!(outcome.is_satisfied(), "constraint should be satisfied");
+
+    Point {
+        x: outcome.final_values[point.id_x() as usize],
+        y: outcome.final_values[point.id_y() as usize],
+    }
+}
+
+/// Regression test for old point-on-arc behavior where the angular residuals were zeroed out once
+/// the point was already on the circle containing the arc.
+///
+/// In this setup the initial point starts on the containing circle but outside the arc's angular
+/// interval. The previous implementation could therefore converge immediately without moving the
+/// point onto the arc itself.
+#[test]
+fn point_arc_coincident_old_incorrect_convergence_1() {
+    let center = Point { x: 0.0, y: 0.0 };
+    let start = Point { x: 1.0, y: 0.0 };
+    let end = Point { x: 0.0, y: 1.0 };
+    let solved_point =
+        solve_point_arc_coincident_with_fixed_arc(center, start, end, Point { x: 0.0, y: -1.0 });
+    assert_point_on_arc_ccw(solved_point, center, start, end);
+    assert_points_eq(solved_point, start);
+}
+
+/// Regression test for old point-on-arc behavior where competing angular residuals could cancel
+/// each other out.
+///
+/// The initial point starts well away from the arc in a configuration where the previous residual
+/// formulation could settle onto the containing circle while still leaving the point outside the
+/// arc interval.
+#[test]
+fn point_arc_coincident_old_incorrect_convergence_2() {
+    let center = Point { x: 0.0, y: 0.0 };
+    let start = Point { x: 1.0, y: 0.0 };
+    let end = Point { x: 0.0, y: 1.0 };
+    let solved_point =
+        solve_point_arc_coincident_with_fixed_arc(center, start, end, Point { x: -3.0, y: -3.0 });
+    assert_point_on_arc_ccw(solved_point, center, start, end);
+    assert_points_eq(solved_point, start);
 }
 
 /// Regression test for the bug that motivated this fix.

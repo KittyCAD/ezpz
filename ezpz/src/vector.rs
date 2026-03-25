@@ -51,6 +51,11 @@ impl V {
     pub fn reflect(self, b: Self) -> Self {
         self - (self.reject(b) * 2.0)
     }
+
+    /// Returns the signed angle between this vector and another. Result is in [-pi, pi].
+    pub fn signed_angle(self, b: Self) -> f64 {
+        libm::atan2(self.cross_2d(&b), self.dot(&b))
+    }
 }
 
 impl std::ops::Sub<Self> for V {
