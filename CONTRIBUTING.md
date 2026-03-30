@@ -2,7 +2,9 @@
 
 * We use `just` to run scripts, so please [install just](https://github.com/casey/just?tab=readme-ov-file#installation)
 * This is written in Rust, so please [install Rust via Rustup](https://rustup.rs/)
+* ezpz-wasm requires a wasm target installed `rustup target add wasm32-unknown-unknown`
 * Install `cargo binstall` to make installing other deps easier: `cargo install cargo-binstall`
+* Install `cargo-fuzz` `cargo install cargo-fuzz`
 * Then install other tools for development: `cargo binstall cargo-criterion typos-cli cargo-nextest cargo-llvm-cov flamegraph cargo-sort`
 
 If everything was successful, `just check-most` should succeed.

@@ -1,6 +1,6 @@
 [package]
 name = "ezpz"
-version = "0.2.19"
+version = "0.2.20"
 edition = "2024"
 description = "A constraint solver for KCL and Zoo Design Studio"
 repository = "https://github.com/KittyCAD/ezpz"
@@ -68,4 +68,3 @@ doc_markdown = "warn"
 struct_field_names = "warn"
 trivially_copy_pass_by_ref = "warn"
 elidable_lifetime_names = "warn"
-

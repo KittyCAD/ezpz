@@ -106,6 +106,178 @@ impl std::fmt::Debug for JacobianVar {
 }
 
 impl Constraint {
+    /// Extend `out` with the primitive variable IDs that this constraint's
+    /// residual equations depend on.
+    ///
+    /// "Dependent" means changing one of the emitted IDs can change this
+    /// constraint's residual value. This is intentionally narrower than
+    /// [`Constraint::extend_associated_variable_ids`], which reports every ID
+    /// structurally present inside the attached geometry. For example,
+    /// [`Constraint::HorizontalDistance`] only emits the two X-component IDs
+    /// because its residual does not depend on either point's Y component, and
+    /// [`Constraint::CircleRadius`] only emits the radius ID.
+    ///
+    /// The output collection is owned by the caller so this API does not
+    /// allocate. Callers that need deduplication can pass a set-like type.
+    pub fn extend_dependent_variable_ids(&self, out: &mut impl Extend<Id>) {
+        match self {
+            Constraint::LineTangentToCircle(line, circle) => {
+                out.extend(line.all_variables());
+                out.extend(circle.all_variables());
+            }
+            Constraint::CircleTangentToCircle(circle0, circle1) => {
+                out.extend(circle0.all_variables());
+                out.extend(circle1.all_variables());
+            }
+            Constraint::Distance(p0, p1, _dist) => {
+                out.extend(p0.all_variables());
+                out.extend(p1.all_variables());
+            }
+            Constraint::DistanceVar(p0, p1, d) => {
+                out.extend(p0.all_variables());
+                out.extend(p1.all_variables());
+                out.extend(d.all_variables());
+            }
+            Constraint::VerticalDistance(p0, p1, _dist) => out.extend([p0.id_y(), p1.id_y()]),
+            Constraint::HorizontalDistance(p0, p1, _dist) => out.extend([p0.id_x(), p1.id_x()]),
+            Constraint::Vertical(line) => out.extend([line.p0.id_x(), line.p1.id_x()]),
+            Constraint::Horizontal(line) => out.extend([line.p0.id_y(), line.p1.id_y()]),
+            Constraint::LinesAtAngle(line0, line1, _angle) => {
+                out.extend(line0.all_variables());
+                out.extend(line1.all_variables());
+            }
+            Constraint::Fixed(id, _scalar) => out.extend([*id]),
+            Constraint::ScalarEqual(x, y) => out.extend([*x, *y]),
+            Constraint::PointsCoincident(p0, p1) => {
+                out.extend(p0.all_variables());
+                out.extend(p1.all_variables());
+            }
+            Constraint::CircleRadius(circle, _radius) => out.extend([circle.radius.id]),
+            Constraint::LinesEqualLength(line0, line1) => {
+                out.extend(line0.all_variables());
+                out.extend(line1.all_variables());
+            }
+            Constraint::ArcRadius(arc, _radius) => out.extend(arc.all_variables()),
+            Constraint::Arc(arc) => out.extend(arc.all_variables()),
+            Constraint::Midpoint(line, point) => {
+                out.extend([line.p0.id_x(), line.p1.id_x(), point.id_x()]);
+                out.extend([line.p0.id_y(), line.p1.id_y(), point.id_y()]);
+            }
+            Constraint::PointLineDistance(point, line, _distance) => {
+                out.extend(point.all_variables());
+                out.extend(line.all_variables());
+            }
+            Constraint::VerticalPointLineDistance(point, line, _distance) => {
+                out.extend(line.all_variables());
+                out.extend(point.all_variables());
+            }
+            Constraint::HorizontalPointLineDistance(point, line, _distance) => {
+                out.extend(line.all_variables());
+                out.extend(point.all_variables());
+            }
+            Constraint::Symmetric(line, a, b) => {
+                out.extend(line.all_variables());
+                out.extend(a.all_variables());
+                out.extend(b.all_variables());
+            }
+            Constraint::PointArcCoincident(circular_arc, point) => {
+                out.extend(circular_arc.all_variables());
+                out.extend(point.all_variables());
+            }
+            Constraint::ArcLength(circular_arc, _dist) => out.extend(circular_arc.all_variables()),
+            Constraint::ArcAngle(circular_arc, _angle) => out.extend(circular_arc.all_variables()),
+        }
+    }
+
+    /// Extend `out` with the primitive variable IDs associated with the
+    /// geometry attached to this constraint.
+    ///
+    /// "Associated" means every variable ID belonging to the datums mentioned
+    /// by this constraint, even if some of those IDs do not affect the residual
+    /// directly. This is intentionally broader than
+    /// [`Constraint::extend_dependent_variable_ids`], which only reports IDs
+    /// that can change the residual itself. For example,
+    /// [`Constraint::HorizontalDistance`] emits both points' X and Y IDs
+    /// because both full points are associated with the constraint, and
+    /// [`Constraint::CircleRadius`] emits the circle center IDs as well as the
+    /// radius ID because all three belong to the associated circle datum.
+    ///
+    /// The output collection is owned by the caller so this API does not
+    /// allocate. Callers that need deduplication can pass a set-like type.
+    pub fn extend_associated_variable_ids(&self, out: &mut impl Extend<Id>) {
+        match self {
+            Constraint::LineTangentToCircle(line, circle) => {
+                out.extend(line.all_variables());
+                out.extend(circle.all_variables());
+            }
+            Constraint::CircleTangentToCircle(circle0, circle1) => {
+                out.extend(circle0.all_variables());
+                out.extend(circle1.all_variables());
+            }
+            Constraint::Distance(p0, p1, _dist) => {
+                out.extend(p0.all_variables());
+                out.extend(p1.all_variables());
+            }
+            Constraint::DistanceVar(p0, p1, d) => {
+                out.extend(p0.all_variables());
+                out.extend(p1.all_variables());
+                out.extend(d.all_variables());
+            }
+            Constraint::VerticalDistance(p0, p1, _dist)
+            | Constraint::HorizontalDistance(p0, p1, _dist) => {
+                out.extend(p0.all_variables());
+                out.extend(p1.all_variables());
+            }
+            Constraint::Vertical(line) | Constraint::Horizontal(line) => {
+                out.extend(line.all_variables());
+            }
+            Constraint::LinesAtAngle(line0, line1, _angle) => {
+                out.extend(line0.all_variables());
+                out.extend(line1.all_variables());
+            }
+            Constraint::Fixed(id, _scalar) => out.extend([*id]),
+            Constraint::ScalarEqual(x, y) => out.extend([*x, *y]),
+            Constraint::PointsCoincident(p0, p1) => {
+                out.extend(p0.all_variables());
+                out.extend(p1.all_variables());
+            }
+            Constraint::CircleRadius(circle, _radius) => out.extend(circle.all_variables()),
+            Constraint::LinesEqualLength(line0, line1) => {
+                out.extend(line0.all_variables());
+                out.extend(line1.all_variables());
+            }
+            Constraint::ArcRadius(arc, _radius) => out.extend(arc.all_variables()),
+            Constraint::Arc(arc) => out.extend(arc.all_variables()),
+            Constraint::Midpoint(line, point) => {
+                out.extend(line.all_variables());
+                out.extend(point.all_variables());
+            }
+            Constraint::PointLineDistance(point, line, _distance) => {
+                out.extend(point.all_variables());
+                out.extend(line.all_variables());
+            }
+            Constraint::VerticalPointLineDistance(point, line, _distance) => {
+                out.extend(line.all_variables());
+                out.extend(point.all_variables());
+            }
+            Constraint::HorizontalPointLineDistance(point, line, _distance) => {
+                out.extend(line.all_variables());
+                out.extend(point.all_variables());
+            }
+            Constraint::Symmetric(line, a, b) => {
+                out.extend(line.all_variables());
+                out.extend(a.all_variables());
+                out.extend(b.all_variables());
+            }
+            Constraint::PointArcCoincident(circular_arc, point) => {
+                out.extend(circular_arc.all_variables());
+                out.extend(point.all_variables());
+            }
+            Constraint::ArcLength(circular_arc, _dist) => out.extend(circular_arc.all_variables()),
+            Constraint::ArcAngle(circular_arc, _angle) => out.extend(circular_arc.all_variables()),
+        }
+    }
+
     /// For each row of the Jacobian matrix, which variables are involved in them?
     pub(crate) fn nonzeroes(&self, row0: &mut Vec<Id>, row1: &mut Vec<Id>, _row2: &mut Vec<Id>) {
         match self {
@@ -2352,9 +2524,81 @@ fn wrap_angle_delta(delta: f64) -> f64 {
 mod tests {
     use std::f64::consts::SQRT_2;
 
-    use crate::tests::assert_nearly_eq;
+    use crate::{
+        IdGenerator,
+        datatypes::inputs::{
+            DatumCircle, DatumCircularArc, DatumDistance, DatumLineSegment, DatumPoint,
+        },
+        tests::assert_nearly_eq,
+    };
 
     use super::*;
+
+    #[test]
+    fn extend_dependent_variable_ids_reports_only_referenced_components() {
+        let mut ids = IdGenerator::default();
+        let p0 = DatumPoint::new(&mut ids);
+        let p1 = DatumPoint::new(&mut ids);
+
+        let horizontal = Constraint::HorizontalDistance(p0, p1, 10.0);
+        let mut horizontal_ids = Vec::with_capacity(2);
+        horizontal.extend_dependent_variable_ids(&mut horizontal_ids);
+        assert_eq!(horizontal_ids, vec![p0.id_x(), p1.id_x()]);
+
+        let vertical = Constraint::Vertical(DatumLineSegment::new(p0, p1));
+        let mut vertical_ids = Vec::with_capacity(2);
+        vertical.extend_dependent_variable_ids(&mut vertical_ids);
+        assert_eq!(vertical_ids, vec![p0.id_x(), p1.id_x()]);
+    }
+
+    #[test]
+    fn extend_associated_variable_ids_reports_all_datum_components() {
+        let mut ids = IdGenerator::default();
+        let p0 = DatumPoint::new(&mut ids);
+        let p1 = DatumPoint::new(&mut ids);
+
+        let horizontal = Constraint::HorizontalDistance(p0, p1, 10.0);
+        let mut horizontal_ids = Vec::with_capacity(4);
+        horizontal.extend_associated_variable_ids(&mut horizontal_ids);
+        assert_eq!(
+            horizontal_ids,
+            vec![p0.id_x(), p0.id_y(), p1.id_x(), p1.id_y()]
+        );
+
+        let circle = DatumCircle {
+            center: p0,
+            radius: DatumDistance::new(ids.next_id()),
+        };
+        let mut circle_ids = Vec::with_capacity(3);
+        Constraint::CircleRadius(circle, 5.0).extend_associated_variable_ids(&mut circle_ids);
+        assert_eq!(
+            circle_ids,
+            vec![circle.center.id_x(), circle.center.id_y(), circle.radius.id]
+        );
+    }
+
+    #[test]
+    fn associated_and_dependent_variable_id_methods_accept_set_outputs() {
+        let mut ids = IdGenerator::default();
+        let arc = DatumCircularArc {
+            center: DatumPoint::new(&mut ids),
+            start: DatumPoint::new(&mut ids),
+            end: DatumPoint::new(&mut ids),
+        };
+        let constraint = Constraint::ArcRadius(arc, 5.0);
+
+        let mut out = std::collections::HashSet::new();
+        constraint.extend_dependent_variable_ids(&mut out);
+        constraint.extend_associated_variable_ids(&mut out);
+
+        assert_eq!(out.len(), 6);
+        assert!(out.contains(&arc.center.id_x()));
+        assert!(out.contains(&arc.center.id_y()));
+        assert!(out.contains(&arc.start.id_x()));
+        assert!(out.contains(&arc.start.id_y()));
+        assert!(out.contains(&arc.end.id_x()));
+        assert!(out.contains(&arc.end.id_y()));
+    }
 
     #[test]
     fn test_pds_of_symmetric() {
