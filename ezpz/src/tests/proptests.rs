@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::f64::consts::PI;
 
 use proptest::prelude::*;
@@ -9,6 +10,7 @@ use crate::{
         DatumCircle, DatumCircularArc, DatumDistance, DatumLineSegment, DatumPoint,
     },
     datatypes::outputs::Point,
+    datatypes::{Angle, AngleKind},
     solve,
     solver::Layout,
     tests::assert_nearly_eq,
@@ -20,7 +22,131 @@ fn run(txt: &str) -> crate::textual::Outcome {
     system.solve().unwrap()
 }
 
+fn arb_id() -> impl Strategy<Value = Id> {
+    0u32..32
+}
+
+fn arb_scalar() -> impl Strategy<Value = f64> {
+    (-1_000i32..1_000).prop_map(|value| f64::from(value) / 10.0)
+}
+
+fn arb_point() -> BoxedStrategy<DatumPoint> {
+    (arb_id(), arb_id())
+        .prop_map(|(x, y)| DatumPoint::new_xy(x, y))
+        .boxed()
+}
+
+fn arb_distance() -> BoxedStrategy<DatumDistance> {
+    arb_id().prop_map(DatumDistance::new).boxed()
+}
+
+fn arb_line() -> BoxedStrategy<DatumLineSegment> {
+    (arb_point(), arb_point())
+        .prop_map(|(p0, p1)| DatumLineSegment::new(p0, p1))
+        .boxed()
+}
+
+fn arb_circle() -> BoxedStrategy<DatumCircle> {
+    (arb_point(), arb_distance())
+        .prop_map(|(center, radius)| DatumCircle { center, radius })
+        .boxed()
+}
+
+fn arb_arc() -> BoxedStrategy<DatumCircularArc> {
+    (arb_point(), arb_point(), arb_point())
+        .prop_map(|(center, start, end)| DatumCircularArc { center, start, end })
+        .boxed()
+}
+
+fn arb_angle() -> BoxedStrategy<Angle> {
+    ((-360i16..=360), any::<bool>())
+        .prop_map(|(value, degrees)| {
+            let value = f64::from(value);
+            if degrees {
+                Angle::from_degrees(value)
+            } else {
+                Angle::from_radians(value)
+            }
+        })
+        .boxed()
+}
+
+fn arb_angle_kind() -> BoxedStrategy<AngleKind> {
+    prop_oneof![
+        Just(AngleKind::Parallel),
+        Just(AngleKind::Perpendicular),
+        arb_angle().prop_map(AngleKind::Other),
+    ]
+    .boxed()
+}
+
+fn arb_constraint() -> BoxedStrategy<Constraint> {
+    prop_oneof![
+        (arb_line(), arb_circle())
+            .prop_map(|(line, circle)| Constraint::LineTangentToCircle(line, circle)),
+        (arb_circle(), arb_circle())
+            .prop_map(|(circle0, circle1)| Constraint::CircleTangentToCircle(circle0, circle1)),
+        (arb_point(), arb_point(), arb_scalar())
+            .prop_map(|(p0, p1, dist)| Constraint::Distance(p0, p1, dist)),
+        (arb_point(), arb_point(), arb_distance())
+            .prop_map(|(p0, p1, dist)| Constraint::DistanceVar(p0, p1, dist)),
+        (arb_point(), arb_point(), arb_scalar())
+            .prop_map(|(p0, p1, dist)| Constraint::VerticalDistance(p0, p1, dist)),
+        (arb_point(), arb_point(), arb_scalar())
+            .prop_map(|(p0, p1, dist)| Constraint::HorizontalDistance(p0, p1, dist)),
+        arb_line().prop_map(Constraint::Vertical),
+        arb_line().prop_map(Constraint::Horizontal),
+        (arb_line(), arb_line(), arb_angle_kind())
+            .prop_map(|(line0, line1, angle)| Constraint::LinesAtAngle(line0, line1, angle)),
+        (arb_id(), arb_scalar()).prop_map(|(id, value)| Constraint::Fixed(id, value)),
+        (arb_id(), arb_id()).prop_map(|(x, y)| Constraint::ScalarEqual(x, y)),
+        (arb_point(), arb_point()).prop_map(|(p0, p1)| Constraint::PointsCoincident(p0, p1)),
+        (arb_circle(), arb_scalar())
+            .prop_map(|(circle, radius)| Constraint::CircleRadius(circle, radius)),
+        (arb_line(), arb_line())
+            .prop_map(|(line0, line1)| Constraint::LinesEqualLength(line0, line1)),
+        (arb_arc(), arb_scalar()).prop_map(|(arc, radius)| Constraint::ArcRadius(arc, radius)),
+        arb_arc().prop_map(Constraint::Arc),
+        (arb_line(), arb_point()).prop_map(|(line, point)| Constraint::Midpoint(line, point)),
+        (arb_point(), arb_line(), arb_scalar()).prop_map(|(point, line, distance)| {
+            Constraint::PointLineDistance(point, line, distance)
+        }),
+        (arb_point(), arb_line(), arb_scalar()).prop_map(|(point, line, distance)| {
+            Constraint::VerticalPointLineDistance(point, line, distance)
+        }),
+        (arb_point(), arb_line(), arb_scalar()).prop_map(|(point, line, distance)| {
+            Constraint::HorizontalPointLineDistance(point, line, distance)
+        }),
+        (arb_line(), arb_point(), arb_point())
+            .prop_map(|(line, a, b)| Constraint::Symmetric(line, a, b)),
+        (arb_arc(), arb_point())
+            .prop_map(|(arc, point)| Constraint::PointArcCoincident(arc, point)),
+        (arb_arc(), arb_scalar()).prop_map(|(arc, dist)| Constraint::ArcLength(arc, dist)),
+        (arb_arc(), arb_angle()).prop_map(|(arc, angle)| Constraint::ArcAngle(arc, angle)),
+    ]
+    .boxed()
+}
+
 proptest! {
+    #[test]
+    fn dependent_variable_ids_match_flattened_nonzeroes(constraint in arb_constraint()) {
+        let mut dependent_ids = Vec::with_capacity(16);
+        constraint.extend_dependent_variable_ids(&mut dependent_ids);
+        let dependent_ids: BTreeSet<_> = dependent_ids.into_iter().collect();
+
+        let mut row0 = Vec::with_capacity(16);
+        let mut row1 = Vec::with_capacity(16);
+        let mut row2 = Vec::with_capacity(16);
+        constraint.nonzeroes(&mut row0, &mut row1, &mut row2);
+        let nonzero_ids: BTreeSet<_> = row0
+            .into_iter()
+            .chain(row1)
+            .chain(row2)
+            .collect();
+
+        prop_assert_eq!(dependent_ids, nonzero_ids);
+    }
+
     #[test]
     fn square(
         x0 in -10000i32..10000,
