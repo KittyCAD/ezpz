@@ -343,49 +343,84 @@ fn triangle_with_two_angles_accepts_a_side_length_constraint() {
     let line3 = DatumLineSegment::new(DatumPoint::new(&mut ids), DatumPoint::new(&mut ids));
 
     let initial_guesses = vec![
-        (line1.p0.id_x(), 5.12),
-        (line1.p0.id_y(), -3.84),
-        (line1.p1.id_x(), 30.36),
-        (line1.p1.id_y(), 13.16),
-        (line2.p0.id_x(), -11.5),
-        (line2.p0.id_y(), 10.93),
-        (line2.p1.id_x(), -25.22),
-        (line2.p1.id_y(), -8.01),
-        (line3.p0.id_x(), -23.5),
-        (line3.p0.id_y(), -20.84),
-        (line3.p1.id_x(), 6.78),
-        (line3.p1.id_y(), -20.41),
+        (0, 5.12),
+        (1, -3.84),
+        (2, 30.36),
+        (3, 13.16),
+        (4, -11.5),
+        (5, 10.93),
+        (6, -68.72),
+        (7, 47.11),
+        (8, 19.83),
+        (9, -2.54),
+        (10, 6.78),
+        (11, -20.41),
     ];
 
     let config = Config::default();
-    let requests_with_size: Vec<_> = vec![
-        // User-defined constraints
-        ConstraintRequest::highest_priority(Constraint::PointsCoincident(line1.p1, line2.p0)),
-        ConstraintRequest::highest_priority(Constraint::PointsCoincident(line2.p1, line3.p0)),
-        ConstraintRequest::highest_priority(Constraint::PointsCoincident(line3.p1, line1.p0)),
-        ConstraintRequest::highest_priority(Constraint::LinesAtAngle(
-            line3,
-            line1,
-            AngleKind::Other(Angle::from_degrees(119.21)),
-        )),
-        ConstraintRequest::highest_priority(Constraint::lines_perpendicular([line1, line2])),
-        ConstraintRequest::highest_priority(Constraint::Distance(line2.p0, line2.p1, 71.24)),
-        // Fix the points to their initial guesses.
-        ConstraintRequest::new(Constraint::Fixed(line1.p0.id_x(), 5.12), 1),
-        ConstraintRequest::new(Constraint::Fixed(line1.p0.id_y(), -3.84), 1),
-        ConstraintRequest::new(Constraint::Fixed(line1.p1.id_x(), 30.36), 1),
-        ConstraintRequest::new(Constraint::Fixed(line1.p1.id_y(), 13.16), 1),
-        ConstraintRequest::new(Constraint::Fixed(line2.p0.id_x(), -11.5), 1),
-        ConstraintRequest::new(Constraint::Fixed(line2.p0.id_y(), 10.93), 1),
-        ConstraintRequest::new(Constraint::Fixed(line2.p1.id_x(), -25.22), 1),
-        ConstraintRequest::new(Constraint::Fixed(line2.p1.id_y(), -8.01), 1),
-        ConstraintRequest::new(Constraint::Fixed(line3.p0.id_x(), -23.5), 1),
-        ConstraintRequest::new(Constraint::Fixed(line3.p0.id_y(), -20.84), 1),
-        ConstraintRequest::new(Constraint::Fixed(line3.p1.id_x(), 6.78), 1),
-        ConstraintRequest::new(Constraint::Fixed(line3.p1.id_y(), -20.41), 1),
-    ]
-    .into_iter()
-    .collect();
+    let requests_with_size = vec![
+        // User-defined constraints.
+        // Make the three lines form a triangle:
+        ConstraintRequest::new(
+            Constraint::PointsCoincident(
+                DatumPoint { x_id: 2, y_id: 3 },
+                DatumPoint { x_id: 4, y_id: 5 },
+            ),
+            0,
+        ),
+        ConstraintRequest::new(
+            Constraint::PointsCoincident(
+                DatumPoint { x_id: 6, y_id: 7 },
+                DatumPoint { x_id: 8, y_id: 9 },
+            ),
+            0,
+        ),
+        ConstraintRequest::new(
+            Constraint::PointsCoincident(
+                DatumPoint { x_id: 10, y_id: 11 },
+                DatumPoint { x_id: 0, y_id: 1 },
+            ),
+            0,
+        ),
+        // Fix two of the angles:
+        ConstraintRequest::new(
+            Constraint::LinesAtAngle(
+                DatumLineSegment {
+                    p0: DatumPoint { x_id: 8, y_id: 9 },
+                    p1: DatumPoint { x_id: 10, y_id: 11 },
+                },
+                DatumLineSegment {
+                    p0: DatumPoint { x_id: 0, y_id: 1 },
+                    p1: DatumPoint { x_id: 2, y_id: 3 },
+                },
+                AngleKind::Other(Angle::from_degrees(119.21)),
+            ),
+            0,
+        ),
+        ConstraintRequest::new(
+            Constraint::LinesAtAngle(
+                DatumLineSegment {
+                    p0: DatumPoint { x_id: 0, y_id: 1 },
+                    p1: DatumPoint { x_id: 2, y_id: 3 },
+                },
+                DatumLineSegment {
+                    p0: DatumPoint { x_id: 4, y_id: 5 },
+                    p1: DatumPoint { x_id: 6, y_id: 7 },
+                },
+                AngleKind::Perpendicular,
+            ),
+            0,
+        ),
+        // Fix the size of one of the triangle's sides..
+        ConstraintRequest::new(
+            Constraint::Distance(
+                DatumPoint { x_id: 4, y_id: 5 },
+                DatumPoint { x_id: 6, y_id: 7 },
+                71.24,
+            ),
+            0,
+        ),
+    ];
 
     let solved_with_size = solve(&requests_with_size, initial_guesses, config)
         .expect("triangle with an explicit side length should solve");
