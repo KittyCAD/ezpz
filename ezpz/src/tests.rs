@@ -3,8 +3,8 @@ use std::{f64::consts::PI, str::FromStr};
 use super::*;
 use crate::{
     datatypes::{
-        Angle,
-        inputs::{DatumCircularArc, DatumPoint},
+        Angle, AngleKind,
+        inputs::{DatumCircularArc, DatumLineSegment, DatumPoint},
         outputs::Point,
     },
     textual::{OutcomeAnalysis, Problem},
@@ -332,6 +332,83 @@ fn angle_constraints() {
         assert_points_eq(solved.get_point("p2").unwrap(), Point { x: 0.0, y: 0.0 });
         assert_points_eq(solved.get_point("p3").unwrap(), Point { x: 4.0, y: 4.0 });
     }
+}
+
+#[test]
+fn triangle_with_two_angles_accepts_a_side_length_constraint() {
+    let mut ids = IdGenerator::default();
+
+    let line1 = DatumLineSegment::new(DatumPoint::new(&mut ids), DatumPoint::new(&mut ids));
+    let line2 = DatumLineSegment::new(DatumPoint::new(&mut ids), DatumPoint::new(&mut ids));
+    let line3 = DatumLineSegment::new(DatumPoint::new(&mut ids), DatumPoint::new(&mut ids));
+
+    let initial_guesses = vec![
+        (line1.p0.id_x(), 5.12),
+        (line1.p0.id_y(), -3.84),
+        (line1.p1.id_x(), 30.36),
+        (line1.p1.id_y(), 13.16),
+        (line2.p0.id_x(), -11.5),
+        (line2.p0.id_y(), 10.93),
+        (line2.p1.id_x(), -25.22),
+        (line2.p1.id_y(), -8.01),
+        (line3.p0.id_x(), -23.5),
+        (line3.p0.id_y(), -20.84),
+        (line3.p1.id_x(), 6.78),
+        (line3.p1.id_y(), -20.41),
+    ];
+
+    let config = Config::default();
+    let requests_with_size: Vec<_> = vec![
+        // User-defined constraints
+        ConstraintRequest::highest_priority(Constraint::PointsCoincident(line1.p1, line2.p0)),
+        ConstraintRequest::highest_priority(Constraint::PointsCoincident(line2.p1, line3.p0)),
+        ConstraintRequest::highest_priority(Constraint::PointsCoincident(line3.p1, line1.p0)),
+        ConstraintRequest::highest_priority(Constraint::LinesAtAngle(
+            line3,
+            line1,
+            AngleKind::Other(Angle::from_degrees(119.21)),
+        )),
+        ConstraintRequest::highest_priority(Constraint::lines_perpendicular([line1, line2])),
+        ConstraintRequest::highest_priority(Constraint::Distance(line2.p0, line2.p1, 71.24)),
+        // Fix the points to their initial guesses.
+        ConstraintRequest::new(Constraint::Fixed(line1.p0.id_x(), 5.12), 1),
+        ConstraintRequest::new(Constraint::Fixed(line1.p0.id_y(), -3.84), 1),
+        ConstraintRequest::new(Constraint::Fixed(line1.p1.id_x(), 30.36), 1),
+        ConstraintRequest::new(Constraint::Fixed(line1.p1.id_y(), 13.16), 1),
+        ConstraintRequest::new(Constraint::Fixed(line2.p0.id_x(), -11.5), 1),
+        ConstraintRequest::new(Constraint::Fixed(line2.p0.id_y(), 10.93), 1),
+        ConstraintRequest::new(Constraint::Fixed(line2.p1.id_x(), -25.22), 1),
+        ConstraintRequest::new(Constraint::Fixed(line2.p1.id_y(), -8.01), 1),
+        ConstraintRequest::new(Constraint::Fixed(line3.p0.id_x(), -23.5), 1),
+        ConstraintRequest::new(Constraint::Fixed(line3.p0.id_y(), -20.84), 1),
+        ConstraintRequest::new(Constraint::Fixed(line3.p1.id_x(), 6.78), 1),
+        ConstraintRequest::new(Constraint::Fixed(line3.p1.id_y(), -20.41), 1),
+    ]
+    .into_iter()
+    .collect();
+
+    let solved_with_size = solve(&requests_with_size, initial_guesses, config)
+        .expect("triangle with an explicit side length should solve");
+    assert!(
+        solved_with_size.is_satisfied(),
+        "adding the side-length constraint should still produce a satisfied solve"
+    );
+
+    let solved_point = |point: DatumPoint| Point {
+        x: solved_with_size.final_values[point.id_x() as usize],
+        y: solved_with_size.final_values[point.id_y() as usize],
+    };
+
+    assert_points_eq(solved_point(line1.p1), solved_point(line2.p0));
+    assert_points_eq(solved_point(line2.p1), solved_point(line3.p0));
+    assert_points_eq(solved_point(line3.p1), solved_point(line1.p0));
+
+    let solved_line2_start = solved_point(line2.p0);
+    let solved_line2_end = solved_point(line2.p1);
+    assert_nearly_eq(
+        solved_line2_start.euclidean_distance(solved_line2_end),
+        71.24,
+    );
 }
 
 #[test]
@@ -845,8 +922,8 @@ fn strange_nonconvergence() {
         ConstraintRequest::highest_priority(Constraint::PointsCoincident(r, s)),
         ConstraintRequest::highest_priority(Constraint::PointsCoincident(q, p)),
         ConstraintRequest::highest_priority(Constraint::LinesEqualLength(
-            datatypes::inputs::DatumLineSegment { p0: q, p1: r },
-            datatypes::inputs::DatumLineSegment { p0: s, p1: t },
+            DatumLineSegment { p0: q, p1: r },
+            DatumLineSegment { p0: s, p1: t },
         )),
     ];
     let initial_guesses = vec![
