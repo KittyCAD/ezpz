@@ -8,6 +8,7 @@ readme = "README.md"
 keywords = ["constraint-solver", "cad", "geometry"]
 categories = ["mathematics"]
 license = "MIT"
+publish = true
 
 [features]
 fuzz = ["dep:arbitrary"]
