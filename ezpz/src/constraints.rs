@@ -428,7 +428,7 @@ impl Constraint {
                 }
 
                 let v = circle_center - p0;
-                let abs_cross_uv = u.cross_2d(&v).abs();
+                let abs_cross_uv = u.cross_2d(v).abs();
                 let cen_dist = abs_cross_uv / mag_u;
 
                 // Handle ambiguous case where circle center is on the line
@@ -936,7 +936,7 @@ impl Constraint {
                 }
 
                 let v = center - p0;
-                let cross_uv = u.cross_2d(&v);
+                let cross_uv = u.cross_2d(v);
                 let abs_cross_uv = cross_uv.abs();
                 let cen_dist = abs_cross_uv / mag_u;
 
@@ -2690,11 +2690,11 @@ mod tests {
     #[test]
     fn test_geometry() {
         assert_nearly_eq(V::new(-1.0, 0.0).euclidean_distance(V::new(2.0, 4.0)), 5.0);
-        assert_nearly_eq(V::new(1.0, 2.0).dot(&V::new(4.0, -5.0)), 4.0 - 10.0);
-        assert_nearly_eq(V::new(1.0, 0.0).cross_2d(&V::new(0.0, 1.0)), 1.0);
-        assert_nearly_eq(V::new(0.0, 1.0).cross_2d(&V::new(1.0, 0.0)), -1.0);
-        assert_nearly_eq(V::new(2.0, 2.0).cross_2d(&V::new(4.0, 4.0)), 0.0);
-        assert_nearly_eq(V::new(3.0, 4.0).cross_2d(&V::new(5.0, 6.0)), -2.0);
+        assert_nearly_eq(V::new(1.0, 2.0).dot(V::new(4.0, -5.0)), 4.0 - 10.0);
+        assert_nearly_eq(V::new(1.0, 0.0).cross_2d(V::new(0.0, 1.0)), 1.0);
+        assert_nearly_eq(V::new(0.0, 1.0).cross_2d(V::new(1.0, 0.0)), -1.0);
+        assert_nearly_eq(V::new(2.0, 2.0).cross_2d(V::new(4.0, 4.0)), 0.0);
+        assert_nearly_eq(V::new(3.0, 4.0).cross_2d(V::new(5.0, 6.0)), -2.0);
     }
 
     #[test]
