@@ -3,7 +3,7 @@ use std::{f64::consts::PI, str::FromStr};
 use super::*;
 use crate::{
     datatypes::{
-        Angle,
+        Angle, AngleKind,
         inputs::{DatumCircularArc, DatumPoint},
         outputs::Point,
     },
@@ -1244,4 +1244,108 @@ fn arc_center_point_coincident() {
         "Point should be before end angle (end is CCW from point). end_cross: {}",
         end_cross
     );
+}
+
+#[test]
+fn lines_at_angle_isolated() {
+    use crate::datatypes::inputs::{DatumLineSegment, DatumPoint};
+
+    struct TestCase {
+        points: [[f64; 2]; 4],
+        angle: f64,
+        expected_iters: usize,
+    }
+
+    let test_cases = [
+        TestCase {
+            points: [[0.0, 0.0], [1.0, 0.0], [0.0, 0.0], [0.0, 2.0]],
+            angle: 0.5 * PI,
+            expected_iters: 0,
+        },
+        TestCase {
+            points: [[0.0, 0.0], [1.0, 0.0], [0.0, 0.0], [0.0, 2.0]],
+            angle: -0.5 * PI,
+            expected_iters: 0,
+        },
+        TestCase {
+            points: [[0.0, 0.0], [1.0, 0.0], [0.0, 0.0], [2.0, 0.0]],
+            angle: 0.0,
+            expected_iters: 0,
+        },
+        TestCase {
+            points: [[0.0, 0.0], [1.0, 0.0], [0.0, 0.0], [2.0, 0.0]],
+            angle: PI,
+            expected_iters: 0,
+        },
+        TestCase {
+            points: [[0.0, 0.0], [-1.0, 0.0], [0.0, 0.0], [2.0, 0.0]],
+            angle: 0.0,
+            expected_iters: 0,
+        },
+        TestCase {
+            points: [[0.0, 0.0], [-1.0, 0.0], [0.0, 0.0], [2.0, 0.0]],
+            angle: PI,
+            expected_iters: 0,
+        },
+        TestCase {
+            points: [[0.0, 0.0], [1.0, 0.0], [0.0, 0.0], [0.0, 2.0]],
+            angle: 0.0,
+            expected_iters: 4,
+        },
+        TestCase {
+            points: [[0.0, 0.0], [1.0, 0.0], [0.0, 0.0], [0.0, 2.0]],
+            angle: PI,
+            expected_iters: 4,
+        },
+        TestCase {
+            points: [[0.0, 0.0], [0.0, 1.0], [0.0, 0.0], [0.0, 2.0]],
+            angle: 0.5 * PI,
+            expected_iters: 4,
+        },
+        TestCase {
+            points: [[0.0, 0.0], [0.0, 1.0], [0.0, 0.0], [0.0, 2.0]],
+            angle: -0.5 * PI,
+            expected_iters: 4,
+        },
+    ];
+
+    let p0 = DatumPoint { x_id: 0, y_id: 1 };
+    let p1 = DatumPoint { x_id: 2, y_id: 3 };
+    let p2 = DatumPoint { x_id: 4, y_id: 5 };
+    let p3 = DatumPoint { x_id: 6, y_id: 7 };
+    let line0 = DatumLineSegment { p0, p1 };
+    let line1 = DatumLineSegment { p0: p2, p1: p3 };
+
+    for test_case in test_cases {
+        let constraints = [ConstraintRequest::highest_priority(
+            Constraint::LinesAtAngle(
+                line0,
+                line1,
+                AngleKind::Other(Angle::from_radians(test_case.angle)),
+            ),
+        )];
+        let initial_guesses: Vec<_> = test_case
+            .points
+            .into_iter()
+            .enumerate()
+            .flat_map(|(point_idx, [x, y])| {
+                [((point_idx as Id) * 2, x), ((point_idx as Id) * 2 + 1, y)]
+            })
+            .collect();
+
+        let outcome = solve(
+            &constraints,
+            initial_guesses,
+            Config::default().with_max_iterations(100),
+        )
+        .unwrap_or_else(|err| panic!("failed for angle {}: {err:?}", test_case.angle));
+
+        assert!(outcome.is_satisfied());
+        assert_eq!(
+            outcome.iterations(),
+            test_case.expected_iters,
+            "unexpected iteration count for angle {}",
+            test_case.angle
+        );
+    }
 }
