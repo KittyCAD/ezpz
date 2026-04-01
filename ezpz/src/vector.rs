@@ -38,6 +38,22 @@ impl V {
         self.x * rhs.y - self.y * rhs.x
     }
 
+    #[inline(always)]
+    pub fn perp_ccw(self) -> Self {
+        Self {
+            x: -self.y,
+            y: self.x,
+        }
+    }
+
+    #[inline(always)]
+    pub fn perp_cw(self) -> Self {
+        Self {
+            x: self.y,
+            y: -self.x,
+        }
+    }
+
     /// Project one vector onto another.
     pub fn project(self, b: Self) -> Self {
         b * (self.dot(b) / b.dot(b))
@@ -87,6 +103,41 @@ impl std::ops::Add for V {
         Self {
             x: self.x + rhs.x,
             y: self.y + rhs.y,
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, PartialOrd)]
+pub(crate) struct Rotation2 {
+    col0: V,
+}
+
+impl Rotation2 {
+    #[inline(always)]
+    pub fn from_angle_radians(angle: f64) -> Self {
+        let (sin, cos) = libm::sincos(angle);
+        Self::from_sincos(sin, cos)
+    }
+
+    #[inline(always)]
+    pub fn from_sincos(sin: f64, cos: f64) -> Self {
+        Self {
+            col0: V::new(cos, sin),
+        }
+    }
+
+    #[inline(always)]
+    pub fn apply(self, v: V) -> V {
+        V {
+            x: (self.col0.x * v.x) - (self.col0.y * v.y),
+            y: (self.col0.y * v.x) + (self.col0.x * v.y),
+        }
+    }
+
+    #[inline(always)]
+    pub fn inverse(self) -> Self {
+        Self {
+            col0: V::new(self.col0.x, -self.col0.y),
         }
     }
 }

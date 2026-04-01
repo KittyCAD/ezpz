@@ -1,4 +1,11 @@
-use crate::{EPSILON, datatypes::inputs::*, datatypes::*, id::Id, solver::Layout, vector::V};
+use crate::{
+    EPSILON,
+    datatypes::inputs::*,
+    datatypes::*,
+    id::Id,
+    solver::Layout,
+    vector::{Rotation2, V},
+};
 use std::f64::consts::PI;
 
 /// Constructors for constraints which are a composition of
@@ -519,54 +526,20 @@ impl Constraint {
                 *residual0 = vx - vy;
             }
             Constraint::LinesAtAngle(line0, line1, expected_angle) => {
-                // Get direction vectors for both lines.
-                let p0_x_l0 = current_assignments[layout.index_of(line0.p0.id_x())];
-                let p0_y_l0 = current_assignments[layout.index_of(line0.p0.id_y())];
-                let p1_x_l0 = current_assignments[layout.index_of(line0.p1.id_x())];
-                let p1_y_l0 = current_assignments[layout.index_of(line0.p1.id_y())];
-                let l0 = (V::new(p0_x_l0, p0_y_l0), V::new(p1_x_l0, p1_y_l0));
-                let p0_x_l1 = current_assignments[layout.index_of(line1.p0.id_x())];
-                let p0_y_l1 = current_assignments[layout.index_of(line1.p0.id_y())];
-                let p1_x_l1 = current_assignments[layout.index_of(line1.p1.id_x())];
-                let p1_y_l1 = current_assignments[layout.index_of(line1.p1.id_y())];
-                let l1 = (V::new(p0_x_l1, p0_y_l1), V::new(p1_x_l1, p1_y_l1));
+                let x0 = current_assignments[layout.index_of(line0.p0.id_x())];
+                let y0 = current_assignments[layout.index_of(line0.p0.id_y())];
+                let x1 = current_assignments[layout.index_of(line0.p1.id_x())];
+                let y1 = current_assignments[layout.index_of(line0.p1.id_y())];
+                let x2 = current_assignments[layout.index_of(line1.p0.id_x())];
+                let y2 = current_assignments[layout.index_of(line1.p0.id_y())];
+                let x3 = current_assignments[layout.index_of(line1.p1.id_x())];
+                let y3 = current_assignments[layout.index_of(line1.p1.id_y())];
 
-                let v0 = l0.1 - l0.0;
-                let v1 = l1.1 - l1.0;
+                let u = V::new(x1 - x0, y1 - y0);
+                let v = V::new(x3 - x2, y3 - y2);
 
-                match expected_angle {
-                    AngleKind::Parallel => {
-                        *residual0 = v0.x * v1.y - v0.y * v1.x;
-                    }
-                    AngleKind::Perpendicular => {
-                        *residual0 = v0.dot(&v1);
-                    }
-                    AngleKind::Other(expected_angle) => {
-                        // Calculate magnitudes.
-                        let mag0 = l0.0.euclidean_distance(l0.1);
-                        let mag1 = l1.0.euclidean_distance(l1.1);
-
-                        // Check for zero-length lines.
-                        let is_invalid = (mag0 < EPSILON) || (mag1 < EPSILON);
-                        if is_invalid {
-                            *residual0 = 0.0;
-                            *degenerate = true;
-                            return;
-                        }
-
-                        // 2D cross product and dot product.
-                        let cross_2d = v0.cross_2d(&v1);
-                        let dot_product = v0.dot(&v1);
-
-                        // Current angle using atan2.
-                        let current_angle_radians = libm::atan2(cross_2d, dot_product);
-
-                        // Compute angle difference and wrap to (-pi, pi].
-                        let angle_residual = current_angle_radians - expected_angle.to_radians();
-                        let wrapped_residual = wrap_angle_delta(angle_residual);
-                        *residual0 = wrapped_residual;
-                    }
-                }
+                let rot = rotation_for_angle_kind(*expected_angle);
+                *residual0 = u.cross_2d(rot.apply(v));
             }
             Constraint::PointsCoincident(p0, p1) => {
                 let p0_x = current_assignments[layout.index_of(p0.id_x())];
@@ -1270,85 +1243,31 @@ impl Constraint {
                 });
             }
             Constraint::LinesAtAngle(line0, line1, expected_angle) => {
-                // Residual: R = atan2(v1×v2, v1·v2) - α
-                // ∂R/∂x1 = (y1 - y2)/(x1**2 - 2*x1*x2 + x2**2 + y1**2 - 2*y1*y2 + y2**2)
-                // ∂R/∂y1 = (-x1 + x2)/(x1**2 - 2*x1*x2 + x2**2 + y1**2 - 2*y1*y2 + y2**2)
-                // ∂R/∂x2 = (-y1 + y2)/(x1**2 - 2*x1*x2 + x2**2 + y1**2 - 2*y1*y2 + y2**2)
-                // ∂R/∂y2 = (x1 - x2)/(x1**2 - 2*x1*x2 + x2**2 + y1**2 - 2*y1*y2 + y2**2)
-                // ∂R/∂x3 = (-y3 + y4)/(x3**2 - 2*x3*x4 + x4**2 + y3**2 - 2*y3*y4 + y4**2)
-                // ∂R/∂y3 = (x3 - x4)/(x3**2 - 2*x3*x4 + x4**2 + y3**2 - 2*y3*y4 + y4**2)
-                // ∂R/∂x4 = (y3 - y4)/(x3**2 - 2*x3*x4 + x4**2 + y3**2 - 2*y3*y4 + y4**2)
-                // ∂R/∂y4 = (-x3 + x4)/(x3**2 - 2*x3*x4 + x4**2 + y3**2 - 2*y3*y4 + y4**2)
-
                 let x0 = current_assignments[layout.index_of(line0.p0.id_x())];
                 let y0 = current_assignments[layout.index_of(line0.p0.id_y())];
                 let x1 = current_assignments[layout.index_of(line0.p1.id_x())];
                 let y1 = current_assignments[layout.index_of(line0.p1.id_y())];
-                let l0 = (V::new(x0, y0), V::new(x1, y1));
                 let x2 = current_assignments[layout.index_of(line1.p0.id_x())];
                 let y2 = current_assignments[layout.index_of(line1.p0.id_y())];
                 let x3 = current_assignments[layout.index_of(line1.p1.id_x())];
                 let y3 = current_assignments[layout.index_of(line1.p1.id_y())];
-                let l1 = (V::new(x2, y2), V::new(x3, y3));
 
-                // Calculate partial derivatives
-                let pds = match expected_angle {
-                    AngleKind::Parallel => PartialDerivatives4Points {
-                        // Residual: R = (x1-x0)*(y3-y2) - (y1-y0)*(x3-x2)
-                        x0: y2 - y3,
-                        y0: -x2 + x3,
-                        x1: -y2 + y3,
-                        y1: x2 - x3,
-                        x2: -y0 + y1,
-                        y2: x0 - x1,
-                        x3: y0 - y1,
-                        y3: -x0 + x1,
-                    },
-                    AngleKind::Perpendicular => PartialDerivatives4Points {
-                        // Residual: R = (x1-x0)*(x3-x2) + (y1-y0)*(y3-y2)
-                        x0: x2 - x3,
-                        y0: y2 - y3,
-                        x1: -x2 + x3,
-                        y1: -y2 + y3,
-                        x2: x0 - x1,
-                        y2: y0 - y1,
-                        x3: -x0 + x1,
-                        y3: -y0 + y1,
-                    },
-                    AngleKind::Other(_expected_angle) => {
-                        // Expected angle isn't used because its derivative is zero.
-                        // Calculate magnitudes.
-                        let mag0 = l0.0.euclidean_distance(l0.1);
-                        let mag1 = l1.0.euclidean_distance(l1.1);
+                let u = V::new(x1 - x0, y1 - y0);
+                let v = V::new(x3 - x2, y3 - y2);
 
-                        // Check for zero-length lines.
-                        let is_invalid = (mag0 < EPSILON) || (mag1 < EPSILON);
-                        if is_invalid {
-                            // All zeroes
-                            *degenerate = true;
-                            return;
-                        }
+                let rot = rotation_for_angle_kind(*expected_angle);
+                let df_du = rot.apply(v).perp_cw();
+                let df_dv = rot.inverse().apply(u).perp_ccw();
 
-                        // Calculate derivatives.
-
-                        // Note that our denominator terms for the partial derivatives above are
-                        // the squared magnitudes of the vectors, i.e.:
-                        // x1**2 - 2*x1*x2 + x2**2 + y1**2 - 2*y1*y2 + y2**2 == (x1 - x2)²  + (y1 - y2)²
-                        // x3**2 - 2*x3*x4 + x4**2 + y3**2 - 2*y3*y4 + y4**2 == (x3 - x4)²  + (y3 - y4)²
-                        let mag0_squared = mag0.powi(2);
-                        let mag1_squared = mag1.powi(2);
-
-                        PartialDerivatives4Points {
-                            x0: (y0 - y1) / mag0_squared,
-                            y0: (-x0 + x1) / mag0_squared,
-                            x1: (-y0 + y1) / mag0_squared,
-                            y1: (x0 - x1) / mag0_squared,
-                            x2: (-y2 + y3) / mag1_squared,
-                            y2: (x2 - x3) / mag1_squared,
-                            x3: (y2 - y3) / mag1_squared,
-                            y3: (-x2 + x3) / mag1_squared,
-                        }
-                    }
+                let pds = PartialDerivatives4Points {
+                    x0: -df_du.x,
+                    y0: -df_du.y,
+                    x1: df_du.x,
+                    y1: df_du.y,
+                    x2: -df_dv.x,
+                    y2: -df_dv.y,
+                    x3: df_dv.x,
+                    y3: df_dv.y,
                 };
 
                 let jvars = pds.jvars(line0, line1);
@@ -2509,6 +2428,15 @@ fn inner_equation_of_line(px: f64, py: f64, qx: f64, qy: f64) -> (f64, f64, f64)
     (a, b, c)
 }
 
+fn rotation_for_angle_kind(angle_kind: AngleKind) -> Rotation2 {
+    match angle_kind {
+        AngleKind::Parallel => Rotation2::from_sincos(0.0, 1.0),
+        AngleKind::Perpendicular => Rotation2::from_sincos(1.0, 0.0),
+        AngleKind::Other(angle) => Rotation2::from_angle_radians(angle.to_radians()),
+    }
+}
+
+#[cfg(test)]
 fn wrap_angle_delta(delta: f64) -> f64 {
     if delta > -PI && delta <= PI {
         // If inside our interval, return unchanged.
