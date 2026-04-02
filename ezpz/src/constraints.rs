@@ -535,18 +535,11 @@ impl Constraint {
                 let x3 = current_assignments[layout.index_of(line1.p1.id_x())];
                 let y3 = current_assignments[layout.index_of(line1.p1.id_y())];
 
-                let l0 = (V::new(x0, y0), V::new(x1, y1));
-                let l1 = (V::new(x2, y2), V::new(x3, y3));
-
-                let mag0 = l0.0.euclidean_distance(l0.1);
-                let mag1 = l1.0.euclidean_distance(l1.1);
                 let u = V::new(x1 - x0, y1 - y0);
                 let v = V::new(x3 - x2, y3 - y2);
 
-                // Check for zero-length lines.
-                let is_invalid = (mag0 < EPSILON) || (mag1 < EPSILON);
-                if is_invalid {
-                    *residual0 = 0.0;
+                let sqr_tol = EPSILON * EPSILON;
+                if (u.magnitude_squared() <= sqr_tol) || (v.magnitude_squared() <= sqr_tol) {
                     *degenerate = true;
                     return;
                 }
@@ -1265,21 +1258,14 @@ impl Constraint {
                 let x3 = current_assignments[layout.index_of(line1.p1.id_x())];
                 let y3 = current_assignments[layout.index_of(line1.p1.id_y())];
 
-                let l0 = (V::new(x0, y0), V::new(x1, y1));
-                let l1 = (V::new(x2, y2), V::new(x3, y3));
+                let u = V::new(x1 - x0, y1 - y0);
+                let v = V::new(x3 - x2, y3 - y2);
 
-                let mag0 = l0.0.euclidean_distance(l0.1);
-                let mag1 = l1.0.euclidean_distance(l1.1);
-
-                // Check for zero-length lines.
-                let is_invalid = (mag0 < EPSILON) || (mag1 < EPSILON);
-                if is_invalid {
+                let sqr_tol = EPSILON * EPSILON;
+                if (u.magnitude_squared() <= sqr_tol) || (v.magnitude_squared() <= sqr_tol) {
                     *degenerate = true;
                     return;
                 }
-
-                let u = V::new(x1 - x0, y1 - y0);
-                let v = V::new(x3 - x2, y3 - y2);
 
                 let rot = rotation_for_angle_kind(*expected_angle);
                 let df_du = rot.inverse().apply(v).perp_cw();
