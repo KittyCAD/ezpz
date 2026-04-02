@@ -539,7 +539,7 @@ impl Constraint {
                 let v = V::new(x3 - x2, y3 - y2);
 
                 let rot = rotation_for_angle_kind(*expected_angle);
-                *residual0 = u.cross_2d(rot.apply(v));
+                *residual0 = u.cross_2d(rot.inverse().apply(v));
             }
             Constraint::PointsCoincident(p0, p1) => {
                 let p0_x = current_assignments[layout.index_of(p0.id_x())];
@@ -1256,8 +1256,8 @@ impl Constraint {
                 let v = V::new(x3 - x2, y3 - y2);
 
                 let rot = rotation_for_angle_kind(*expected_angle);
-                let df_du = rot.apply(v).perp_cw();
-                let df_dv = rot.inverse().apply(u).perp_ccw();
+                let df_du = rot.inverse().apply(v).perp_cw();
+                let df_dv = rot.apply(u).perp_ccw();
 
                 let pds = PartialDerivatives4Points {
                     x0: -df_du.x,

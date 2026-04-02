@@ -1349,3 +1349,80 @@ fn lines_at_angle_isolated() {
         );
     }
 }
+
+#[test]
+fn lines_angle_sign_check() {
+    use crate::datatypes::inputs::{DatumLineSegment, DatumPoint};
+
+    struct TestCase {
+        vars: [[f64; 2]; 3],
+        angle: f64,
+        expected_iters: usize,
+    }
+
+    let test_cases = [
+        TestCase {
+            vars: [[0.0, 0.0], [1.0, 0.0], [2.0, 1.0]],
+            angle: 0.1 * PI,
+            expected_iters: 1,
+        },
+        TestCase {
+            vars: [[0.0, 0.0], [1.0, 0.0], [2.0, 1.0]],
+            angle: -0.1 * PI,
+            expected_iters: 1,
+        },
+    ];
+
+    let p0 = DatumPoint { x_id: 0, y_id: 1 };
+    let p1 = DatumPoint { x_id: 2, y_id: 3 };
+    let p2 = DatumPoint { x_id: 4, y_id: 5 };
+    let line0 = DatumLineSegment { p0, p1 };
+    let line1 = DatumLineSegment { p0: p1, p1: p2 };
+
+    for test_case in test_cases {
+        let constraints = [
+            ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_x(), 0.0)),
+            ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_y(), 0.0)),
+            ConstraintRequest::highest_priority(Constraint::Fixed(p1.id_x(), 1.0)),
+            ConstraintRequest::highest_priority(Constraint::Fixed(p1.id_y(), 0.0)),
+            ConstraintRequest::highest_priority(Constraint::LinesAtAngle(
+                line0,
+                line1,
+                AngleKind::Other(Angle::from_radians(test_case.angle)),
+            )),
+        ];
+        let initial_guesses: Vec<_> = test_case
+            .vars
+            .into_iter()
+            .enumerate()
+            .flat_map(|(point_idx, [x, y])| {
+                [((point_idx as Id) * 2, x), ((point_idx as Id) * 2 + 1, y)]
+            })
+            .collect();
+
+        let outcome = solve(
+            &constraints,
+            initial_guesses,
+            Config::default().with_max_iterations(100),
+        )
+        .unwrap_or_else(|err| panic!("failed for angle {}: {err:?}", test_case.angle));
+
+        assert!(outcome.is_satisfied());
+        assert_eq!(
+            outcome.iterations(),
+            test_case.expected_iters,
+            "unexpected iteration count for angle {}",
+            test_case.angle
+        );
+
+        // Ensure the resulting angle actually matches
+        {
+            let p0 = outcome.final_value_point(&p0);
+            let p1 = outcome.final_value_point(&p1);
+            let p2 = outcome.final_value_point(&p2);
+            let u = V::new(p1.x - p0.x, p1.y - p0.y);
+            let v = V::new(p2.x - p1.x, p2.y - p1.y);
+            assert_nearly_eq(u.signed_angle(v), test_case.angle);
+        }
+    }
+}
