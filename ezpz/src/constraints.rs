@@ -538,6 +538,12 @@ impl Constraint {
                 let u = V::new(x1 - x0, y1 - y0);
                 let v = V::new(x3 - x2, y3 - y2);
 
+                let sqr_tol = EPSILON * EPSILON;
+                if (u.magnitude_squared() <= sqr_tol) || (v.magnitude_squared() <= sqr_tol) {
+                    *degenerate = true;
+                    return;
+                }
+
                 let rot = rotation_for_angle_kind(*expected_angle);
                 *residual0 = u.cross_2d(rot.inverse().apply(v));
             }
@@ -1254,6 +1260,12 @@ impl Constraint {
 
                 let u = V::new(x1 - x0, y1 - y0);
                 let v = V::new(x3 - x2, y3 - y2);
+
+                let sqr_tol = EPSILON * EPSILON;
+                if (u.magnitude_squared() <= sqr_tol) || (v.magnitude_squared() <= sqr_tol) {
+                    *degenerate = true;
+                    return;
+                }
 
                 let rot = rotation_for_angle_kind(*expected_angle);
                 let df_du = rot.inverse().apply(v).perp_cw();

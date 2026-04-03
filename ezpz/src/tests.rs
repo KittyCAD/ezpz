@@ -1290,22 +1290,22 @@ fn lines_at_angle_isolated() {
         TestCase {
             points: [[0.0, 0.0], [1.0, 0.0], [0.0, 0.0], [0.0, 2.0]],
             angle: 0.0,
-            expected_iters: 4,
+            expected_iters: 3,
         },
         TestCase {
             points: [[0.0, 0.0], [1.0, 0.0], [0.0, 0.0], [0.0, 2.0]],
             angle: PI,
-            expected_iters: 4,
+            expected_iters: 3,
         },
         TestCase {
             points: [[0.0, 0.0], [0.0, 1.0], [0.0, 0.0], [0.0, 2.0]],
             angle: 0.5 * PI,
-            expected_iters: 4,
+            expected_iters: 3,
         },
         TestCase {
             points: [[0.0, 0.0], [0.0, 1.0], [0.0, 0.0], [0.0, 2.0]],
             angle: -0.5 * PI,
-            expected_iters: 4,
+            expected_iters: 3,
         },
     ];
 
