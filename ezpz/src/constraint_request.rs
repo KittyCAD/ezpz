@@ -56,6 +56,15 @@ impl ConstraintRequest {
     pub fn priority(&self) -> u32 {
         self.priority
     }
+
+    pub(crate) fn initialized_from_initial_values(self, initial_values: &[f64]) -> Self {
+        Self {
+            constraint: self
+                .constraint
+                .initialized_from_initial_values(initial_values),
+            priority: self.priority,
+        }
+    }
 }
 
 impl From<ConstraintRequest> for Constraint {

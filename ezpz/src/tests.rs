@@ -2,9 +2,10 @@ use std::{f64::consts::PI, str::FromStr};
 
 use super::*;
 use crate::{
+    LineSide,
     datatypes::{
         Angle, AngleKind,
-        inputs::{DatumCircularArc, DatumPoint},
+        inputs::{DatumCircle, DatumCircularArc, DatumDistance, DatumLineSegment, DatumPoint},
         outputs::Point,
     },
     textual::{OutcomeAnalysis, Problem},
@@ -280,8 +281,8 @@ fn circle_center() {
 
 #[test]
 fn circle_tangent() {
-    // There's two possible ways to put the circle, either at y=4.5 or y=1.5.
-    // With the current tangent formulation, this setup converges to y=1.5.
+    // `tangent(...)` now starts with `LineSide::Undefined`, so the side is inferred
+    // from the initial geometry. This fixture starts the circle below the line.
     let solved = run("circle_tangent");
     assert!(solved.is_satisfied());
     assert!(!solved.analysis.is_underconstrained());
@@ -289,12 +290,13 @@ fn circle_tangent() {
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 5.0, y: 3.0 });
     let circle_a = solved.get_circle("a").unwrap();
     assert_nearly_eq(circle_a.center.y, 1.5);
+    assert_nearly_eq(circle_a.radius, 1.5);
 }
 
 #[test]
 fn circle_tangent_other_dir() {
-    // Just like `circle_tangent` but using line QP instead of PQ, to ensure
-    // the tangent solution is insensitive to line direction.
+    // Just like `circle_tangent` but using line QP instead of PQ. Reversing the
+    // line direction reverses the preferred side of the oriented tangent.
     let solved = run("circle_tangent_other_dir");
     assert!(solved.is_satisfied());
     assert!(!solved.analysis.is_underconstrained());
@@ -302,6 +304,167 @@ fn circle_tangent_other_dir() {
     assert_points_eq(solved.get_point("q").unwrap(), Point { x: 5.0, y: 3.0 });
     let circle_a = solved.get_circle("a").unwrap();
     assert_nearly_eq(circle_a.center.y, 1.5);
+    assert_nearly_eq(circle_a.radius, 1.5);
+}
+
+#[test]
+fn line_tangent_left_side_solves_above_horizontal_line() {
+    let mut ids = IdGenerator::default();
+    let p0 = DatumPoint::new(&mut ids);
+    let p1 = DatumPoint::new(&mut ids);
+    let center = DatumPoint::new(&mut ids);
+    let radius = DatumDistance::new(ids.next_id());
+    let line = DatumLineSegment::new(p0, p1);
+    let circle = DatumCircle { center, radius };
+
+    let constraints = vec![
+        ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_x(), 0.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_y(), 3.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p1.id_x(), 5.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p1.id_y(), 3.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(center.id_x(), 2.0)),
+        ConstraintRequest::highest_priority(Constraint::CircleRadius(circle, 1.5)),
+        ConstraintRequest::highest_priority(Constraint::LineTangentToCircle(
+            line,
+            circle,
+            LineSide::Left,
+        )),
+    ];
+    let initial_guesses = vec![
+        (p0.id_x(), 0.0),
+        (p0.id_y(), 3.0),
+        (p1.id_x(), 5.0),
+        (p1.id_y(), 3.0),
+        (center.id_x(), 2.0),
+        (center.id_y(), 1.5),
+        (radius.id, 1.5),
+    ];
+
+    let solved = solve(&constraints, initial_guesses, Config::default()).unwrap();
+    assert!(solved.is_satisfied());
+    let solved_circle = solved.final_value_circle(&circle);
+    assert_nearly_eq(solved_circle.center.y, 4.5);
+    assert_nearly_eq(solved_circle.radius, 1.5);
+}
+
+#[test]
+fn line_tangent_right_side_solves_below_horizontal_line() {
+    let mut ids = IdGenerator::default();
+    let p0 = DatumPoint::new(&mut ids);
+    let p1 = DatumPoint::new(&mut ids);
+    let center = DatumPoint::new(&mut ids);
+    let radius = DatumDistance::new(ids.next_id());
+    let line = DatumLineSegment::new(p0, p1);
+    let circle = DatumCircle { center, radius };
+
+    let constraints = vec![
+        ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_x(), 0.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_y(), 3.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p1.id_x(), 5.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p1.id_y(), 3.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(center.id_x(), 2.0)),
+        ConstraintRequest::highest_priority(Constraint::CircleRadius(circle, 1.5)),
+        ConstraintRequest::highest_priority(Constraint::LineTangentToCircle(
+            line,
+            circle,
+            LineSide::Right,
+        )),
+    ];
+    let initial_guesses = vec![
+        (p0.id_x(), 0.0),
+        (p0.id_y(), 3.0),
+        (p1.id_x(), 5.0),
+        (p1.id_y(), 3.0),
+        (center.id_x(), 2.0),
+        (center.id_y(), 4.5),
+        (radius.id, 1.5),
+    ];
+
+    let solved = solve(&constraints, initial_guesses, Config::default()).unwrap();
+    assert!(solved.is_satisfied());
+    let solved_circle = solved.final_value_circle(&circle);
+    assert_nearly_eq(solved_circle.center.y, 1.5);
+    assert_nearly_eq(solved_circle.radius, 1.5);
+}
+
+#[test]
+fn line_tangent_undefined_infers_left_from_initial_guess() {
+    let mut ids = IdGenerator::default();
+    let p0 = DatumPoint::new(&mut ids);
+    let p1 = DatumPoint::new(&mut ids);
+    let center = DatumPoint::new(&mut ids);
+    let radius = DatumDistance::new(ids.next_id());
+    let line = DatumLineSegment::new(p0, p1);
+    let circle = DatumCircle { center, radius };
+
+    let constraints = vec![
+        ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_x(), 0.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_y(), 3.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p1.id_x(), 5.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p1.id_y(), 3.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(center.id_x(), 2.0)),
+        ConstraintRequest::highest_priority(Constraint::CircleRadius(circle, 1.5)),
+        ConstraintRequest::highest_priority(Constraint::LineTangentToCircle(
+            line,
+            circle,
+            LineSide::Undefined,
+        )),
+    ];
+    let initial_guesses = vec![
+        (p0.id_x(), 0.0),
+        (p0.id_y(), 3.0),
+        (p1.id_x(), 5.0),
+        (p1.id_y(), 3.0),
+        (center.id_x(), 2.0),
+        (center.id_y(), 4.5),
+        (radius.id, 1.5),
+    ];
+
+    let solved = solve(&constraints, initial_guesses, Config::default()).unwrap();
+    assert!(solved.is_satisfied());
+    let solved_circle = solved.final_value_circle(&circle);
+    assert_nearly_eq(solved_circle.center.y, 4.5);
+    assert_nearly_eq(solved_circle.radius, 1.5);
+}
+
+#[test]
+fn line_tangent_undefined_infers_right_from_initial_guess() {
+    let mut ids = IdGenerator::default();
+    let p0 = DatumPoint::new(&mut ids);
+    let p1 = DatumPoint::new(&mut ids);
+    let center = DatumPoint::new(&mut ids);
+    let radius = DatumDistance::new(ids.next_id());
+    let line = DatumLineSegment::new(p0, p1);
+    let circle = DatumCircle { center, radius };
+
+    let constraints = vec![
+        ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_x(), 0.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_y(), 3.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p1.id_x(), 5.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p1.id_y(), 3.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(center.id_x(), 2.0)),
+        ConstraintRequest::highest_priority(Constraint::CircleRadius(circle, 1.5)),
+        ConstraintRequest::highest_priority(Constraint::LineTangentToCircle(
+            line,
+            circle,
+            LineSide::Undefined,
+        )),
+    ];
+    let initial_guesses = vec![
+        (p0.id_x(), 0.0),
+        (p0.id_y(), 3.0),
+        (p1.id_x(), 5.0),
+        (p1.id_y(), 3.0),
+        (center.id_x(), 2.0),
+        (center.id_y(), 1.5),
+        (radius.id, 1.5),
+    ];
+
+    let solved = solve(&constraints, initial_guesses, Config::default()).unwrap();
+    assert!(solved.is_satisfied());
+    let solved_circle = solved.final_value_circle(&circle);
+    assert_nearly_eq(solved_circle.center.y, 1.5);
+    assert_nearly_eq(solved_circle.radius, 1.5);
 }
 
 #[test]

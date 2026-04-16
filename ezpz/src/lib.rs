@@ -5,8 +5,8 @@ use std::collections::HashSet;
 pub use crate::analysis::FreedomAnalysis;
 use crate::analysis::{Analysis, NoAnalysis, SolveOutcomeAnalysis};
 pub use crate::constraint_request::ConstraintRequest;
-pub use crate::constraints::Constraint;
 use crate::constraints::ConstraintEntry;
+pub use crate::constraints::{Constraint, LineSide};
 pub use crate::error::*;
 pub use crate::solver::Config;
 // Only public for now so that I can benchmark it.
@@ -41,6 +41,21 @@ mod vector;
 mod warnings;
 
 const EPSILON: f64 = 1e-4;
+
+/// Lightweight development logging that works in both native and wasm builds.
+pub fn dev_log(msg: impl AsRef<str>) {
+    dev_log_impl(msg.as_ref());
+}
+
+#[cfg(target_arch = "wasm32")]
+fn dev_log_impl(msg: &str) {
+    web_sys::console::log_1(&msg.into());
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn dev_log_impl(msg: &str) {
+    eprintln!("{msg}");
+}
 
 /// Given some initial guesses, constrain them.
 /// Returns the same variables in the same order, but constrained.
@@ -168,7 +183,23 @@ pub(crate) fn solve_with_priority_inner<A: Analysis>(
         });
     }
 
-    let reqs: Vec<_> = reqs
+    let max_id = initial_guesses
+        .iter()
+        .map(|(id, _)| *id as usize)
+        .max()
+        .unwrap_or(0);
+    let mut initial_values = vec![0.0; max_id + 1];
+    for (id, guess) in &initial_guesses {
+        initial_values[*id as usize] = *guess;
+    }
+
+    let initialized_reqs: Vec<_> = reqs
+        .iter()
+        .copied()
+        .map(|req| req.initialized_from_initial_values(&initial_values))
+        .collect();
+
+    let reqs: Vec<_> = initialized_reqs
         .iter()
         .enumerate()
         .map(|(id, c)| ConstraintEntry {

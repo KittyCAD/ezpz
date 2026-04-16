@@ -4,7 +4,7 @@ use std::f64::consts::PI;
 use proptest::prelude::*;
 
 use crate::{
-    Config, Constraint, ConstraintRequest, EPSILON, Id, IdGenerator,
+    Config, Constraint, ConstraintRequest, EPSILON, Id, IdGenerator, LineSide,
     constraints::JacobianVar,
     datatypes::inputs::{
         DatumCircle, DatumCircularArc, DatumDistance, DatumLineSegment, DatumPoint,
@@ -80,10 +80,14 @@ fn arb_angle_kind() -> BoxedStrategy<AngleKind> {
     .boxed()
 }
 
+fn arb_side() -> BoxedStrategy<LineSide> {
+    prop_oneof![Just(LineSide::Left), Just(LineSide::Right)].boxed()
+}
+
 fn arb_constraint() -> BoxedStrategy<Constraint> {
     prop_oneof![
-        (arb_line(), arb_circle())
-            .prop_map(|(line, circle)| Constraint::LineTangentToCircle(line, circle)),
+        (arb_line(), arb_circle(), arb_side())
+            .prop_map(|(line, circle, side)| Constraint::LineTangentToCircle(line, circle, side)),
         (arb_circle(), arb_circle())
             .prop_map(|(circle0, circle1)| Constraint::CircleTangentToCircle(circle0, circle1)),
         (arb_point(), arb_point(), arb_scalar())
