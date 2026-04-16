@@ -8,7 +8,7 @@ use crate::Constraint;
 /// let priority = 3;
 /// let constraint_req = ConstraintRequest::new(constraint, priority);
 /// ```
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct ConstraintRequest {
     /// The constraint itself.
@@ -86,15 +86,15 @@ mod tests {
         let custom = ConstraintRequest::new(constraint, 5);
         assert_eq!(custom.priority, 5);
 
-        let highest = ConstraintRequest::highest_priority(custom.constraint);
-        let lower = ConstraintRequest::new(custom.constraint, 40);
+        let highest = ConstraintRequest::highest_priority(custom.constraint.clone());
+        let lower = ConstraintRequest::new(custom.constraint.clone(), 40);
         assert!(highest.priority < lower.priority);
     }
 
     #[test]
     fn converts_back_to_constraint() {
         let constraint = demo_constraint();
-        let req = ConstraintRequest::new(constraint, 1);
+        let req = ConstraintRequest::new(constraint.clone(), 1);
 
         let Constraint::Fixed(id, value) = Constraint::from(req) else {
             panic!();

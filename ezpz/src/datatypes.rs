@@ -136,5 +136,14 @@ mod tests {
             arc.all_variables().into_iter().collect::<Vec<_>>(),
             vec![2, 3, 6, 7, 0, 1]
         );
+
+        let spline = DatumControlPointSpline {
+            controls: vec![p0, p1, DatumPoint::new_xy(6, 7)].into_boxed_slice(),
+            degree: 2,
+        };
+        assert_eq!(
+            spline.all_variables().into_iter().collect::<Vec<_>>(),
+            vec![0, 1, 2, 3, 6, 7]
+        );
     }
 }

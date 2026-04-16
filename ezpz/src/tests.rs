@@ -4,7 +4,10 @@ use super::*;
 use crate::{
     datatypes::{
         Angle, AngleKind,
-        inputs::{DatumCircularArc, DatumPoint},
+        inputs::{
+            DatumCircle, DatumCircularArc, DatumControlPointSpline, DatumDistance, DatumLineSegment,
+            DatumPoint,
+        },
         outputs::Point,
     },
     textual::{OutcomeAnalysis, Problem},
@@ -704,7 +707,7 @@ fn arc_length_ccw_over_pi() {
         arc_end_guess,
     );
 
-    assert!(outcome.is_satisfied());
+    assert!(outcome.is_satisfied(), "{outcome:#?}");
 
     let solved_end_x = outcome.final_values[arc.end.id_x() as usize];
     let solved_end_y = outcome.final_values[arc.end.id_y() as usize];
@@ -845,8 +848,8 @@ fn strange_nonconvergence() {
         ConstraintRequest::highest_priority(Constraint::PointsCoincident(r, s)),
         ConstraintRequest::highest_priority(Constraint::PointsCoincident(q, p)),
         ConstraintRequest::highest_priority(Constraint::LinesEqualLength(
-            datatypes::inputs::DatumLineSegment { p0: q, p1: r },
-            datatypes::inputs::DatumLineSegment { p0: s, p1: t },
+            DatumLineSegment { p0: q, p1: r },
+            DatumLineSegment { p0: s, p1: t },
         )),
     ];
     let initial_guesses = vec![
@@ -1425,4 +1428,186 @@ fn lines_angle_sign_check() {
             assert_nearly_eq(u.signed_angle(v), test_case.angle);
         }
     }
+}
+
+#[test]
+fn point_spline_coincident_solves_internal_parameter() {
+    let mut ids = IdGenerator::default();
+    let p0 = DatumPoint::new(&mut ids);
+    let p1 = DatumPoint::new(&mut ids);
+    let p2 = DatumPoint::new(&mut ids);
+    let point = DatumPoint::new(&mut ids);
+    let parameter = DatumDistance::new(ids.next_id());
+    let spline = DatumControlPointSpline {
+        controls: Box::new([p0, p1, p2]),
+        degree: 2,
+    };
+
+    let constraints = vec![
+        ConstraintRequest::highest_priority(Constraint::PointSplineCoincident(spline.clone(), point, parameter)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_x(), 0.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_y(), 0.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p1.id_x(), 1.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p1.id_y(), 2.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p2.id_x(), 2.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p2.id_y(), 0.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(point.id_x(), 1.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(point.id_y(), 1.0)),
+    ];
+    let initial_guesses = vec![
+        (p0.id_x(), 0.0),
+        (p0.id_y(), 0.0),
+        (p1.id_x(), 1.0),
+        (p1.id_y(), 2.0),
+        (p2.id_x(), 2.0),
+        (p2.id_y(), 0.0),
+        (point.id_x(), 1.0),
+        (point.id_y(), 1.0),
+        (parameter.id, 0.6),
+    ];
+
+    let outcome = solve(&constraints, initial_guesses, Config::default()).unwrap();
+    assert!(outcome.is_satisfied());
+    assert_nearly_eq(outcome.final_values[parameter.id as usize], 0.5);
+}
+
+#[test]
+fn spline_line_tangent_solves_internal_parameter() {
+    let mut ids = IdGenerator::default();
+    let p0 = DatumPoint::new(&mut ids);
+    let p1 = DatumPoint::new(&mut ids);
+    let p2 = DatumPoint::new(&mut ids);
+    let line_start = DatumPoint::new(&mut ids);
+    let line_end = DatumPoint::new(&mut ids);
+    let parameter = DatumDistance::new(ids.next_id());
+    let spline = DatumControlPointSpline {
+        controls: Box::new([p0, p1, p2]),
+        degree: 2,
+    };
+    let line = DatumLineSegment::new(line_start, line_end);
+
+    let constraints = vec![
+        ConstraintRequest::highest_priority(Constraint::SplineLineTangent(spline.clone(), line, parameter)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_x(), 0.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_y(), 0.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p1.id_x(), 1.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p1.id_y(), 2.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p2.id_x(), 2.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p2.id_y(), 0.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(line_start.id_x(), 0.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(line_start.id_y(), 1.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(line_end.id_x(), 2.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(line_end.id_y(), 1.0)),
+    ];
+    let initial_guesses = vec![
+        (p0.id_x(), 0.0),
+        (p0.id_y(), 0.0),
+        (p1.id_x(), 1.0),
+        (p1.id_y(), 2.0),
+        (p2.id_x(), 2.0),
+        (p2.id_y(), 0.0),
+        (line_start.id_x(), 0.0),
+        (line_start.id_y(), 1.0),
+        (line_end.id_x(), 2.0),
+        (line_end.id_y(), 1.0),
+        (parameter.id, 0.4),
+    ];
+
+    let outcome = solve(&constraints, initial_guesses, Config::default()).unwrap();
+    assert!(outcome.is_satisfied());
+    assert_nearly_eq(outcome.final_values[parameter.id as usize], 0.5);
+}
+
+#[test]
+fn spline_line_tangent_can_solve_at_endpoint() {
+    let mut ids = IdGenerator::default();
+    let p0 = DatumPoint::new(&mut ids);
+    let p1 = DatumPoint::new(&mut ids);
+    let p2 = DatumPoint::new(&mut ids);
+    let p3 = DatumPoint::new(&mut ids);
+    let line_start = DatumPoint::new(&mut ids);
+    let line_end = DatumPoint::new(&mut ids);
+    let parameter = DatumDistance::new(ids.next_id());
+    let spline = DatumControlPointSpline {
+        controls: Box::new([p0, p1, p2, p3]),
+        degree: 3,
+    };
+    let line = DatumLineSegment::new(line_start, line_end);
+
+    let constraints = vec![
+        ConstraintRequest::highest_priority(Constraint::SplineLineTangent(spline.clone(), line, parameter)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_x(), -78.18)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_y(), -16.4)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p1.id_x(), 46.85)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p1.id_y(), 4.95)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p2.id_x(), 83.55)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p2.id_y(), 92.71)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p3.id_x(), -73.29)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p3.id_y(), 92.53)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(line_start.id_x(), -78.18)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(line_start.id_y(), -16.4)),
+    ];
+    let initial_guesses = vec![
+        (p0.id_x(), -78.18),
+        (p0.id_y(), -16.4),
+        (p1.id_x(), 46.85),
+        (p1.id_y(), 4.95),
+        (p2.id_x(), 83.55),
+        (p2.id_y(), 92.71),
+        (p3.id_x(), -73.29),
+        (p3.id_y(), 92.53),
+        (line_start.id_x(), -78.18),
+        (line_start.id_y(), -16.4),
+        (line_end.id_x(), -120.14),
+        (line_end.id_y(), -28.1),
+        (parameter.id, 0.5),
+    ];
+
+    let outcome = solve(&constraints, initial_guesses, Config::default()).unwrap();
+    assert!(outcome.is_satisfied(), "{outcome:#?}");
+}
+
+#[test]
+fn spline_circle_tangent_solves_internal_parameter() {
+    let mut ids = IdGenerator::default();
+    let p0 = DatumPoint::new(&mut ids);
+    let p1 = DatumPoint::new(&mut ids);
+    let p2 = DatumPoint::new(&mut ids);
+    let center = DatumPoint::new(&mut ids);
+    let radius = DatumDistance::new(ids.next_id());
+    let parameter = DatumDistance::new(ids.next_id());
+    let spline = DatumControlPointSpline {
+        controls: Box::new([p0, p1, p2]),
+        degree: 2,
+    };
+    let circle = DatumCircle { center, radius };
+
+    let constraints = vec![
+        ConstraintRequest::highest_priority(Constraint::SplineCircleTangent(spline.clone(), circle, parameter)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_x(), 0.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_y(), 0.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p1.id_x(), 1.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p1.id_y(), 2.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p2.id_x(), 2.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p2.id_y(), 0.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(center.id_x(), 1.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(center.id_y(), 0.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(radius.id, 1.0)),
+    ];
+    let initial_guesses = vec![
+        (p0.id_x(), 0.0),
+        (p0.id_y(), 0.0),
+        (p1.id_x(), 1.0),
+        (p1.id_y(), 2.0),
+        (p2.id_x(), 2.0),
+        (p2.id_y(), 0.0),
+        (center.id_x(), 1.0),
+        (center.id_y(), 0.0),
+        (radius.id, 1.0),
+        (parameter.id, 0.5),
+    ];
+
+    let outcome = solve(&constraints, initial_guesses, Config::default()).unwrap();
+    assert!(outcome.is_satisfied(), "{outcome:#?}");
+    assert_nearly_eq(outcome.final_values[parameter.id as usize], 0.5);
 }

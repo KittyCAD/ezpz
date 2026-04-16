@@ -12,7 +12,7 @@ use std::f64::consts::PI;
 /// existing constraints.
 mod composite;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct ConstraintEntry<'c> {
     /// The constraint itself.
     pub constraint: &'c Constraint,
@@ -29,7 +29,7 @@ impl AsRef<Constraint> for ConstraintEntry<'_> {
 }
 
 /// Each geometric constraint we support.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 #[cfg_attr(not(feature = "unstable-exhaustive"), non_exhaustive)]
 pub enum Constraint {
@@ -86,6 +86,12 @@ pub enum Constraint {
     ArcLength(DatumCircularArc, f64),
     /// The arc should span this angle.
     ArcAngle(DatumCircularArc, Angle),
+    /// The point should lie on this control-point spline.
+    PointSplineCoincident(DatumControlPointSpline, DatumPoint, DatumDistance),
+    /// The control-point spline should be tangent to the given line.
+    SplineLineTangent(DatumControlPointSpline, DatumLineSegment, DatumDistance),
+    /// The control-point spline should be tangent to the given circle.
+    SplineCircleTangent(DatumControlPointSpline, DatumCircle, DatumDistance),
 }
 
 /// Describes one value in one row of the Jacobian matrix.
@@ -193,6 +199,21 @@ impl Constraint {
             }
             Constraint::ArcLength(circular_arc, _dist) => out.extend(circular_arc.all_variables()),
             Constraint::ArcAngle(circular_arc, _angle) => out.extend(circular_arc.all_variables()),
+            Constraint::PointSplineCoincident(spline, point, parameter) => {
+                out.extend(spline.all_variables());
+                out.extend(point.all_variables());
+                out.extend(parameter.all_variables());
+            }
+            Constraint::SplineLineTangent(spline, line, parameter) => {
+                out.extend(spline.all_variables());
+                out.extend(line.all_variables());
+                out.extend(parameter.all_variables());
+            }
+            Constraint::SplineCircleTangent(spline, circle, parameter) => {
+                out.extend(spline.all_variables());
+                out.extend(circle.all_variables());
+                out.extend(parameter.all_variables());
+            }
         }
     }
 
@@ -282,6 +303,21 @@ impl Constraint {
             }
             Constraint::ArcLength(circular_arc, _dist) => out.extend(circular_arc.all_variables()),
             Constraint::ArcAngle(circular_arc, _angle) => out.extend(circular_arc.all_variables()),
+            Constraint::PointSplineCoincident(spline, point, parameter) => {
+                out.extend(spline.all_variables());
+                out.extend(point.all_variables());
+                out.extend(parameter.all_variables());
+            }
+            Constraint::SplineLineTangent(spline, line, parameter) => {
+                out.extend(spline.all_variables());
+                out.extend(line.all_variables());
+                out.extend(parameter.all_variables());
+            }
+            Constraint::SplineCircleTangent(spline, circle, parameter) => {
+                out.extend(spline.all_variables());
+                out.extend(circle.all_variables());
+                out.extend(parameter.all_variables());
+            }
         }
     }
 
@@ -390,6 +426,30 @@ impl Constraint {
                 AngleKind::Other(*angle),
             )
             .nonzeroes(row0, row1, _row2),
+            Constraint::PointSplineCoincident(spline, point, parameter) => {
+                row0.extend(spline.all_variables());
+                row0.extend(point.all_variables());
+                row0.extend(parameter.all_variables());
+                row1.extend(spline.all_variables());
+                row1.extend(point.all_variables());
+                row1.extend(parameter.all_variables());
+            }
+            Constraint::SplineLineTangent(spline, line, parameter) => {
+                row0.extend(spline.all_variables());
+                row0.extend(line.all_variables());
+                row0.extend(parameter.all_variables());
+                row1.extend(spline.all_variables());
+                row1.extend(line.all_variables());
+                row1.extend(parameter.all_variables());
+            }
+            Constraint::SplineCircleTangent(spline, circle, parameter) => {
+                row0.extend(spline.all_variables());
+                row0.extend(circle.all_variables());
+                row0.extend(parameter.all_variables());
+                row1.extend(spline.all_variables());
+                row1.extend(circle.all_variables());
+                row1.extend(parameter.all_variables());
+            }
         }
     }
 
@@ -831,6 +891,71 @@ impl Constraint {
                 _residual2,
                 degenerate,
             ),
+            Constraint::PointSplineCoincident(spline, point, parameter) => {
+                let Some(spline_eval) =
+                    evaluate_control_point_spline(current_assignments, spline, *parameter, layout)
+                else {
+                    *residual0 = 0.0;
+                    *residual1 = 0.0;
+                    *degenerate = true;
+                    return;
+                };
+                let px = current_assignments[layout.index_of(point.id_x())];
+                let py = current_assignments[layout.index_of(point.id_y())];
+                *residual0 = spline_eval.point.x - px;
+                *residual1 = spline_eval.point.y - py;
+            }
+            Constraint::SplineLineTangent(spline, line, parameter) => {
+                let Some(spline_eval) =
+                    evaluate_control_point_spline(current_assignments, spline, *parameter, layout)
+                else {
+                    *residual0 = 0.0;
+                    *residual1 = 0.0;
+                    *degenerate = true;
+                    return;
+                };
+                let p0x = current_assignments[layout.index_of(line.p0.id_x())];
+                let p0y = current_assignments[layout.index_of(line.p0.id_y())];
+                let p1x = current_assignments[layout.index_of(line.p1.id_x())];
+                let p1y = current_assignments[layout.index_of(line.p1.id_y())];
+                let dx = p1x - p0x;
+                let dy = p1y - p0y;
+                let denominator = libm::hypot(dx, dy);
+                if denominator <= EPSILON {
+                    *residual0 = 0.0;
+                    *residual1 = 0.0;
+                    *degenerate = true;
+                    return;
+                }
+
+                let (a, b, c) = inner_equation_of_line(p0x, p0y, p1x, p1y);
+                *residual0 = (a * spline_eval.point.x + b * spline_eval.point.y + c) / denominator;
+                *residual1 = spline_eval.tangent.x * dy - spline_eval.tangent.y * dx;
+            }
+            Constraint::SplineCircleTangent(spline, circle, parameter) => {
+                let Some(spline_eval) =
+                    evaluate_control_point_spline(current_assignments, spline, *parameter, layout)
+                else {
+                    *residual0 = 0.0;
+                    *residual1 = 0.0;
+                    *degenerate = true;
+                    return;
+                };
+                let cx = current_assignments[layout.index_of(circle.center.id_x())];
+                let cy = current_assignments[layout.index_of(circle.center.id_y())];
+                let radius = current_assignments[layout.index_of(circle.radius.id)];
+                let radial = spline_eval.point - V::new(cx, cy);
+                let radial_distance = radial.magnitude();
+                if radial_distance <= EPSILON {
+                    *residual0 = 0.0;
+                    *residual1 = 0.0;
+                    *degenerate = true;
+                    return;
+                }
+
+                *residual0 = radial_distance - radius;
+                *residual1 = spline_eval.tangent.dot(radial);
+            }
         }
     }
 
@@ -873,6 +998,9 @@ impl Constraint {
                 AngleKind::Other(*angle),
             )
             .residual_dim(),
+            Constraint::PointSplineCoincident(..) => 2,
+            Constraint::SplineLineTangent(..) => 2,
+            Constraint::SplineCircleTangent(..) => 2,
         }
     }
 
@@ -2092,6 +2220,200 @@ impl Constraint {
                 AngleKind::Other(*angle),
             )
             .jacobian_rows(layout, current_assignments, row0, row1, _row2, degenerate),
+            Constraint::PointSplineCoincident(spline, point, parameter) => {
+                let Some(spline_eval) =
+                    evaluate_control_point_spline(current_assignments, spline, *parameter, layout)
+                else {
+                    *degenerate = true;
+                    return;
+                };
+
+                for (index, control) in spline.controls.iter().enumerate() {
+                    row0.push(JacobianVar {
+                        id: control.id_x(),
+                        partial_derivative: spline_eval.basis[index],
+                    });
+                    row1.push(JacobianVar {
+                        id: control.id_y(),
+                        partial_derivative: spline_eval.basis[index],
+                    });
+                }
+                row0.push(JacobianVar {
+                    id: point.id_x(),
+                    partial_derivative: -1.0,
+                });
+                row1.push(JacobianVar {
+                    id: point.id_y(),
+                    partial_derivative: -1.0,
+                });
+                row0.push(JacobianVar {
+                    id: parameter.id,
+                    partial_derivative: spline_eval.tangent.x * spline_eval.dparameter_draw,
+                });
+                row1.push(JacobianVar {
+                    id: parameter.id,
+                    partial_derivative: spline_eval.tangent.y * spline_eval.dparameter_draw,
+                });
+            }
+            Constraint::SplineLineTangent(spline, line, parameter) => {
+                let Some(spline_eval) =
+                    evaluate_control_point_spline(current_assignments, spline, *parameter, layout)
+                else {
+                    *degenerate = true;
+                    return;
+                };
+                let p0x = current_assignments[layout.index_of(line.p0.id_x())];
+                let p0y = current_assignments[layout.index_of(line.p0.id_y())];
+                let p1x = current_assignments[layout.index_of(line.p1.id_x())];
+                let p1y = current_assignments[layout.index_of(line.p1.id_y())];
+                let dx = p1x - p0x;
+                let dy = p1y - p0y;
+                let Some(distance_partials) =
+                    point_line_distance_partials(spline_eval.point.x, spline_eval.point.y, p0x, p0y, p1x, p1y)
+                else {
+                    *degenerate = true;
+                    return;
+                };
+
+                for (index, control) in spline.controls.iter().enumerate() {
+                    row0.push(JacobianVar {
+                        id: control.id_x(),
+                        partial_derivative: distance_partials.d_point_x * spline_eval.basis[index],
+                    });
+                    row0.push(JacobianVar {
+                        id: control.id_y(),
+                        partial_derivative: distance_partials.d_point_y * spline_eval.basis[index],
+                    });
+                    row1.push(JacobianVar {
+                        id: control.id_x(),
+                        partial_derivative: spline_eval.basis_first[index] * dy,
+                    });
+                    row1.push(JacobianVar {
+                        id: control.id_y(),
+                        partial_derivative: -spline_eval.basis_first[index] * dx,
+                    });
+                }
+                row0.extend([
+                    JacobianVar {
+                        id: line.p0.id_x(),
+                        partial_derivative: distance_partials.d_p0_x,
+                    },
+                    JacobianVar {
+                        id: line.p0.id_y(),
+                        partial_derivative: distance_partials.d_p0_y,
+                    },
+                    JacobianVar {
+                        id: line.p1.id_x(),
+                        partial_derivative: distance_partials.d_p1_x,
+                    },
+                    JacobianVar {
+                        id: line.p1.id_y(),
+                        partial_derivative: distance_partials.d_p1_y,
+                    },
+                    JacobianVar {
+                        id: parameter.id,
+                        partial_derivative: (distance_partials.d_point_x * spline_eval.tangent.x
+                            + distance_partials.d_point_y * spline_eval.tangent.y)
+                            * spline_eval.dparameter_draw,
+                    },
+                ]);
+                row1.extend([
+                    JacobianVar {
+                        id: line.p0.id_x(),
+                        partial_derivative: spline_eval.tangent.y,
+                    },
+                    JacobianVar {
+                        id: line.p0.id_y(),
+                        partial_derivative: -spline_eval.tangent.x,
+                    },
+                    JacobianVar {
+                        id: line.p1.id_x(),
+                        partial_derivative: -spline_eval.tangent.y,
+                    },
+                    JacobianVar {
+                        id: line.p1.id_y(),
+                        partial_derivative: spline_eval.tangent.x,
+                    },
+                    JacobianVar {
+                        id: parameter.id,
+                        partial_derivative: (spline_eval.acceleration.x * dy - spline_eval.acceleration.y * dx)
+                            * spline_eval.dparameter_draw,
+                    },
+                ]);
+            }
+            Constraint::SplineCircleTangent(spline, circle, parameter) => {
+                let Some(spline_eval) =
+                    evaluate_control_point_spline(current_assignments, spline, *parameter, layout)
+                else {
+                    *degenerate = true;
+                    return;
+                };
+                let cx = current_assignments[layout.index_of(circle.center.id_x())];
+                let cy = current_assignments[layout.index_of(circle.center.id_y())];
+                let radial = spline_eval.point - V::new(cx, cy);
+                let radial_distance = radial.magnitude();
+                if radial_distance <= EPSILON {
+                    *degenerate = true;
+                    return;
+                }
+                let unit_radial = V::new(radial.x / radial_distance, radial.y / radial_distance);
+
+                for (index, control) in spline.controls.iter().enumerate() {
+                    row0.push(JacobianVar {
+                        id: control.id_x(),
+                        partial_derivative: unit_radial.x * spline_eval.basis[index],
+                    });
+                    row0.push(JacobianVar {
+                        id: control.id_y(),
+                        partial_derivative: unit_radial.y * spline_eval.basis[index],
+                    });
+                    row1.push(JacobianVar {
+                        id: control.id_x(),
+                        partial_derivative: spline_eval.basis_first[index] * radial.x
+                            + spline_eval.tangent.x * spline_eval.basis[index],
+                    });
+                    row1.push(JacobianVar {
+                        id: control.id_y(),
+                        partial_derivative: spline_eval.basis_first[index] * radial.y
+                            + spline_eval.tangent.y * spline_eval.basis[index],
+                    });
+                }
+
+                row0.extend([
+                    JacobianVar {
+                        id: circle.center.id_x(),
+                        partial_derivative: -unit_radial.x,
+                    },
+                    JacobianVar {
+                        id: circle.center.id_y(),
+                        partial_derivative: -unit_radial.y,
+                    },
+                    JacobianVar {
+                        id: circle.radius.id,
+                        partial_derivative: -1.0,
+                    },
+                    JacobianVar {
+                        id: parameter.id,
+                        partial_derivative: unit_radial.dot(spline_eval.tangent) * spline_eval.dparameter_draw,
+                    },
+                ]);
+                row1.extend([
+                    JacobianVar {
+                        id: circle.center.id_x(),
+                        partial_derivative: -spline_eval.tangent.x,
+                    },
+                    JacobianVar {
+                        id: circle.center.id_y(),
+                        partial_derivative: -spline_eval.tangent.y,
+                    },
+                    JacobianVar {
+                        id: parameter.id,
+                        partial_derivative: (spline_eval.acceleration.dot(radial)
+                            + spline_eval.tangent.dot(spline_eval.tangent))
+                            * spline_eval.dparameter_draw,
+                    },
+                ]);
+            }
         }
     }
 
@@ -2127,6 +2449,9 @@ impl Constraint {
             Constraint::PointArcCoincident(..) => "PointArcCoincident",
             Constraint::ArcLength(..) => "ArcLength",
             Constraint::ArcAngle(..) => "ArcAngle",
+            Constraint::PointSplineCoincident(..) => "PointSplineCoincident",
+            Constraint::SplineLineTangent(..) => "SplineLineTangent",
+            Constraint::SplineCircleTangent(..) => "SplineCircleTangent",
         }
     }
 }
@@ -2446,6 +2771,195 @@ fn rotation_for_angle_kind(angle_kind: AngleKind) -> Rotation2 {
         AngleKind::Perpendicular => Rotation2::from_sincos(1.0, 0.0),
         AngleKind::Other(angle) => Rotation2::from_angle_radians(angle.to_radians()),
     }
+}
+
+fn build_open_uniform_knot_vector(control_count: usize, degree: usize) -> Vec<f64> {
+    let order = degree + 1;
+    let knot_count = control_count + order;
+    let interior_count = knot_count.saturating_sub(2 * order);
+    let mut knots = vec![0.0; knot_count];
+    for (index, knot) in knots.iter_mut().enumerate() {
+        if index < order {
+            *knot = 0.0;
+        } else if index >= knot_count - order {
+            *knot = 1.0;
+        } else {
+            *knot = (index - degree) as f64 / (interior_count + 1) as f64;
+        }
+    }
+    knots
+}
+
+fn bspline_basis(i: usize, degree: usize, u: f64, knots: &[f64], control_count: usize) -> f64 {
+    if degree == 0 {
+        let in_span = knots[i] <= u && u < knots[i + 1];
+        let is_last = i == control_count - 1 && u >= knots[control_count];
+        return if in_span || is_last { 1.0 } else { 0.0 };
+    }
+
+    let mut value = 0.0;
+    let left_denominator = knots[i + degree] - knots[i];
+    if left_denominator.abs() > EPSILON {
+        value += ((u - knots[i]) / left_denominator) * bspline_basis(i, degree - 1, u, knots, control_count);
+    }
+
+    let right_denominator = knots[i + degree + 1] - knots[i + 1];
+    if right_denominator.abs() > EPSILON {
+        value += ((knots[i + degree + 1] - u) / right_denominator)
+            * bspline_basis(i + 1, degree - 1, u, knots, control_count);
+    }
+
+    value
+}
+
+fn bspline_basis_first_derivative(i: usize, degree: usize, u: f64, knots: &[f64], control_count: usize) -> f64 {
+    if degree == 0 {
+        return 0.0;
+    }
+
+    let mut value = 0.0;
+    let left_denominator = knots[i + degree] - knots[i];
+    if left_denominator.abs() > EPSILON {
+        value += degree as f64 / left_denominator * bspline_basis(i, degree - 1, u, knots, control_count);
+    }
+
+    let right_denominator = knots[i + degree + 1] - knots[i + 1];
+    if right_denominator.abs() > EPSILON {
+        value -= degree as f64 / right_denominator * bspline_basis(i + 1, degree - 1, u, knots, control_count);
+    }
+
+    value
+}
+
+fn bspline_basis_second_derivative(i: usize, degree: usize, u: f64, knots: &[f64], control_count: usize) -> f64 {
+    if degree <= 1 {
+        return 0.0;
+    }
+
+    let mut value = 0.0;
+    let left_denominator = knots[i + degree] - knots[i];
+    if left_denominator.abs() > EPSILON {
+        value += degree as f64 / left_denominator
+            * bspline_basis_first_derivative(i, degree - 1, u, knots, control_count);
+    }
+
+    let right_denominator = knots[i + degree + 1] - knots[i + 1];
+    if right_denominator.abs() > EPSILON {
+        value -= degree as f64 / right_denominator
+            * bspline_basis_first_derivative(i + 1, degree - 1, u, knots, control_count);
+    }
+
+    value
+}
+
+struct SplineEvaluation {
+    point: V,
+    tangent: V,
+    acceleration: V,
+    basis: Vec<f64>,
+    basis_first: Vec<f64>,
+    dparameter_draw: f64,
+}
+
+fn evaluate_control_point_spline(
+    current_assignments: &[f64],
+    spline: &DatumControlPointSpline,
+    raw_parameter: DatumDistance,
+    layout: &Layout,
+) -> Option<SplineEvaluation> {
+    if spline.controls.len() < 2 {
+        return None;
+    }
+
+    let effective_degree = spline.degree.clamp(1, spline.controls.len() - 1);
+    let raw = current_assignments[layout.index_of(raw_parameter.id)];
+    let (parameter, dparameter_draw) = if raw < 0.0 {
+        (0.0, 0.0)
+    } else if raw > 1.0 {
+        (1.0, 0.0)
+    } else {
+        (raw, 1.0)
+    };
+    let knots = build_open_uniform_knot_vector(spline.controls.len(), effective_degree);
+
+    let mut point = V::new(0.0, 0.0);
+    let mut tangent = V::new(0.0, 0.0);
+    let mut acceleration = V::new(0.0, 0.0);
+    let mut basis = Vec::with_capacity(spline.controls.len());
+    let mut basis_first = Vec::with_capacity(spline.controls.len());
+
+    for (index, control) in spline.controls.iter().enumerate() {
+        let control_x = current_assignments[layout.index_of(control.id_x())];
+        let control_y = current_assignments[layout.index_of(control.id_y())];
+        let basis_value = bspline_basis(index, effective_degree, parameter, &knots, spline.controls.len());
+        let basis_first_value =
+            bspline_basis_first_derivative(index, effective_degree, parameter, &knots, spline.controls.len());
+        let basis_second_value =
+            bspline_basis_second_derivative(index, effective_degree, parameter, &knots, spline.controls.len());
+
+        point.x += basis_value * control_x;
+        point.y += basis_value * control_y;
+        tangent.x += basis_first_value * control_x;
+        tangent.y += basis_first_value * control_y;
+        acceleration.x += basis_second_value * control_x;
+        acceleration.y += basis_second_value * control_y;
+        basis.push(basis_value);
+        basis_first.push(basis_first_value);
+    }
+
+    Some(SplineEvaluation {
+        point,
+        tangent,
+        acceleration,
+        basis,
+        basis_first,
+        dparameter_draw,
+    })
+}
+
+struct PointLineDistancePartials {
+    d_point_x: f64,
+    d_point_y: f64,
+    d_p0_x: f64,
+    d_p0_y: f64,
+    d_p1_x: f64,
+    d_p1_y: f64,
+}
+
+fn point_line_distance_partials(px: f64, py: f64, p0x: f64, p0y: f64, p1x: f64, p1y: f64) -> Option<PointLineDistancePartials> {
+    let euclid_dist = libm::hypot(-p0x + p1x, p0y - p1y);
+    if euclid_dist <= EPSILON {
+        return None;
+    }
+
+    let d_point_x = (p0y - p1y) / euclid_dist;
+    let d_point_y = (-p0x + p1x) / euclid_dist;
+    let denom = ((-p0x + p1x).powi(2) + (p0y - p1y).powi(2)).powf(1.5);
+    if denom <= EPSILON {
+        return None;
+    }
+
+    let d_p0_x =
+        ((-p0x + p1x) * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x))) / denom
+            + (p1y - py) / euclid_dist;
+    let d_p0_y =
+        ((-p0y + p1y) * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x))) / denom
+            + (-p1x + px) / euclid_dist;
+    let d_p1_x =
+        ((p0x - p1x) * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x))) / denom
+            + (-p0y + py) / euclid_dist;
+    let d_p1_y =
+        ((p0y - p1y) * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x))) / denom
+            + (p0x - px) / euclid_dist;
+
+    Some(PointLineDistancePartials {
+        d_point_x,
+        d_point_y,
+        d_p0_x,
+        d_p0_y,
+        d_p1_x,
+        d_p1_y,
+    })
 }
 
 #[cfg(test)]
