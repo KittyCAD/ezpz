@@ -927,7 +927,7 @@ impl Constraint {
     ) {
         match self {
             Constraint::LineTangentToCircle(line, circle, side) => {
-                // Residual: R = abs(cross(u, v)) / |u| - r
+                // Residual: R = cross(u, v) / |u| - r
                 // where u = p1 - p0 and v = c - p0.
                 let p0_x = current_assignments[layout.index_of(line.p0.id_x())];
                 let p0_y = current_assignments[layout.index_of(line.p0.id_y())];
