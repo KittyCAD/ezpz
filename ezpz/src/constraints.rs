@@ -2268,9 +2268,14 @@ impl Constraint {
                 let p1y = current_assignments[layout.index_of(line.p1.id_y())];
                 let dx = p1x - p0x;
                 let dy = p1y - p0y;
-                let Some(distance_partials) =
-                    point_line_distance_partials(spline_eval.point.x, spline_eval.point.y, p0x, p0y, p1x, p1y)
-                else {
+                let Some(distance_partials) = point_line_distance_partials(
+                    spline_eval.point.x,
+                    spline_eval.point.y,
+                    p0x,
+                    p0y,
+                    p1x,
+                    p1y,
+                ) else {
                     *degenerate = true;
                     return;
                 };
@@ -2336,7 +2341,8 @@ impl Constraint {
                     },
                     JacobianVar {
                         id: parameter.id,
-                        partial_derivative: (spline_eval.acceleration.x * dy - spline_eval.acceleration.y * dx)
+                        partial_derivative: (spline_eval.acceleration.x * dy
+                            - spline_eval.acceleration.y * dx)
                             * spline_eval.dparameter_draw,
                     },
                 ]);
@@ -2394,7 +2400,8 @@ impl Constraint {
                     },
                     JacobianVar {
                         id: parameter.id,
-                        partial_derivative: unit_radial.dot(spline_eval.tangent) * spline_eval.dparameter_draw,
+                        partial_derivative: unit_radial.dot(spline_eval.tangent)
+                            * spline_eval.dparameter_draw,
                     },
                 ]);
                 row1.extend([
@@ -2800,7 +2807,8 @@ fn bspline_basis(i: usize, degree: usize, u: f64, knots: &[f64], control_count: 
     let mut value = 0.0;
     let left_denominator = knots[i + degree] - knots[i];
     if left_denominator.abs() > EPSILON {
-        value += ((u - knots[i]) / left_denominator) * bspline_basis(i, degree - 1, u, knots, control_count);
+        value += ((u - knots[i]) / left_denominator)
+            * bspline_basis(i, degree - 1, u, knots, control_count);
     }
 
     let right_denominator = knots[i + degree + 1] - knots[i + 1];
@@ -2812,7 +2820,13 @@ fn bspline_basis(i: usize, degree: usize, u: f64, knots: &[f64], control_count: 
     value
 }
 
-fn bspline_basis_first_derivative(i: usize, degree: usize, u: f64, knots: &[f64], control_count: usize) -> f64 {
+fn bspline_basis_first_derivative(
+    i: usize,
+    degree: usize,
+    u: f64,
+    knots: &[f64],
+    control_count: usize,
+) -> f64 {
     if degree == 0 {
         return 0.0;
     }
@@ -2820,18 +2834,26 @@ fn bspline_basis_first_derivative(i: usize, degree: usize, u: f64, knots: &[f64]
     let mut value = 0.0;
     let left_denominator = knots[i + degree] - knots[i];
     if left_denominator.abs() > EPSILON {
-        value += degree as f64 / left_denominator * bspline_basis(i, degree - 1, u, knots, control_count);
+        value += degree as f64 / left_denominator
+            * bspline_basis(i, degree - 1, u, knots, control_count);
     }
 
     let right_denominator = knots[i + degree + 1] - knots[i + 1];
     if right_denominator.abs() > EPSILON {
-        value -= degree as f64 / right_denominator * bspline_basis(i + 1, degree - 1, u, knots, control_count);
+        value -= degree as f64 / right_denominator
+            * bspline_basis(i + 1, degree - 1, u, knots, control_count);
     }
 
     value
 }
 
-fn bspline_basis_second_derivative(i: usize, degree: usize, u: f64, knots: &[f64], control_count: usize) -> f64 {
+fn bspline_basis_second_derivative(
+    i: usize,
+    degree: usize,
+    u: f64,
+    knots: &[f64],
+    control_count: usize,
+) -> f64 {
     if degree <= 1 {
         return 0.0;
     }
@@ -2891,11 +2913,27 @@ fn evaluate_control_point_spline(
     for (index, control) in spline.controls.iter().enumerate() {
         let control_x = current_assignments[layout.index_of(control.id_x())];
         let control_y = current_assignments[layout.index_of(control.id_y())];
-        let basis_value = bspline_basis(index, effective_degree, parameter, &knots, spline.controls.len());
-        let basis_first_value =
-            bspline_basis_first_derivative(index, effective_degree, parameter, &knots, spline.controls.len());
-        let basis_second_value =
-            bspline_basis_second_derivative(index, effective_degree, parameter, &knots, spline.controls.len());
+        let basis_value = bspline_basis(
+            index,
+            effective_degree,
+            parameter,
+            &knots,
+            spline.controls.len(),
+        );
+        let basis_first_value = bspline_basis_first_derivative(
+            index,
+            effective_degree,
+            parameter,
+            &knots,
+            spline.controls.len(),
+        );
+        let basis_second_value = bspline_basis_second_derivative(
+            index,
+            effective_degree,
+            parameter,
+            &knots,
+            spline.controls.len(),
+        );
 
         point.x += basis_value * control_x;
         point.y += basis_value * control_y;
@@ -2926,7 +2964,14 @@ struct PointLineDistancePartials {
     d_p1_y: f64,
 }
 
-fn point_line_distance_partials(px: f64, py: f64, p0x: f64, p0y: f64, p1x: f64, p1y: f64) -> Option<PointLineDistancePartials> {
+fn point_line_distance_partials(
+    px: f64,
+    py: f64,
+    p0x: f64,
+    p0y: f64,
+    p1x: f64,
+    p1y: f64,
+) -> Option<PointLineDistancePartials> {
     let euclid_dist = libm::hypot(-p0x + p1x, p0y - p1y);
     if euclid_dist <= EPSILON {
         return None;
@@ -2939,18 +2984,18 @@ fn point_line_distance_partials(px: f64, py: f64, p0x: f64, p0y: f64, p1x: f64, 
         return None;
     }
 
-    let d_p0_x =
-        ((-p0x + p1x) * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x))) / denom
-            + (p1y - py) / euclid_dist;
-    let d_p0_y =
-        ((-p0y + p1y) * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x))) / denom
-            + (-p1x + px) / euclid_dist;
-    let d_p1_x =
-        ((p0x - p1x) * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x))) / denom
-            + (-p0y + py) / euclid_dist;
-    let d_p1_y =
-        ((p0y - p1y) * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x))) / denom
-            + (p0x - px) / euclid_dist;
+    let d_p0_x = ((-p0x + p1x) * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x)))
+        / denom
+        + (p1y - py) / euclid_dist;
+    let d_p0_y = ((-p0y + p1y) * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x)))
+        / denom
+        + (-p1x + px) / euclid_dist;
+    let d_p1_x = ((p0x - p1x) * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x)))
+        / denom
+        + (-p0y + py) / euclid_dist;
+    let d_p1_y = ((p0y - p1y) * (p0x * p1y - p0y * p1x + px * (p0y - p1y) + py * (-p0x + p1x)))
+        / denom
+        + (p0x - px) / euclid_dist;
 
     Some(PointLineDistancePartials {
         d_point_x,

@@ -5,8 +5,8 @@ use crate::{
     datatypes::{
         Angle, AngleKind,
         inputs::{
-            DatumCircle, DatumCircularArc, DatumControlPointSpline, DatumDistance, DatumLineSegment,
-            DatumPoint,
+            DatumCircle, DatumCircularArc, DatumControlPointSpline, DatumDistance,
+            DatumLineSegment, DatumPoint,
         },
         outputs::Point,
     },
@@ -1444,7 +1444,11 @@ fn point_spline_coincident_solves_internal_parameter() {
     };
 
     let constraints = vec![
-        ConstraintRequest::highest_priority(Constraint::PointSplineCoincident(spline.clone(), point, parameter)),
+        ConstraintRequest::highest_priority(Constraint::PointSplineCoincident(
+            spline.clone(),
+            point,
+            parameter,
+        )),
         ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_x(), 0.0)),
         ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_y(), 0.0)),
         ConstraintRequest::highest_priority(Constraint::Fixed(p1.id_x(), 1.0)),
@@ -1487,7 +1491,11 @@ fn spline_line_tangent_solves_internal_parameter() {
     let line = DatumLineSegment::new(line_start, line_end);
 
     let constraints = vec![
-        ConstraintRequest::highest_priority(Constraint::SplineLineTangent(spline.clone(), line, parameter)),
+        ConstraintRequest::highest_priority(Constraint::SplineLineTangent(
+            spline.clone(),
+            line,
+            parameter,
+        )),
         ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_x(), 0.0)),
         ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_y(), 0.0)),
         ConstraintRequest::highest_priority(Constraint::Fixed(p1.id_x(), 1.0)),
@@ -1535,7 +1543,11 @@ fn spline_line_tangent_can_solve_at_endpoint() {
     let line = DatumLineSegment::new(line_start, line_end);
 
     let constraints = vec![
-        ConstraintRequest::highest_priority(Constraint::SplineLineTangent(spline.clone(), line, parameter)),
+        ConstraintRequest::highest_priority(Constraint::SplineLineTangent(
+            spline.clone(),
+            line,
+            parameter,
+        )),
         ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_x(), -78.18)),
         ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_y(), -16.4)),
         ConstraintRequest::highest_priority(Constraint::Fixed(p1.id_x(), 46.85)),
@@ -1583,7 +1595,11 @@ fn spline_circle_tangent_solves_internal_parameter() {
     let circle = DatumCircle { center, radius };
 
     let constraints = vec![
-        ConstraintRequest::highest_priority(Constraint::SplineCircleTangent(spline.clone(), circle, parameter)),
+        ConstraintRequest::highest_priority(Constraint::SplineCircleTangent(
+            spline.clone(),
+            circle,
+            parameter,
+        )),
         ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_x(), 0.0)),
         ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_y(), 0.0)),
         ConstraintRequest::highest_priority(Constraint::Fixed(p1.id_x(), 1.0)),
