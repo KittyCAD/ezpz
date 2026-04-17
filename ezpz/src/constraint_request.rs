@@ -87,7 +87,7 @@ mod tests {
         assert_eq!(custom.priority, 5);
 
         let highest = ConstraintRequest::highest_priority(custom.constraint.clone());
-        let lower = ConstraintRequest::new(custom.constraint.clone(), 40);
+        let lower = ConstraintRequest::new(custom.constraint, 40);
         assert!(highest.priority < lower.priority);
     }
 

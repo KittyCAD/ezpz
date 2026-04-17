@@ -2955,6 +2955,7 @@ fn evaluate_control_point_spline(
     })
 }
 
+#[allow(clippy::struct_field_names)]
 struct PointLineDistancePartials {
     d_point_x: f64,
     d_point_y: f64,
