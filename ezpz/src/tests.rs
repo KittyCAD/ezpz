@@ -1008,8 +1008,8 @@ fn strange_nonconvergence() {
         ConstraintRequest::highest_priority(Constraint::PointsCoincident(r, s)),
         ConstraintRequest::highest_priority(Constraint::PointsCoincident(q, p)),
         ConstraintRequest::highest_priority(Constraint::LinesEqualLength(
-            datatypes::inputs::DatumLineSegment { p0: q, p1: r },
-            datatypes::inputs::DatumLineSegment { p0: s, p1: t },
+            DatumLineSegment { p0: q, p1: r },
+            DatumLineSegment { p0: s, p1: t },
         )),
     ];
     let initial_guesses = vec![
