@@ -193,13 +193,13 @@ pub(crate) fn solve_with_priority_inner<A: Analysis>(
         initial_values[*id as usize] = *guess;
     }
 
-    let initialized_reqs: Vec<_> = reqs
-        .iter()
-        .copied()
-        .map(|req| req.initialized_from_initial_values(&initial_values))
-        .collect();
+    // Infer any undefined constraint state from initial values
+    let mut reqs = reqs.to_vec();
+    for req in &mut reqs {
+        req.set_from_initial_values(&initial_values);
+    }
 
-    let reqs: Vec<_> = initialized_reqs
+    let reqs: Vec<_> = reqs
         .iter()
         .enumerate()
         .map(|(id, c)| ConstraintEntry {

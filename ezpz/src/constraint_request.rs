@@ -57,13 +57,8 @@ impl ConstraintRequest {
         self.priority
     }
 
-    pub(crate) fn initialized_from_initial_values(self, initial_values: &[f64]) -> Self {
-        Self {
-            constraint: self
-                .constraint
-                .initialized_from_initial_values(initial_values),
-            priority: self.priority,
-        }
+    pub(crate) fn set_from_initial_values(&mut self, initial_values: &[f64]) {
+        self.constraint.set_from_initial_values(initial_values);
     }
 }
 

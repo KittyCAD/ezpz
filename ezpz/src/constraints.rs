@@ -1,7 +1,6 @@
 use crate::{
     EPSILON,
     datatypes::{inputs::*, *},
-    dev_log,
     id::Id,
     solver::Layout,
     vector::{Rotation2, V},
@@ -126,35 +125,28 @@ impl std::fmt::Debug for JacobianVar {
 }
 
 impl Constraint {
-    pub(crate) fn initialized_from_initial_values(self, initial_values: &[f64]) -> Self {
+    pub(crate) fn set_from_initial_values(&mut self, initial_values: &[f64]) {
         match self {
-            Constraint::LineTangentToCircle(line, circle, side) => {
-                if side == LineSide::Undefined {
-                    // Infer side if undefined
-                    let p0 = V::new(
-                        initial_values[line.p0.id_x() as usize],
-                        initial_values[line.p0.id_y() as usize],
-                    );
-                    let p1 = V::new(
-                        initial_values[line.p1.id_x() as usize],
-                        initial_values[line.p1.id_y() as usize],
-                    );
-                    let c = V::new(
-                        initial_values[circle.center.id_x() as usize],
-                        initial_values[circle.center.id_y() as usize],
-                    );
-                    let inferred_side = if (p1 - p0).cross_2d(c - p0) >= 0.0 {
-                        LineSide::Left
-                    } else {
-                        LineSide::Right
-                    };
-                    Constraint::LineTangentToCircle(line, circle, inferred_side)
+            Constraint::LineTangentToCircle(line, circle, side) if *side == LineSide::Undefined => {
+                let p0 = V::new(
+                    initial_values[line.p0.id_x() as usize],
+                    initial_values[line.p0.id_y() as usize],
+                );
+                let p1 = V::new(
+                    initial_values[line.p1.id_x() as usize],
+                    initial_values[line.p1.id_y() as usize],
+                );
+                let c = V::new(
+                    initial_values[circle.center.id_x() as usize],
+                    initial_values[circle.center.id_y() as usize],
+                );
+                *side = if (p1 - p0).cross_2d(c - p0) >= 0.0 {
+                    LineSide::Left
                 } else {
-                    // Use given side otherwise
-                    Constraint::LineTangentToCircle(line, circle, side)
-                }
+                    LineSide::Right
+                };
             }
-            other => other,
+            _ => {}
         }
     }
 
