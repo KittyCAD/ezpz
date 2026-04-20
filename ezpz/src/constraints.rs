@@ -524,13 +524,13 @@ impl Constraint {
                     current_assignments[layout.index_of(circle_a.center.id_x())],
                     current_assignments[layout.index_of(circle_a.center.id_y())],
                 );
-                let a_r = current_assignments[layout.index_of(circle_a.radius.id)];
+                let a_r = current_assignments[layout.index_of(circle_a.radius.id)].abs();
 
                 let b_c = V::new(
                     current_assignments[layout.index_of(circle_b.center.id_x())],
                     current_assignments[layout.index_of(circle_b.center.id_y())],
                 );
-                let b_r = current_assignments[layout.index_of(circle_b.radius.id)];
+                let b_r = current_assignments[layout.index_of(circle_b.radius.id)].abs();
 
                 let dist = (a_c - b_c).magnitude();
                 *residual0 = if *side == CircleSide::Interior {
@@ -1048,12 +1048,19 @@ impl Constraint {
                 let b_r = current_assignments[layout.index_of(circle_b.radius.id)];
 
                 let d = b_c - a_c;
-                let d_u = d * d.magnitude().recip();
+                let mag_d = d.magnitude();
 
-                let dr_dax = d_u.x;
-                let dr_day = d_u.y;
-                let dr_dbx = -d_u.x;
-                let dr_dby = -d_u.y;
+                if mag_d <= EPSILON {
+                    *degenerate = true;
+                    return;
+                }
+
+                let u_d = d * mag_d.recip();
+
+                let dr_dax = u_d.x;
+                let dr_day = u_d.y;
+                let dr_dbx = -u_d.x;
+                let dr_dby = -u_d.y;
 
                 let (dr_dar, dr_dbr) = if *side == CircleSide::Interior {
                     if a_r > b_r { (1.0, -1.0) } else { (-1.0, 1.0) }
