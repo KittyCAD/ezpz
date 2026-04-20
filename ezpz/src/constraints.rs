@@ -1048,12 +1048,12 @@ impl Constraint {
                 let b_r = current_assignments[layout.index_of(circle_b.radius.id)];
 
                 let d = b_c - a_c;
-                let inv_dist = d.magnitude().recip();
+                let d_u = d * d.magnitude().recip();
 
-                let dr_dax = d.x * inv_dist;
-                let dr_day = d.y * inv_dist;
-                let dr_dbx = -dr_dax;
-                let dr_dby = -dr_day;
+                let dr_dax = d_u.x;
+                let dr_day = d_u.y;
+                let dr_dbx = -d_u.x;
+                let dr_dby = -d_u.y;
 
                 let (dr_dar, dr_dbr) = if *side == CircleSide::Interior {
                     if a_r > b_r { (1.0, -1.0) } else { (-1.0, 1.0) }
@@ -1083,7 +1083,7 @@ impl Constraint {
                         partial_derivative: dr_dby,
                     },
                     JacobianVar {
-                        id: circle_a.radius.id,
+                        id: circle_b.radius.id,
                         partial_derivative: dr_dbr,
                     },
                 ];
