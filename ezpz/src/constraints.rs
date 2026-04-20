@@ -929,17 +929,20 @@ impl Constraint {
             Constraint::LineTangentToCircle(line, circle, side) => {
                 // Residual: R = cross(u, v) / |u| - r
                 // where u = p1 - p0 and v = c - p0.
-                let p0_x = current_assignments[layout.index_of(line.p0.id_x())];
-                let p0_y = current_assignments[layout.index_of(line.p0.id_y())];
-                let p0 = V::new(p0_x, p0_y);
+                let p0 = V::new(
+                    current_assignments[layout.index_of(line.p0.id_x())],
+                    current_assignments[layout.index_of(line.p0.id_y())],
+                );
 
-                let p1_x = current_assignments[layout.index_of(line.p1.id_x())];
-                let p1_y = current_assignments[layout.index_of(line.p1.id_y())];
-                let p1 = V::new(p1_x, p1_y);
+                let p1 = V::new(
+                    current_assignments[layout.index_of(line.p1.id_x())],
+                    current_assignments[layout.index_of(line.p1.id_y())],
+                );
 
-                let c_x = current_assignments[layout.index_of(circle.center.id_x())];
-                let c_y = current_assignments[layout.index_of(circle.center.id_y())];
-                let c = V::new(c_x, c_y);
+                let c = V::new(
+                    current_assignments[layout.index_of(circle.center.id_x())],
+                    current_assignments[layout.index_of(circle.center.id_y())],
+                );
 
                 let u = p1 - p0;
                 let mag_u = u.magnitude();
@@ -968,7 +971,7 @@ impl Constraint {
                 let dr_dyc = dr_dv_y;
                 let dr_dr = -1.0;
 
-                let jvars = [
+                let coeffs = [
                     JacobianVar {
                         id: line.p0.id_x(),
                         partial_derivative: dr_dx0,
@@ -998,7 +1001,7 @@ impl Constraint {
                         partial_derivative: dr_dr,
                     },
                 ];
-                row0.extend(jvars.as_slice());
+                row0.extend(coeffs.as_slice());
             }
             Constraint::CircleTangentToCircle(circle_a, circle_b) => {
                 // Get current state of the entities.
