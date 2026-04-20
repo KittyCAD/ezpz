@@ -308,7 +308,7 @@ fn circle_tangent_other_dir() {
 }
 
 #[test]
-fn line_tangent_left_side_solves_above_horizontal_line() {
+fn line_tangent_left_explicit() {
     let mut ids = IdGenerator::default();
     let p0 = DatumPoint::new(&mut ids);
     let p1 = DatumPoint::new(&mut ids);
@@ -318,11 +318,8 @@ fn line_tangent_left_side_solves_above_horizontal_line() {
     let circle = DatumCircle { center, radius };
 
     let constraints = vec![
-        ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_x(), 0.0)),
         ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_y(), 3.0)),
-        ConstraintRequest::highest_priority(Constraint::Fixed(p1.id_x(), 5.0)),
         ConstraintRequest::highest_priority(Constraint::Fixed(p1.id_y(), 3.0)),
-        ConstraintRequest::highest_priority(Constraint::Fixed(center.id_x(), 2.0)),
         ConstraintRequest::highest_priority(Constraint::CircleRadius(circle, 1.5)),
         ConstraintRequest::highest_priority(Constraint::LineTangentToCircle(
             line,
@@ -348,7 +345,7 @@ fn line_tangent_left_side_solves_above_horizontal_line() {
 }
 
 #[test]
-fn line_tangent_right_side_solves_below_horizontal_line() {
+fn line_tangent_right_explicit() {
     let mut ids = IdGenerator::default();
     let p0 = DatumPoint::new(&mut ids);
     let p1 = DatumPoint::new(&mut ids);
@@ -358,11 +355,8 @@ fn line_tangent_right_side_solves_below_horizontal_line() {
     let circle = DatumCircle { center, radius };
 
     let constraints = vec![
-        ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_x(), 0.0)),
         ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_y(), 3.0)),
-        ConstraintRequest::highest_priority(Constraint::Fixed(p1.id_x(), 5.0)),
         ConstraintRequest::highest_priority(Constraint::Fixed(p1.id_y(), 3.0)),
-        ConstraintRequest::highest_priority(Constraint::Fixed(center.id_x(), 2.0)),
         ConstraintRequest::highest_priority(Constraint::CircleRadius(circle, 1.5)),
         ConstraintRequest::highest_priority(Constraint::LineTangentToCircle(
             line,
@@ -388,7 +382,7 @@ fn line_tangent_right_side_solves_below_horizontal_line() {
 }
 
 #[test]
-fn line_tangent_undefined_infers_left_from_initial_guess() {
+fn line_tangent_left_inferred() {
     let mut ids = IdGenerator::default();
     let p0 = DatumPoint::new(&mut ids);
     let p1 = DatumPoint::new(&mut ids);
@@ -398,11 +392,8 @@ fn line_tangent_undefined_infers_left_from_initial_guess() {
     let circle = DatumCircle { center, radius };
 
     let constraints = vec![
-        ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_x(), 0.0)),
         ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_y(), 3.0)),
-        ConstraintRequest::highest_priority(Constraint::Fixed(p1.id_x(), 5.0)),
         ConstraintRequest::highest_priority(Constraint::Fixed(p1.id_y(), 3.0)),
-        ConstraintRequest::highest_priority(Constraint::Fixed(center.id_x(), 2.0)),
         ConstraintRequest::highest_priority(Constraint::CircleRadius(circle, 1.5)),
         ConstraintRequest::highest_priority(Constraint::LineTangentToCircle(
             line,
@@ -428,7 +419,7 @@ fn line_tangent_undefined_infers_left_from_initial_guess() {
 }
 
 #[test]
-fn line_tangent_undefined_infers_right_from_initial_guess() {
+fn line_tangent_right_inferred() {
     let mut ids = IdGenerator::default();
     let p0 = DatumPoint::new(&mut ids);
     let p1 = DatumPoint::new(&mut ids);
@@ -438,11 +429,8 @@ fn line_tangent_undefined_infers_right_from_initial_guess() {
     let circle = DatumCircle { center, radius };
 
     let constraints = vec![
-        ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_x(), 0.0)),
         ConstraintRequest::highest_priority(Constraint::Fixed(p0.id_y(), 3.0)),
-        ConstraintRequest::highest_priority(Constraint::Fixed(p1.id_x(), 5.0)),
         ConstraintRequest::highest_priority(Constraint::Fixed(p1.id_y(), 3.0)),
-        ConstraintRequest::highest_priority(Constraint::Fixed(center.id_x(), 2.0)),
         ConstraintRequest::highest_priority(Constraint::CircleRadius(circle, 1.5)),
         ConstraintRequest::highest_priority(Constraint::LineTangentToCircle(
             line,
