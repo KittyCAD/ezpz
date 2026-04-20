@@ -6,7 +6,7 @@ pub use crate::analysis::FreedomAnalysis;
 use crate::analysis::{Analysis, NoAnalysis, SolveOutcomeAnalysis};
 pub use crate::constraint_request::ConstraintRequest;
 use crate::constraints::ConstraintEntry;
-pub use crate::constraints::{Constraint, LineSide, CircleSide};
+pub use crate::constraints::{CircleSide, Constraint, LineSide};
 pub use crate::error::*;
 pub use crate::solver::Config;
 // Only public for now so that I can benchmark it.
