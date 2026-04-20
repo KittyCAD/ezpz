@@ -4,7 +4,7 @@ use std::f64::consts::PI;
 use proptest::prelude::*;
 
 use crate::{
-    Config, Constraint, ConstraintRequest, EPSILON, Id, IdGenerator, LineSide,
+    Config, Constraint, ConstraintRequest, EPSILON, Id, IdGenerator, LineSide, CircleSide,
     constraints::JacobianVar,
     datatypes::inputs::{
         DatumCircle, DatumCircularArc, DatumDistance, DatumLineSegment, DatumPoint,
@@ -84,12 +84,17 @@ fn arb_line_side() -> BoxedStrategy<LineSide> {
     prop_oneof![Just(LineSide::Left), Just(LineSide::Right)].boxed()
 }
 
+fn arb_circle_side() -> BoxedStrategy<CircleSide> {
+    prop_oneof![Just(CircleSide::Exterior), Just(CircleSide::Interior)].boxed()
+}
+
 fn arb_constraint() -> BoxedStrategy<Constraint> {
     prop_oneof![
         (arb_line(), arb_circle(), arb_line_side())
             .prop_map(|(line, circle, side)| Constraint::LineTangentToCircle(line, circle, side)),
-        (arb_circle(), arb_circle())
-            .prop_map(|(circle0, circle1)| Constraint::CircleTangentToCircle(circle0, circle1)),
+        (arb_circle(), arb_circle(), arb_circle_side()).prop_map(|(circle0, circle1, side)| {
+            Constraint::CircleTangentToCircle(circle0, circle1, side)
+        }),
         (arb_point(), arb_point(), arb_scalar())
             .prop_map(|(p0, p1, dist)| Constraint::Distance(p0, p1, dist)),
         (arb_point(), arb_point(), arb_distance())
@@ -896,7 +901,15 @@ fn test_circle_circle_tangent(
         ConstraintRequest::highest_priority(Constraint::Fixed(circle_a.radius.id, ar)),
         ConstraintRequest::highest_priority(Constraint::Fixed(circle_b.center.id_y(), by)),
         ConstraintRequest::highest_priority(Constraint::Fixed(circle_b.radius.id, br)),
-        ConstraintRequest::highest_priority(Constraint::CircleTangentToCircle(circle_a, circle_b)),
+        ConstraintRequest::highest_priority(Constraint::CircleTangentToCircle(
+            circle_a,
+            circle_b,
+            if is_internal {
+                CircleSide::Interior
+            } else {
+                CircleSide::Exterior
+            },
+        )),
     ];
 
     let outcome = solve(&requests, initial_guesses, Config::default())

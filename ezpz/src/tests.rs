@@ -2,7 +2,7 @@ use std::{f64::consts::PI, str::FromStr};
 
 use super::*;
 use crate::{
-    LineSide,
+    CircleSide, LineSide,
     datatypes::{
         Angle, AngleKind,
         inputs::{DatumCircle, DatumCircularArc, DatumDistance, DatumLineSegment, DatumPoint},
@@ -453,6 +453,80 @@ fn line_tangent_right_inferred() {
     let solved_circle = solved.final_value_circle(&circle);
     assert_nearly_eq(solved_circle.center.y, 1.5);
     assert_nearly_eq(solved_circle.radius, 1.5);
+}
+
+#[test]
+fn circle_tangent_external_inferred() {
+    let mut ids = IdGenerator::default();
+    let circle_a = DatumCircle {
+        center: DatumPoint::new(&mut ids),
+        radius: DatumDistance::new(ids.next_id()),
+    };
+    let circle_b = DatumCircle {
+        center: DatumPoint::new(&mut ids),
+        radius: DatumDistance::new(ids.next_id()),
+    };
+
+    let initial_guesses = vec![
+        (circle_a.center.id_x(), 0.0),
+        (circle_a.center.id_y(), 0.0),
+        (circle_a.radius.id, 2.0),
+        (circle_b.center.id_x(), 4.0),
+        (circle_b.center.id_y(), 0.0),
+        (circle_b.radius.id, 3.0),
+    ];
+    let constraints = [
+        ConstraintRequest::highest_priority(Constraint::Fixed(circle_a.radius.id, 2.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(circle_b.radius.id, 3.0)),
+        ConstraintRequest::highest_priority(Constraint::CircleTangentToCircle(
+            circle_a,
+            circle_b,
+            CircleSide::Undefined,
+        )),
+    ];
+
+    let outcome = solve(&constraints, initial_guesses, Config::default()).unwrap();
+    assert!(outcome.is_satisfied());
+    let center_a = outcome.final_value_point(&circle_a.center);
+    let center_b = outcome.final_value_point(&circle_b.center);
+    assert_nearly_eq(center_a.euclidean_distance(center_b), 5.0);
+}
+
+#[test]
+fn circle_tangent_internal_inferred() {
+    let mut ids = IdGenerator::default();
+    let circle_a = DatumCircle {
+        center: DatumPoint::new(&mut ids),
+        radius: DatumDistance::new(ids.next_id()),
+    };
+    let circle_b = DatumCircle {
+        center: DatumPoint::new(&mut ids),
+        radius: DatumDistance::new(ids.next_id()),
+    };
+
+    let initial_guesses = vec![
+        (circle_a.center.id_x(), 0.0),
+        (circle_a.center.id_y(), 0.0),
+        (circle_a.radius.id, 5.0),
+        (circle_b.center.id_x(), 1.0),
+        (circle_b.center.id_y(), 0.0),
+        (circle_b.radius.id, 2.0),
+    ];
+    let constraints = [
+        ConstraintRequest::highest_priority(Constraint::Fixed(circle_a.radius.id, 5.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(circle_b.radius.id, 2.0)),
+        ConstraintRequest::highest_priority(Constraint::CircleTangentToCircle(
+            circle_a,
+            circle_b,
+            CircleSide::Undefined,
+        )),
+    ];
+
+    let outcome = solve(&constraints, initial_guesses, Config::default()).unwrap();
+    assert!(outcome.is_satisfied());
+    let center_a = outcome.final_value_point(&circle_a.center);
+    let center_b = outcome.final_value_point(&circle_b.center);
+    assert_nearly_eq(center_a.euclidean_distance(center_b), 3.0);
 }
 
 #[test]
