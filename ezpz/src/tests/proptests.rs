@@ -4,7 +4,7 @@ use std::f64::consts::PI;
 use proptest::prelude::*;
 
 use crate::{
-    Config, Constraint, ConstraintRequest, EPSILON, Id, IdGenerator, LineSide, CircleSide,
+    CircleSide, Config, Constraint, ConstraintRequest, EPSILON, Id, IdGenerator, LineSide,
     constraints::JacobianVar,
     datatypes::inputs::{
         DatumCircle, DatumCircularArc, DatumDistance, DatumLineSegment, DatumPoint,
