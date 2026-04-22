@@ -8,7 +8,7 @@ use std::str::FromStr;
 pub use executor::ConstraintSystem;
 pub use executor::Outcome;
 pub use executor::OutcomeAnalysis;
-use instruction::Instruction;
+use instruction::{DeclareSpline, Instruction};
 use winnow::Parser;
 
 use crate::datatypes::outputs::Point;
@@ -35,6 +35,7 @@ pub struct Problem {
     inner_points: Vec<Label>,
     inner_circles: Vec<Label>,
     inner_arcs: Vec<Label>,
+    inner_splines: Vec<DeclareSpline>,
     inner_lines: Vec<(Label, Label)>,
     point_guesses: Vec<PointGuess>,
     scalar_guesses: Vec<ScalarGuess>,

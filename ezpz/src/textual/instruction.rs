@@ -7,6 +7,7 @@ pub(crate) enum Instruction {
     DeclarePoint(DeclarePoint),
     DeclareCircle(DeclareCircle),
     DeclareArc(DeclareArc),
+    DeclareSpline(DeclareSpline),
     FixPointComponent(FixPointComponent),
     Vertical(Vertical),
     Horizontal(Horizontal),
@@ -27,6 +28,9 @@ pub(crate) enum Instruction {
     PointLineDistance(PointLineDistance),
     Line(Line),
     ArcLength(ArcLength),
+    PointSplineCoincident(PointSplineCoincident),
+    SplineLineTangent(SplineLineTangent),
+    SplineCircleTangent(SplineCircleTangent),
 }
 
 #[derive(Debug)]
@@ -156,6 +160,13 @@ pub struct DeclareArc {
     pub label: Label,
 }
 
+#[derive(Debug, Clone)]
+pub struct DeclareSpline {
+    pub label: Label,
+    pub degree: usize,
+    pub controls: Vec<Label>,
+}
+
 #[derive(Debug)]
 pub struct FixPointComponent {
     pub point: Label,
@@ -168,4 +179,23 @@ pub struct FixCenterPointComponent {
     pub object: Label,
     pub center_component: Component,
     pub value: f64,
+}
+
+#[derive(Debug)]
+pub struct PointSplineCoincident {
+    pub point: Label,
+    pub spline: Label,
+}
+
+#[derive(Debug)]
+pub struct SplineLineTangent {
+    pub spline: Label,
+    pub line_p0: Label,
+    pub line_p1: Label,
+}
+
+#[derive(Debug)]
+pub struct SplineCircleTangent {
+    pub spline: Label,
+    pub circle: Label,
 }

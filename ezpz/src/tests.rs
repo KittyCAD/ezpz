@@ -1474,6 +1474,36 @@ fn point_spline_coincident_solves_internal_parameter() {
 }
 
 #[test]
+fn textual_point_spline_coincident_solves() {
+    let txt = r#"# constraints
+point p0
+point p1
+point p2
+point q
+spline s(2, p0, p1, p2)
+point_spline_coincident(q, s)
+p0 = (0, 0)
+p1 = (1, 2)
+p2 = (2, 0)
+q = (1, 1)
+
+# guesses
+p0 roughly (0, 0)
+p1 roughly (1, 2)
+p2 roughly (2, 0)
+q roughly (1, 1)
+"#;
+    let problem = parse_problem(txt);
+    let outcome = problem
+        .to_constraint_system()
+        .unwrap()
+        .solve_with_config_analysis(Config::default())
+        .unwrap();
+    assert!(outcome.is_satisfied());
+    assert_eq!(outcome.get_point("q"), Some(Point { x: 1.0, y: 1.0 }));
+}
+
+#[test]
 fn spline_line_tangent_solves_internal_parameter() {
     let mut ids = IdGenerator::default();
     let p0 = DatumPoint::new(&mut ids);
@@ -1518,6 +1548,38 @@ fn spline_line_tangent_solves_internal_parameter() {
     let outcome = solve(&constraints, initial_guesses, Config::default()).unwrap();
     assert!(outcome.is_satisfied());
     assert_nearly_eq(outcome.final_values[parameter.id as usize], 0.5);
+}
+
+#[test]
+fn textual_spline_line_tangent_solves() {
+    let txt = r#"# constraints
+point p0
+point p1
+point p2
+point l0
+point l1
+spline s(2, p0, p1, p2)
+spline_line_tangent(s, l0, l1)
+p0 = (0, 0)
+p1 = (1, 2)
+p2 = (2, 0)
+l0 = (0, 1)
+l1 = (2, 1)
+
+# guesses
+p0 roughly (0, 0)
+p1 roughly (1, 2)
+p2 roughly (2, 0)
+l0 roughly (0, 1)
+l1 roughly (2, 1)
+"#;
+    let problem = parse_problem(txt);
+    let outcome = problem
+        .to_constraint_system()
+        .unwrap()
+        .solve_with_config_analysis(Config::default())
+        .unwrap();
+    assert!(outcome.is_satisfied());
 }
 
 #[test]
