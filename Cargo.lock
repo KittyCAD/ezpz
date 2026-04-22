@@ -597,7 +597,6 @@ dependencies = [
  "proptest",
  "thiserror 2.0.17",
  "twenty-twenty",
- "web-sys",
  "winnow",
 ]
 

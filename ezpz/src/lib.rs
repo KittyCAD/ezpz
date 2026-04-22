@@ -42,21 +42,6 @@ mod warnings;
 
 const EPSILON: f64 = 1e-4;
 
-/// Lightweight development logging that works in both native and wasm builds.
-pub fn dev_log(msg: impl AsRef<str>) {
-    dev_log_impl(msg.as_ref());
-}
-
-#[cfg(target_arch = "wasm32")]
-fn dev_log_impl(msg: &str) {
-    web_sys::console::log_1(&msg.into());
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn dev_log_impl(msg: &str) {
-    eprintln!("{msg}");
-}
-
 /// Given some initial guesses, constrain them.
 /// Returns the same variables in the same order, but constrained.
 /// ```
