@@ -176,6 +176,14 @@ impl GeometryVariables<ArcsState> {
     }
 }
 
+impl GeometryVariables<ArcsState> {
+    /// Add an extra hidden scalar variable after all user-visible arcs.
+    pub fn push_hidden_scalar(&mut self, id_generator: &mut IdGenerator, guess: f64) -> Id {
+        self.push_scalar(id_generator, guess);
+        self.variables.last().expect("just pushed hidden scalar").0
+    }
+}
+
 pub struct PointVars {
     pub x: Id,
     pub y: Id,

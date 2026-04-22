@@ -13,9 +13,10 @@ use crate::NoAnalysis;
 use crate::SolveOutcome;
 use crate::SolveOutcomeAnalysis;
 use crate::Warning;
-use crate::datatypes;
 use crate::datatypes::AngleKind;
+use crate::datatypes::inputs::DatumCircle;
 use crate::datatypes::inputs::DatumCircularArc;
+use crate::datatypes::inputs::DatumControlPointSpline;
 use crate::datatypes::inputs::DatumDistance;
 use crate::datatypes::inputs::DatumLineSegment;
 use crate::datatypes::inputs::DatumPoint;
@@ -23,6 +24,7 @@ use crate::datatypes::outputs::Arc;
 use crate::datatypes::outputs::{Circle, Component, Point};
 use crate::error::TextualError;
 use crate::textual::Label;
+use crate::textual::geometry_variables::ArcsState;
 use crate::textual::geometry_variables::DoneState;
 use crate::textual::geometry_variables::GeometryVariables;
 use crate::textual::geometry_variables::PointsState;
@@ -31,6 +33,119 @@ use crate::textual::instruction::*;
 
 use super::Instruction;
 use super::Problem;
+
+fn datum_point_for_label(
+    problem: &Problem,
+    initial_guesses: &GeometryVariables<ArcsState>,
+    label: &Label,
+) -> Result<DatumPoint, TextualError> {
+    if let Some(point_id) = problem.inner_points.iter().position(|p| p == &label.0) {
+        let ids = initial_guesses.point_ids(point_id);
+        return Ok(DatumPoint {
+            x_id: ids.x,
+            y_id: ids.y,
+        });
+    }
+    if let Some(circle_id) = problem
+        .inner_circles
+        .iter()
+        .position(|circ| format!("{}.center", circ.0) == label.0.as_str())
+    {
+        let center = initial_guesses.circle_ids(circle_id).center;
+        return Ok(DatumPoint {
+            x_id: center.x,
+            y_id: center.y,
+        });
+    }
+    if let Some(arc_id) = problem
+        .inner_arcs
+        .iter()
+        .position(|arc| format!("{}.center", arc.0) == label.0.as_str())
+    {
+        let center = initial_guesses.arc_ids(arc_id).center;
+        return Ok(center.into());
+    }
+    if let Some(arc_id) = problem
+        .inner_arcs
+        .iter()
+        .position(|arc| format!("{}.a", arc.0) == label.0.as_str())
+    {
+        let start = initial_guesses.arc_ids(arc_id).start;
+        return Ok(start.into());
+    }
+    if let Some(arc_id) = problem
+        .inner_arcs
+        .iter()
+        .position(|arc| format!("{}.b", arc.0) == label.0.as_str())
+    {
+        let end = initial_guesses.arc_ids(arc_id).end;
+        return Ok(end.into());
+    }
+    Err(TextualError::UndefinedPoint {
+        label: label.0.clone(),
+    })
+}
+
+fn datum_distance_for_label(
+    problem: &Problem,
+    initial_guesses: &GeometryVariables<ArcsState>,
+    label: &Label,
+) -> Result<DatumDistance, TextualError> {
+    if let Some(circle_id) = problem
+        .inner_circles
+        .iter()
+        .position(|circ| format!("{}.radius", circ.0) == label.0.as_str())
+    {
+        let ids = initial_guesses.circle_ids(circle_id);
+        return Ok(DatumDistance { id: ids.radius });
+    }
+    Err(TextualError::UndefinedPoint {
+        label: label.0.clone(),
+    })
+}
+
+fn datum_circle_for_label(
+    problem: &Problem,
+    initial_guesses: &GeometryVariables<ArcsState>,
+    label: &Label,
+) -> Result<DatumCircle, TextualError> {
+    let center = datum_point_for_label(
+        problem,
+        initial_guesses,
+        &Label(format!("{}.center", label.0)),
+    )?;
+    let radius = datum_distance_for_label(
+        problem,
+        initial_guesses,
+        &Label(format!("{}.radius", label.0)),
+    )?;
+    Ok(DatumCircle { center, radius })
+}
+
+fn datum_control_point_spline_for_label(
+    problem: &Problem,
+    initial_guesses: &GeometryVariables<ArcsState>,
+    label: &Label,
+) -> Result<DatumControlPointSpline, TextualError> {
+    let Some(spline) = problem
+        .inner_splines
+        .iter()
+        .find(|spline| spline.label == *label)
+    else {
+        return Err(TextualError::UndefinedPoint {
+            label: label.0.clone(),
+        });
+    };
+    let controls = spline
+        .controls
+        .iter()
+        .map(|control| datum_point_for_label(problem, initial_guesses, control))
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(DatumControlPointSpline {
+        controls: controls.into_boxed_slice(),
+        degree: spline.degree,
+    })
+}
 
 impl Problem {
     /// Build a [`ConstraintSystem`] which models the system in this problem.
@@ -117,107 +232,59 @@ impl Problem {
         // Good. Now we can define all the constraints, referencing the solver variables that
         // were defined in the previous step.
         let mut constraints = Vec::new();
-        let datum_point_for_label = |label: &Label| -> Result<DatumPoint, TextualError> {
-            // Is the point a single geometric point?
-            if let Some(point_id) = self.inner_points.iter().position(|p| p == &label.0) {
-                let ids = initial_guesses.point_ids(point_id);
-                return Ok(DatumPoint {
-                    x_id: ids.x,
-                    y_id: ids.y,
-                });
-            }
-            // Maybe it's a point in a circle?
-            if let Some(circle_id) = self
-                .inner_circles
-                .iter()
-                .position(|circ| format!("{}.center", circ.0) == label.0.as_str())
-            {
-                let center = initial_guesses.circle_ids(circle_id).center;
-                return Ok(DatumPoint {
-                    x_id: center.x,
-                    y_id: center.y,
-                });
-            }
-            // Maybe it's a point in an arc?
-            // Is it an arc's center?
-            if let Some(arc_id) = self
-                .inner_arcs
-                .iter()
-                .position(|arc| format!("{}.center", arc.0) == label.0.as_str())
-            {
-                let center = initial_guesses.arc_ids(arc_id).center;
-                return Ok(center.into());
-            }
-            // Is it an arc's start point (labeled as `.a` in textual format)?
-            if let Some(arc_id) = self
-                .inner_arcs
-                .iter()
-                .position(|arc| format!("{}.a", arc.0) == label.0.as_str())
-            {
-                let start = initial_guesses.arc_ids(arc_id).start;
-                return Ok(start.into());
-            }
-            // Is it an arc's end point (labeled as `.b` in textual format)?
-            if let Some(arc_id) = self
-                .inner_arcs
-                .iter()
-                .position(|arc| format!("{}.b", arc.0) == label.0.as_str())
-            {
-                let end = initial_guesses.arc_ids(arc_id).end;
-                return Ok(end.into());
-            }
-            // Well, it wasn't any of the geometries we recognize.
-            Err(TextualError::UndefinedPoint {
-                label: label.0.clone(),
-            })
-        };
-        let datum_distance_for_label = |label: &Label| -> Result<DatumDistance, TextualError> {
-            if let Some(circle_id) = self
-                .inner_circles
-                .iter()
-                .position(|circ| format!("{}.radius", circ.0) == label.0.as_str())
-            {
-                let ids = initial_guesses.circle_ids(circle_id);
-                return Ok(DatumDistance { id: ids.radius });
-            }
-            Err(TextualError::UndefinedPoint {
-                label: label.0.clone(),
-            })
-        };
 
         for instr in &self.instructions {
             match instr {
                 Instruction::DeclarePoint(_) => {}
                 Instruction::DeclareCircle(_) => {}
                 Instruction::DeclareArc(_) => {}
+                Instruction::DeclareSpline(_) => {}
                 Instruction::Line(_) => {}
                 Instruction::CircleRadius(CircleRadius { circle, radius }) => {
-                    let circ = &circle.0;
-                    let center_id = datum_point_for_label(&Label(format!("{circ}.center")))?;
-                    let radius_id = datum_distance_for_label(&Label(format!("{circ}.radius")))?;
                     constraints.push(Constraint::CircleRadius(
-                        datatypes::inputs::DatumCircle {
-                            center: center_id,
-                            radius: radius_id,
-                        },
+                        datum_circle_for_label(self, &initial_guesses, circle)?,
                         *radius,
                     ));
                 }
                 Instruction::ArcRadius(ArcRadius { arc_label, radius }) => {
                     let arc_label = &arc_label.0;
                     let circular_arc = DatumCircularArc {
-                        center: datum_point_for_label(&Label(format!("{arc_label}.center")))?,
-                        start: datum_point_for_label(&Label(format!("{arc_label}.a")))?,
-                        end: datum_point_for_label(&Label(format!("{arc_label}.b")))?,
+                        center: datum_point_for_label(
+                            self,
+                            &initial_guesses,
+                            &Label(format!("{arc_label}.center")),
+                        )?,
+                        start: datum_point_for_label(
+                            self,
+                            &initial_guesses,
+                            &Label(format!("{arc_label}.a")),
+                        )?,
+                        end: datum_point_for_label(
+                            self,
+                            &initial_guesses,
+                            &Label(format!("{arc_label}.b")),
+                        )?,
                     };
                     constraints.push(Constraint::ArcRadius(circular_arc, *radius));
                 }
                 Instruction::IsArc(IsArc { arc_label }) => {
                     let arc_label = &arc_label.0;
                     let circular_arc = DatumCircularArc {
-                        center: datum_point_for_label(&Label(format!("{arc_label}.center")))?,
-                        start: datum_point_for_label(&Label(format!("{arc_label}.a")))?,
-                        end: datum_point_for_label(&Label(format!("{arc_label}.b")))?,
+                        center: datum_point_for_label(
+                            self,
+                            &initial_guesses,
+                            &Label(format!("{arc_label}.center")),
+                        )?,
+                        start: datum_point_for_label(
+                            self,
+                            &initial_guesses,
+                            &Label(format!("{arc_label}.a")),
+                        )?,
+                        end: datum_point_for_label(
+                            self,
+                            &initial_guesses,
+                            &Label(format!("{arc_label}.b")),
+                        )?,
                     };
                     constraints.push(Constraint::Arc(circular_arc));
                 }
@@ -228,10 +295,10 @@ impl Problem {
                     distance,
                 }) => {
                     let line = DatumLineSegment {
-                        p0: datum_point_for_label(line_p0)?,
-                        p1: datum_point_for_label(line_p1)?,
+                        p0: datum_point_for_label(self, &initial_guesses, line_p0)?,
+                        p1: datum_point_for_label(self, &initial_guesses, line_p1)?,
                     };
-                    let p = datum_point_for_label(point)?;
+                    let p = datum_point_for_label(self, &initial_guesses, point)?;
                     constraints.push(Constraint::PointLineDistance(p, line, *distance));
                 }
                 Instruction::Tangent(Tangent {
@@ -239,20 +306,48 @@ impl Problem {
                     line_p0,
                     line_p1,
                 }) => {
-                    let circ = &circle.0;
-                    let center_id = datum_point_for_label(&Label(format!("{circ}.center")))?;
-                    let radius_id = datum_distance_for_label(&Label(format!("{circ}.radius")))?;
                     let line = DatumLineSegment {
-                        p0: datum_point_for_label(line_p0)?,
-                        p1: datum_point_for_label(line_p1)?,
+                        p0: datum_point_for_label(self, &initial_guesses, line_p0)?,
+                        p1: datum_point_for_label(self, &initial_guesses, line_p1)?,
                     };
                     constraints.push(Constraint::LineTangentToCircle(
                         line,
-                        datatypes::inputs::DatumCircle {
-                            center: center_id,
-                            radius: radius_id,
-                        },
+                        datum_circle_for_label(self, &initial_guesses, circle)?,
                     ));
+                }
+                Instruction::PointSplineCoincident(PointSplineCoincident { point, spline }) => {
+                    let spline =
+                        datum_control_point_spline_for_label(self, &initial_guesses, spline)?;
+                    let point = datum_point_for_label(self, &initial_guesses, point)?;
+                    let parameter = DatumDistance::new(
+                        initial_guesses.push_hidden_scalar(&mut id_generator, 0.5),
+                    );
+                    constraints.push(Constraint::PointSplineCoincident(spline, point, parameter));
+                }
+                Instruction::SplineLineTangent(SplineLineTangent {
+                    spline,
+                    line_p0,
+                    line_p1,
+                }) => {
+                    let spline =
+                        datum_control_point_spline_for_label(self, &initial_guesses, spline)?;
+                    let line = DatumLineSegment {
+                        p0: datum_point_for_label(self, &initial_guesses, line_p0)?,
+                        p1: datum_point_for_label(self, &initial_guesses, line_p1)?,
+                    };
+                    let parameter = DatumDistance::new(
+                        initial_guesses.push_hidden_scalar(&mut id_generator, 0.5),
+                    );
+                    constraints.push(Constraint::SplineLineTangent(spline, line, parameter));
+                }
+                Instruction::SplineCircleTangent(SplineCircleTangent { spline, circle }) => {
+                    let spline =
+                        datum_control_point_spline_for_label(self, &initial_guesses, spline)?;
+                    let circle = datum_circle_for_label(self, &initial_guesses, circle)?;
+                    let parameter = DatumDistance::new(
+                        initial_guesses.push_hidden_scalar(&mut id_generator, 0.5),
+                    );
+                    constraints.push(Constraint::SplineCircleTangent(spline, circle, parameter));
                 }
                 Instruction::FixPointComponent(FixPointComponent {
                     point,
@@ -317,37 +412,49 @@ impl Problem {
                     }
                 }
                 Instruction::Vertical(Vertical { label }) => {
-                    let p0 = datum_point_for_label(&label.0)?;
-                    let p1 = datum_point_for_label(&label.1)?;
+                    let p0 = datum_point_for_label(self, &initial_guesses, &label.0)?;
+                    let p1 = datum_point_for_label(self, &initial_guesses, &label.1)?;
                     constraints.push(Constraint::Vertical(DatumLineSegment { p0, p1 }));
                 }
                 Instruction::PointsCoincident(PointsCoincident { point0, point1 }) => {
-                    let p0 = datum_point_for_label(point0)?;
-                    let p1 = datum_point_for_label(point1)?;
+                    let p0 = datum_point_for_label(self, &initial_guesses, point0)?;
+                    let p1 = datum_point_for_label(self, &initial_guesses, point1)?;
                     constraints.push(Constraint::PointsCoincident(p0, p1));
                 }
                 Instruction::PointArcCoincident(PointArcCoincident { point, arc }) => {
-                    let p = datum_point_for_label(point)?;
+                    let p = datum_point_for_label(self, &initial_guesses, point)?;
                     let arc_label = &arc.0;
                     let datum_arc = DatumCircularArc {
-                        center: datum_point_for_label(&Label(format!("{arc_label}.center")))?,
-                        start: datum_point_for_label(&Label(format!("{arc_label}.a")))?,
-                        end: datum_point_for_label(&Label(format!("{arc_label}.b")))?,
+                        center: datum_point_for_label(
+                            self,
+                            &initial_guesses,
+                            &Label(format!("{arc_label}.center")),
+                        )?,
+                        start: datum_point_for_label(
+                            self,
+                            &initial_guesses,
+                            &Label(format!("{arc_label}.a")),
+                        )?,
+                        end: datum_point_for_label(
+                            self,
+                            &initial_guesses,
+                            &Label(format!("{arc_label}.b")),
+                        )?,
                     };
                     constraints.push(Constraint::PointArcCoincident(datum_arc, p));
                 }
                 Instruction::Midpoint(Midpoint { point0, point1, mp }) => {
-                    let p0 = datum_point_for_label(point0)?;
-                    let p1 = datum_point_for_label(point1)?;
-                    let mp = datum_point_for_label(mp)?;
+                    let p0 = datum_point_for_label(self, &initial_guesses, point0)?;
+                    let p1 = datum_point_for_label(self, &initial_guesses, point1)?;
+                    let mp = datum_point_for_label(self, &initial_guesses, mp)?;
                     constraints.push(Constraint::Midpoint(DatumLineSegment { p0, p1 }, mp));
                 }
                 Instruction::Symmetric(Symmetric { p0, p1, line }) => {
-                    let p0 = datum_point_for_label(p0)?;
-                    let p1 = datum_point_for_label(p1)?;
+                    let p0 = datum_point_for_label(self, &initial_guesses, p0)?;
+                    let p1 = datum_point_for_label(self, &initial_guesses, p1)?;
                     let line = (
-                        datum_point_for_label(&line.0)?,
-                        datum_point_for_label(&line.1)?,
+                        datum_point_for_label(self, &initial_guesses, &line.0)?,
+                        datum_point_for_label(self, &initial_guesses, &line.1)?,
                     );
                     let line = DatumLineSegment {
                         p0: line.0,
@@ -356,40 +463,40 @@ impl Problem {
                     constraints.push(Constraint::Symmetric(line, p0, p1));
                 }
                 Instruction::Horizontal(Horizontal { label }) => {
-                    let p0 = datum_point_for_label(&label.0)?;
-                    let p1 = datum_point_for_label(&label.1)?;
+                    let p0 = datum_point_for_label(self, &initial_guesses, &label.0)?;
+                    let p1 = datum_point_for_label(self, &initial_guesses, &label.1)?;
                     constraints.push(Constraint::Horizontal(DatumLineSegment { p0, p1 }));
                 }
                 Instruction::Distance(Distance { label, distance }) => {
-                    let p0 = datum_point_for_label(&label.0)?;
-                    let p1 = datum_point_for_label(&label.1)?;
+                    let p0 = datum_point_for_label(self, &initial_guesses, &label.0)?;
+                    let p1 = datum_point_for_label(self, &initial_guesses, &label.1)?;
                     constraints.push(Constraint::Distance(p0, p1, *distance));
                 }
                 Instruction::Parallel(Parallel { line0, line1 }) => {
-                    let p0 = datum_point_for_label(&line0.0)?;
-                    let p1 = datum_point_for_label(&line0.1)?;
-                    let p2 = datum_point_for_label(&line1.0)?;
-                    let p3 = datum_point_for_label(&line1.1)?;
+                    let p0 = datum_point_for_label(self, &initial_guesses, &line0.0)?;
+                    let p1 = datum_point_for_label(self, &initial_guesses, &line0.1)?;
+                    let p2 = datum_point_for_label(self, &initial_guesses, &line1.0)?;
+                    let p3 = datum_point_for_label(self, &initial_guesses, &line1.1)?;
                     constraints.push(Constraint::lines_parallel([
                         DatumLineSegment { p0, p1 },
                         DatumLineSegment { p0: p2, p1: p3 },
                     ]));
                 }
                 Instruction::LinesEqualLength(LinesEqualLength { line0, line1 }) => {
-                    let p0 = datum_point_for_label(&line0.0)?;
-                    let p1 = datum_point_for_label(&line0.1)?;
-                    let p2 = datum_point_for_label(&line1.0)?;
-                    let p3 = datum_point_for_label(&line1.1)?;
+                    let p0 = datum_point_for_label(self, &initial_guesses, &line0.0)?;
+                    let p1 = datum_point_for_label(self, &initial_guesses, &line0.1)?;
+                    let p2 = datum_point_for_label(self, &initial_guesses, &line1.0)?;
+                    let p3 = datum_point_for_label(self, &initial_guesses, &line1.1)?;
                     constraints.push(Constraint::LinesEqualLength(
                         DatumLineSegment { p0, p1 },
                         DatumLineSegment { p0: p2, p1: p3 },
                     ));
                 }
                 Instruction::Perpendicular(Perpendicular { line0, line1 }) => {
-                    let p0 = datum_point_for_label(&line0.0)?;
-                    let p1 = datum_point_for_label(&line0.1)?;
-                    let p2 = datum_point_for_label(&line1.0)?;
-                    let p3 = datum_point_for_label(&line1.1)?;
+                    let p0 = datum_point_for_label(self, &initial_guesses, &line0.0)?;
+                    let p1 = datum_point_for_label(self, &initial_guesses, &line0.1)?;
+                    let p2 = datum_point_for_label(self, &initial_guesses, &line1.0)?;
+                    let p3 = datum_point_for_label(self, &initial_guesses, &line1.1)?;
                     constraints.push(Constraint::lines_perpendicular([
                         DatumLineSegment { p0, p1 },
                         DatumLineSegment { p0: p2, p1: p3 },
@@ -400,10 +507,10 @@ impl Problem {
                     line1,
                     angle,
                 }) => {
-                    let p0 = datum_point_for_label(&line0.0)?;
-                    let p1 = datum_point_for_label(&line0.1)?;
-                    let p2 = datum_point_for_label(&line1.0)?;
-                    let p3 = datum_point_for_label(&line1.1)?;
+                    let p0 = datum_point_for_label(self, &initial_guesses, &line0.0)?;
+                    let p1 = datum_point_for_label(self, &initial_guesses, &line0.1)?;
+                    let p2 = datum_point_for_label(self, &initial_guesses, &line1.0)?;
+                    let p3 = datum_point_for_label(self, &initial_guesses, &line1.1)?;
                     constraints.push(Constraint::LinesAtAngle(
                         DatumLineSegment { p0, p1 },
                         DatumLineSegment { p0: p2, p1: p3 },
@@ -414,9 +521,21 @@ impl Problem {
                     let arc_label = &arc_length.arc.0;
                     let length = arc_length.distance;
                     let circular_arc = DatumCircularArc {
-                        center: datum_point_for_label(&Label(format!("{arc_label}.center")))?,
-                        start: datum_point_for_label(&Label(format!("{arc_label}.a")))?,
-                        end: datum_point_for_label(&Label(format!("{arc_label}.b")))?,
+                        center: datum_point_for_label(
+                            self,
+                            &initial_guesses,
+                            &Label(format!("{arc_label}.center")),
+                        )?,
+                        start: datum_point_for_label(
+                            self,
+                            &initial_guesses,
+                            &Label(format!("{arc_label}.a")),
+                        )?,
+                        end: datum_point_for_label(
+                            self,
+                            &initial_guesses,
+                            &Label(format!("{arc_label}.b")),
+                        )?,
                     };
                     constraints.push(Constraint::ArcLength(circular_arc, length));
                 }
@@ -666,6 +785,8 @@ impl OutcomeAnalysis {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use super::*;
     use crate::textual::{PointGuess, instruction::FixPointComponent};
 
@@ -675,6 +796,7 @@ mod tests {
             inner_points: Vec::new(),
             inner_circles: Vec::new(),
             inner_arcs: Vec::new(),
+            inner_splines: Vec::new(),
             inner_lines: Vec::new(),
             point_guesses: Vec::new(),
             scalar_guesses: Vec::new(),
@@ -734,5 +856,42 @@ mod tests {
             .err()
             .expect("expected undefined point error");
         assert!(matches!(err, TextualError::UndefinedPoint { label } if label == "missing"));
+    }
+
+    #[test]
+    fn point_spline_coincident_adds_hidden_parameter_guess() {
+        let problem = Problem::from_str(
+            r#"# constraints
+point p0
+point p1
+point p2
+point q
+spline s(2, p0, p1, p2)
+point_spline_coincident(q, s)
+
+# guesses
+p0 roughly (0, 0)
+p1 roughly (1, 2)
+p2 roughly (2, 0)
+q roughly (1, 1)
+"#,
+        )
+        .unwrap();
+
+        let system = problem.to_constraint_system().unwrap();
+        assert_eq!(system.constraints.len(), 1);
+        assert_eq!(system.initial_guesses.len(), 9);
+
+        let Constraint::PointSplineCoincident(_, _, parameter) = system.constraints[0].constraint()
+        else {
+            panic!("expected point-spline coincident constraint");
+        };
+        let guess = system
+            .initial_guesses
+            .variables()
+            .into_iter()
+            .find_map(|(id, value)| (id == parameter.id).then_some(value))
+            .expect("hidden spline parameter guess should exist");
+        assert!((guess - 0.5).abs() < f64::EPSILON);
     }
 }

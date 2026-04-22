@@ -191,3 +191,23 @@ impl Datum for DatumCircularArc {
         ]
     }
 }
+
+/// Open-uniform control-point spline.
+/// Control points can be determined by the constraint solver.
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
+pub struct DatumControlPointSpline {
+    /// Ordered control points of the spline.
+    pub controls: Box<[DatumPoint]>,
+    /// Spline degree.
+    pub degree: usize,
+}
+
+impl Datum for DatumControlPointSpline {
+    fn all_variables(&self) -> impl IntoIterator<Item = Id> {
+        self.controls
+            .iter()
+            .flat_map(|point| [point.id_x(), point.id_y()])
+            .collect::<Vec<_>>()
+    }
+}

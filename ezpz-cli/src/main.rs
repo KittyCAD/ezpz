@@ -98,7 +98,7 @@ fn main_inner(cli: &Cli) -> Result<RunResult, String> {
     }
     let elapsed = now.elapsed();
     let duration_per_iter = elapsed / NUM_ITERS_BENCHMARK;
-    let cs = constraints.iter().copied().map(Constraint::from).collect();
+    let cs = constraints.iter().cloned().map(Constraint::from).collect();
     Ok(Ok((solved, duration_per_iter, cs)))
 }
 
@@ -179,7 +179,7 @@ fn print_unsatisfied(unsatisfied: &[usize], constraints: &[Constraint]) {
         let err = "Not all constraints were satisfied:".red();
         println!("{err}");
         for constraint_index in unsatisfied {
-            let constraint = constraints[*constraint_index];
+            let constraint = constraints[*constraint_index].clone();
             println!("\t{constraint_index}: {constraint:?}");
         }
     }

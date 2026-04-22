@@ -4,10 +4,11 @@ use crate::{
     textual::{
         ScalarGuess,
         instruction::{
-            AngleLine, ArcLength, ArcRadius, CircleRadius, DeclareArc, DeclareCircle, Distance,
-            FixCenterPointComponent, IsArc, Line, LinesEqualLength, Midpoint, Parallel,
-            Perpendicular, PointArcCoincident, PointLineDistance, PointsCoincident, Symmetric,
-            Tangent,
+            AngleLine, ArcLength, ArcRadius, CircleRadius, DeclareArc, DeclareCircle,
+            DeclareSpline, Distance, FixCenterPointComponent, IsArc, Line, LinesEqualLength,
+            Midpoint, Parallel, Perpendicular, PointArcCoincident, PointLineDistance,
+            PointSplineCoincident, PointsCoincident, SplineCircleTangent, SplineLineTangent,
+            Symmetric, Tangent,
         },
     },
 };
@@ -32,6 +33,7 @@ pub fn parse_problem(i: &mut &str) -> WResult<Problem> {
     let mut inner_points = Vec::new();
     let mut inner_circles = Vec::new();
     let mut inner_arcs = Vec::new();
+    let mut inner_splines = Vec::new();
     let mut inner_lines = Vec::new();
     for instr in instructions.iter().flatten() {
         if let Instruction::DeclarePoint(dp) = instr {
@@ -42,6 +44,9 @@ pub fn parse_problem(i: &mut &str) -> WResult<Problem> {
         }
         if let Instruction::DeclareArc(dc) = instr {
             inner_arcs.push(dc.label.clone());
+        }
+        if let Instruction::DeclareSpline(ds) = instr {
+            inner_splines.push(ds.clone());
         }
         if let Instruction::Line(line) = instr {
             inner_lines.push((line.p0.clone(), line.p1.clone()));
@@ -69,6 +74,7 @@ pub fn parse_problem(i: &mut &str) -> WResult<Problem> {
         inner_points,
         inner_circles,
         inner_arcs,
+        inner_splines,
         inner_lines,
         point_guesses,
         scalar_guesses,
@@ -152,6 +158,19 @@ pub fn parse_declare_arc(i: &mut &str) -> WResult<DeclareArc> {
         .parse_next(i)
 }
 
+pub fn parse_declare_spline(i: &mut &str) -> WResult<DeclareSpline> {
+    let _ = "spline".parse_next(i)?;
+    ws.parse_next(i)?;
+    let label = parse_label(i)?;
+    ignore_ws(i);
+    let (degree, _, controls) = inside_brackets((parse_usize, commasep, parse_control_labels), i)?;
+    Ok(DeclareSpline {
+        label,
+        degree,
+        controls,
+    })
+}
+
 pub fn parse_horizontal(i: &mut &str) -> WResult<Horizontal> {
     let _ = "horizontal".parse_next(i)?;
     ignore_ws(i);
@@ -171,6 +190,13 @@ pub fn parse_point_arc_coincident(i: &mut &str) -> WResult<PointArcCoincident> {
     ignore_ws(i);
     let [point, arc] = inside_brackets(two_points, i)?;
     Ok(PointArcCoincident { point, arc })
+}
+
+pub fn parse_point_spline_coincident(i: &mut &str) -> WResult<PointSplineCoincident> {
+    let _ = "point_spline_coincident".parse_next(i)?;
+    ignore_ws(i);
+    let (point, _, spline) = inside_brackets((parse_label, commasep, parse_label), i)?;
+    Ok(PointSplineCoincident { point, spline })
 }
 
 pub fn parse_midpoint(i: &mut &str) -> WResult<Midpoint> {
@@ -280,6 +306,27 @@ pub fn parse_tangent(i: &mut &str) -> WResult<Tangent> {
     })
 }
 
+pub fn parse_spline_line_tangent(i: &mut &str) -> WResult<SplineLineTangent> {
+    let _ = "spline_line_tangent".parse_next(i)?;
+    ignore_ws(i);
+    let (spline, _, line_p0, _, line_p1) = inside_brackets(
+        (parse_label, commasep, parse_label, commasep, parse_label),
+        i,
+    )?;
+    Ok(SplineLineTangent {
+        spline,
+        line_p0,
+        line_p1,
+    })
+}
+
+pub fn parse_spline_circle_tangent(i: &mut &str) -> WResult<SplineCircleTangent> {
+    let _ = "spline_circle_tangent".parse_next(i)?;
+    ignore_ws(i);
+    let (spline, _, circle) = inside_brackets((parse_label, commasep, parse_label), i)?;
+    Ok(SplineCircleTangent { spline, circle })
+}
+
 pub fn parse_arc_radius(i: &mut &str) -> WResult<ArcRadius> {
     let _ = "arc_radius".parse_next(i)?;
     ignore_ws(i);
@@ -380,6 +427,10 @@ fn three_labels_num(i: &mut &str) -> WResult<(Label, Label, Label, f64)> {
     Ok((p, lp0, lp1, d))
 }
 
+fn parse_control_labels(i: &mut &str) -> WResult<Vec<Label>> {
+    separated(3.., parse_label, commasep).parse_next(i)
+}
+
 /// Single-element vector
 fn sv<T>(t: T) -> Vec<T> {
     vec![t]
@@ -391,6 +442,7 @@ fn parse_instruction(i: &mut &str) -> WResult<Vec<Instruction>> {
         parse_declare_point.map(Instruction::DeclarePoint).map(sv),
         parse_declare_circle.map(Instruction::DeclareCircle).map(sv),
         parse_declare_arc.map(Instruction::DeclareArc).map(sv),
+        parse_declare_spline.map(Instruction::DeclareSpline).map(sv),
         parse_fix_point_component
             .map(Instruction::FixPointComponent)
             .map(sv),
@@ -402,6 +454,9 @@ fn parse_instruction(i: &mut &str) -> WResult<Vec<Instruction>> {
         parse_coincident.map(Instruction::PointsCoincident).map(sv),
         parse_point_arc_coincident
             .map(Instruction::PointArcCoincident)
+            .map(sv),
+        parse_point_spline_coincident
+            .map(Instruction::PointSplineCoincident)
             .map(sv),
         parse_midpoint.map(Instruction::Midpoint).map(sv),
         parse_symmetric.map(Instruction::Symmetric).map(sv),
@@ -419,6 +474,12 @@ fn parse_other_instructions(i: &mut &str) -> WResult<Vec<Instruction>> {
         parse_angle_line.map(Instruction::AngleLine).map(sv),
         parse_circle_radius.map(Instruction::CircleRadius).map(sv),
         parse_tangent.map(Instruction::Tangent).map(sv),
+        parse_spline_line_tangent
+            .map(Instruction::SplineLineTangent)
+            .map(sv),
+        parse_spline_circle_tangent
+            .map(Instruction::SplineCircleTangent)
+            .map(sv),
         parse_arc_radius.map(Instruction::ArcRadius).map(sv),
         parse_arc_length.map(Instruction::ArcLength).map(sv),
         parse_is_arc.map(Instruction::IsArc).map(sv),
@@ -538,6 +599,12 @@ fn parse_number(i: &mut &str) -> WResult<f64> {
     alt((myfloat, myint)).parse_next(i)
 }
 
+fn parse_usize(i: &mut &str) -> WResult<usize> {
+    digit1
+        .verify_map(|s: &str| s.parse::<usize>().ok())
+        .parse_next(i)
+}
+
 fn parse_number_expr(i: &mut &str) -> WResult<f64> {
     alt((
         parse_number,
@@ -548,6 +615,8 @@ fn parse_number_expr(i: &mut &str) -> WResult<f64> {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use crate::tests::assert_nearly_eq;
 
     use super::*;
@@ -557,5 +626,33 @@ mod tests {
         let i = parse_angle(&mut "0deg").unwrap();
         let j = parse_angle(&mut "0rad").unwrap();
         assert_nearly_eq(i.to_degrees(), j.to_degrees());
+    }
+
+    #[test]
+    fn test_parse_spline_problem() {
+        let txt = r#"# constraints
+point p0
+point p1
+point p2
+point q
+spline s(2, p0, p1, p2)
+point_spline_coincident(q, s)
+spline_line_tangent(s, p0, p1)
+spline_circle_tangent(s, c)
+circle c
+
+# guesses
+p0 roughly (0, 0)
+p1 roughly (1, 2)
+p2 roughly (2, 0)
+q roughly (1, 1)
+c.center roughly (1, 0)
+c.radius roughly 1
+"#;
+        let problem = Problem::from_str(txt).unwrap();
+        assert_eq!(problem.inner_splines.len(), 1);
+        assert_eq!(problem.inner_splines[0].label, "s");
+        assert_eq!(problem.inner_splines[0].degree, 2);
+        assert_eq!(problem.inner_splines[0].controls.len(), 3);
     }
 }
