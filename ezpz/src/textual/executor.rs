@@ -892,6 +892,6 @@ q roughly (1, 1)
             .into_iter()
             .find_map(|(id, value)| (id == parameter.id).then_some(value))
             .expect("hidden spline parameter guess should exist");
-        assert_eq!(guess, 0.5);
+        assert!((guess - 0.5).abs() < f64::EPSILON);
     }
 }
