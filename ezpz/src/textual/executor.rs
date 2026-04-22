@@ -9,6 +9,7 @@ use crate::ConstraintRequest;
 use crate::FailureOutcome;
 use crate::FreedomAnalysis;
 use crate::IdGenerator;
+use crate::LineSide;
 use crate::NoAnalysis;
 use crate::SolveOutcome;
 use crate::SolveOutcomeAnalysis;
@@ -252,6 +253,7 @@ impl Problem {
                             center: center_id,
                             radius: radius_id,
                         },
+                        LineSide::Undefined,
                     ));
                 }
                 Instruction::FixPointComponent(FixPointComponent {

@@ -1,7 +1,6 @@
 use crate::{
     EPSILON,
-    datatypes::inputs::*,
-    datatypes::*,
+    datatypes::{inputs::*, *},
     id::Id,
     solver::Layout,
     vector::{Rotation2, V},
@@ -35,11 +34,11 @@ impl AsRef<Constraint> for ConstraintEntry<'_> {
 pub enum Constraint {
     /// This line must be tangent to the circle
     /// (i.e. touches its perimeter in exactly one place)
-    LineTangentToCircle(DatumLineSegment, DatumCircle),
+    LineTangentToCircle(DatumLineSegment, DatumCircle, LineSide),
     /// These two circles should be tangent.
     /// This could include internal tangency (where one circle is inside the other),
     /// or external (where they're adjacent).
-    CircleTangentToCircle(DatumCircle, DatumCircle),
+    CircleTangentToCircle(DatumCircle, DatumCircle, CircleSide),
     /// These two points should be a given distance apart.
     Distance(DatumPoint, DatumPoint, f64),
     /// These two points should have distance equal to the given variable.
@@ -99,6 +98,32 @@ pub(crate) struct JacobianVar {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
+#[cfg_attr(not(feature = "unstable-exhaustive"), non_exhaustive)]
+/// Which side of a directed line a constraint refers to.
+pub enum LineSide {
+    /// Infer the side from the initial conditions before solving.
+    Undefined,
+    /// The left-hand side of the line when travelling from `p0` to `p1`.
+    Left,
+    /// The right-hand side of the line when travelling from `p0` to `p1`.
+    Right,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
+#[cfg_attr(not(feature = "unstable-exhaustive"), non_exhaustive)]
+/// Which side of a circle a constraint refers to.
+pub enum CircleSide {
+    /// Infer the side from the initial conditions before solving.
+    Undefined,
+    /// Exterior of a circle
+    Exterior,
+    /// Interior of a circle
+    Interior,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum PointArcCoincidentPart {
     Interior,
     Start,
@@ -113,6 +138,55 @@ impl std::fmt::Debug for JacobianVar {
 }
 
 impl Constraint {
+    pub(crate) fn set_from_initial_values(&mut self, initial_values: &[f64]) {
+        match self {
+            Constraint::LineTangentToCircle(line, circle, side) if *side == LineSide::Undefined => {
+                let p0 = V::new(
+                    initial_values[line.p0.id_x() as usize],
+                    initial_values[line.p0.id_y() as usize],
+                );
+                let p1 = V::new(
+                    initial_values[line.p1.id_x() as usize],
+                    initial_values[line.p1.id_y() as usize],
+                );
+                let c = V::new(
+                    initial_values[circle.center.id_x() as usize],
+                    initial_values[circle.center.id_y() as usize],
+                );
+                *side = if (p1 - p0).cross_2d(c - p0) >= 0.0 {
+                    LineSide::Left
+                } else {
+                    LineSide::Right
+                };
+            }
+            Constraint::CircleTangentToCircle(circle_a, circle_b, side)
+                if *side == CircleSide::Undefined =>
+            {
+                let a_c = V::new(
+                    initial_values[circle_a.center.id_x() as usize],
+                    initial_values[circle_a.center.id_y() as usize],
+                );
+                let a_r = initial_values[circle_a.radius.id as usize];
+
+                let b_c = V::new(
+                    initial_values[circle_b.center.id_x() as usize],
+                    initial_values[circle_b.center.id_y() as usize],
+                );
+                let b_r = initial_values[circle_b.radius.id as usize];
+
+                let dist = (a_c - b_c).magnitude();
+                let r_int = ((a_r - b_r).abs() - dist).abs();
+                let r_ext = (a_r + b_r - dist).abs();
+                *side = if r_int < r_ext {
+                    CircleSide::Interior
+                } else {
+                    CircleSide::Exterior
+                };
+            }
+            _ => {}
+        }
+    }
+
     /// Extend `out` with the primitive variable IDs that this constraint's
     /// residual equations depend on.
     ///
@@ -128,11 +202,11 @@ impl Constraint {
     /// allocate. Callers that need deduplication can pass a set-like type.
     pub fn extend_dependent_variable_ids(&self, out: &mut impl Extend<Id>) {
         match self {
-            Constraint::LineTangentToCircle(line, circle) => {
+            Constraint::LineTangentToCircle(line, circle, _side) => {
                 out.extend(line.all_variables());
                 out.extend(circle.all_variables());
             }
-            Constraint::CircleTangentToCircle(circle0, circle1) => {
+            Constraint::CircleTangentToCircle(circle0, circle1, _side) => {
                 out.extend(circle0.all_variables());
                 out.extend(circle1.all_variables());
             }
@@ -213,11 +287,11 @@ impl Constraint {
     /// allocate. Callers that need deduplication can pass a set-like type.
     pub fn extend_associated_variable_ids(&self, out: &mut impl Extend<Id>) {
         match self {
-            Constraint::LineTangentToCircle(line, circle) => {
+            Constraint::LineTangentToCircle(line, circle, _side) => {
                 out.extend(line.all_variables());
                 out.extend(circle.all_variables());
             }
-            Constraint::CircleTangentToCircle(circle0, circle1) => {
+            Constraint::CircleTangentToCircle(circle0, circle1, _side) => {
                 out.extend(circle0.all_variables());
                 out.extend(circle1.all_variables());
             }
@@ -288,11 +362,11 @@ impl Constraint {
     /// For each row of the Jacobian matrix, which variables are involved in them?
     pub(crate) fn nonzeroes(&self, row0: &mut Vec<Id>, row1: &mut Vec<Id>, _row2: &mut Vec<Id>) {
         match self {
-            Constraint::LineTangentToCircle(line, circle) => {
+            Constraint::LineTangentToCircle(line, circle, _side) => {
                 row0.extend(line.all_variables());
                 row0.extend(circle.all_variables());
             }
-            Constraint::CircleTangentToCircle(circle0, circle1) => {
+            Constraint::CircleTangentToCircle(circle0, circle1, _side) => {
                 row0.extend(circle0.all_variables());
                 row0.extend(circle1.all_variables());
             }
@@ -409,18 +483,22 @@ impl Constraint {
         degenerate: &mut bool,
     ) {
         match self {
-            Constraint::LineTangentToCircle(line, circle) => {
+            Constraint::LineTangentToCircle(line, circle, side) => {
                 // Get current state of the entities.
                 let p0_x = current_assignments[layout.index_of(line.p0.id_x())];
                 let p0_y = current_assignments[layout.index_of(line.p0.id_y())];
                 let p0 = V::new(p0_x, p0_y);
+
                 let p1_x = current_assignments[layout.index_of(line.p1.id_x())];
                 let p1_y = current_assignments[layout.index_of(line.p1.id_y())];
                 let p1 = V::new(p1_x, p1_y);
-                let center_x = current_assignments[layout.index_of(circle.center.id_x())];
-                let center_y = current_assignments[layout.index_of(circle.center.id_y())];
-                let radius = current_assignments[layout.index_of(circle.radius.id)];
-                let circle_center = V::new(center_x, center_y);
+
+                let c_x = current_assignments[layout.index_of(circle.center.id_x())];
+                let c_y = current_assignments[layout.index_of(circle.center.id_y())];
+                let c = V::new(c_x, c_y);
+
+                // NOTE: Taking abs to guard against negative radius
+                let radius = current_assignments[layout.index_of(circle.radius.id)].abs();
 
                 // Calculate the unsigned distance from the circle's center to the line.
                 let u = p1 - p0;
@@ -434,44 +512,32 @@ impl Constraint {
                     return;
                 }
 
-                let v = circle_center - p0;
-                let abs_cross_uv = u.cross_2d(v).abs();
-                let cen_dist = abs_cross_uv / mag_u;
-
-                // Handle ambiguous case where circle center is on the line
-                if cen_dist <= EPSILON {
-                    *residual0 = 0.0;
-                    *degenerate = true;
-                    return;
-                }
+                let v = c - p0;
+                let cross_uv = u.cross_2d(v);
+                let side_sign = if *side == LineSide::Right { -1.0 } else { 1.0 };
+                let cen_dist = side_sign * cross_uv / mag_u;
 
                 *residual0 = cen_dist - radius;
             }
-            Constraint::CircleTangentToCircle(circle_a, circle_b) => {
-                // Get current state of the entities.
-                let ax = current_assignments[layout.index_of(circle_a.center.id_x())];
-                let ay = current_assignments[layout.index_of(circle_a.center.id_y())];
-                let ar = current_assignments[layout.index_of(circle_a.radius.id)];
-                let bx = current_assignments[layout.index_of(circle_b.center.id_x())];
-                let by = current_assignments[layout.index_of(circle_b.center.id_y())];
-                let br = current_assignments[layout.index_of(circle_b.radius.id)];
+            Constraint::CircleTangentToCircle(circle_a, circle_b, side) => {
+                let a_c = V::new(
+                    current_assignments[layout.index_of(circle_a.center.id_x())],
+                    current_assignments[layout.index_of(circle_a.center.id_y())],
+                );
+                let a_r = current_assignments[layout.index_of(circle_a.radius.id)].abs();
 
-                // Evaluate residuals for both internal and external tangency
-                // See https://github.com/KittyCAD/ezpz-sympy/pull/1
-                let residual_internal =
-                    -((ax - bx).powi(2) + (ay - by).powi(2)).sqrt() + (ar - br).abs();
-                let residual_external = ar + br - ((ax - bx).powi(2) + (ay - by).powi(2)).sqrt();
-                let is_internal =
-                    (((ax - bx).powi(2) + (ay - by).powi(2)).sqrt() - (ar - br).abs()).abs()
-                        < (ar + br - ((ax - bx).powi(2) + (ay - by).powi(2)).sqrt()).abs();
+                let b_c = V::new(
+                    current_assignments[layout.index_of(circle_b.center.id_x())],
+                    current_assignments[layout.index_of(circle_b.center.id_y())],
+                );
+                let b_r = current_assignments[layout.index_of(circle_b.radius.id)].abs();
 
-                // Use whichever kind of tangency has a smaller residual.
-                let smaller_residual = if is_internal {
-                    residual_internal
+                let dist = (a_c - b_c).magnitude();
+                *residual0 = if *side == CircleSide::Interior {
+                    (a_r - b_r).abs() - dist
                 } else {
-                    residual_external
+                    a_r + b_r - dist
                 };
-                *residual0 = smaller_residual;
             }
             Constraint::Distance(p0, p1, expected_distance) => {
                 let p0_x = current_assignments[layout.index_of(p0.id_x())];
@@ -891,18 +957,23 @@ impl Constraint {
         degenerate: &mut bool,
     ) {
         match self {
-            Constraint::LineTangentToCircle(line, circle) => {
-                // Residual: R = abs(cross(u, v)) / |u| - r
+            Constraint::LineTangentToCircle(line, circle, side) => {
+                // Residual: R = cross(u, v) / |u| - r
                 // where u = p1 - p0 and v = c - p0.
-                let x0 = current_assignments[layout.index_of(line.p0.id_x())];
-                let y0 = current_assignments[layout.index_of(line.p0.id_y())];
-                let p0 = V::new(x0, y0);
-                let x1 = current_assignments[layout.index_of(line.p1.id_x())];
-                let y1 = current_assignments[layout.index_of(line.p1.id_y())];
-                let p1 = V::new(x1, y1);
-                let xc = current_assignments[layout.index_of(circle.center.id_x())];
-                let yc = current_assignments[layout.index_of(circle.center.id_y())];
-                let center = V::new(xc, yc);
+                let p0 = V::new(
+                    current_assignments[layout.index_of(line.p0.id_x())],
+                    current_assignments[layout.index_of(line.p0.id_y())],
+                );
+
+                let p1 = V::new(
+                    current_assignments[layout.index_of(line.p1.id_x())],
+                    current_assignments[layout.index_of(line.p1.id_y())],
+                );
+
+                let c = V::new(
+                    current_assignments[layout.index_of(circle.center.id_x())],
+                    current_assignments[layout.index_of(circle.center.id_y())],
+                );
 
                 let u = p1 - p0;
                 let mag_u = u.magnitude();
@@ -914,24 +985,14 @@ impl Constraint {
                     return;
                 }
 
-                let v = center - p0;
+                let v = c - p0;
                 let cross_uv = u.cross_2d(v);
-                let abs_cross_uv = cross_uv.abs();
-                let cen_dist = abs_cross_uv / mag_u;
-
-                // Handle ambiguous case where circle center is on the line
-                if cen_dist <= EPSILON {
-                    *degenerate = true;
-                    return;
-                }
-
                 let mag_u_cubed = mag_u * mag_u * mag_u;
-                let sign_cross_uv = cross_uv.signum();
-
-                let dr_du_x = -(u.x * abs_cross_uv) / mag_u_cubed + (v.y * sign_cross_uv) / mag_u;
-                let dr_du_y = -(u.y * abs_cross_uv) / mag_u_cubed - (v.x * sign_cross_uv) / mag_u;
-                let dr_dv_x = -(u.y * sign_cross_uv) / mag_u;
-                let dr_dv_y = (u.x * sign_cross_uv) / mag_u;
+                let side_sign = if *side == LineSide::Right { -1.0 } else { 1.0 };
+                let dr_du_x = side_sign * (-(u.x * cross_uv) / mag_u_cubed + v.y / mag_u);
+                let dr_du_y = side_sign * (-(u.y * cross_uv) / mag_u_cubed - v.x / mag_u);
+                let dr_dv_x = side_sign * (-u.y / mag_u);
+                let dr_dv_y = side_sign * (u.x / mag_u);
 
                 let dr_dx0 = -(dr_du_x + dr_dv_x);
                 let dr_dy0 = -(dr_du_y + dr_dv_y);
@@ -941,7 +1002,7 @@ impl Constraint {
                 let dr_dyc = dr_dv_y;
                 let dr_dr = -1.0;
 
-                let jvars = [
+                let coeffs = [
                     JacobianVar {
                         id: line.p0.id_x(),
                         partial_derivative: dr_dx0,
@@ -971,84 +1032,69 @@ impl Constraint {
                         partial_derivative: dr_dr,
                     },
                 ];
-                row0.extend(jvars.as_slice());
+                row0.extend(coeffs.as_slice());
             }
-            Constraint::CircleTangentToCircle(circle_a, circle_b) => {
-                // Get current state of the entities.
-                let ax_id = circle_a.center.id_x();
-                let ay_id = circle_a.center.id_y();
-                let ar_id = circle_a.radius.id;
-                let bx_id = circle_b.center.id_x();
-                let by_id = circle_b.center.id_y();
-                let br_id = circle_b.radius.id;
-                let ax = current_assignments[layout.index_of(ax_id)];
-                let ay = current_assignments[layout.index_of(ay_id)];
-                let ar = current_assignments[layout.index_of(ar_id)];
-                let bx = current_assignments[layout.index_of(bx_id)];
-                let by = current_assignments[layout.index_of(by_id)];
-                let br = current_assignments[layout.index_of(br_id)];
+            Constraint::CircleTangentToCircle(circle_a, circle_b, side) => {
+                let a_c = V::new(
+                    current_assignments[layout.index_of(circle_a.center.id_x())],
+                    current_assignments[layout.index_of(circle_a.center.id_y())],
+                );
+                let a_r = current_assignments[layout.index_of(circle_a.radius.id)];
 
-                // Is the current state of affairs closer to internal or external tangency?
-                // We should steer the system towards whichever is closer.
-                let is_internal =
-                    (((ax - bx).powi(2) + (ay - by).powi(2)).sqrt() - (ar - br).abs()).abs()
-                        < (ar + br - ((ax - bx).powi(2) + (ay - by).powi(2)).sqrt()).abs();
+                let b_c = V::new(
+                    current_assignments[layout.index_of(circle_b.center.id_x())],
+                    current_assignments[layout.index_of(circle_b.center.id_y())],
+                );
+                let b_r = current_assignments[layout.index_of(circle_b.radius.id)];
 
-                // Evaluate residuals for both internal and external tangency
-                // See https://github.com/KittyCAD/ezpz-sympy/pull/1
-                let pd_ax = (-ax + bx) * ((ax - bx).powi(2) + (ay - by).powi(2)).sqrt().recip();
-                let pd_ay = (-ay + by) * ((ax - bx).powi(2) + (ay - by).powi(2)).sqrt().recip();
-                let pd_bx = -(-ax + bx) * ((ax - bx).powi(2) + (ay - by).powi(2)).sqrt().recip();
-                let pd_by = -(-ay + by) * ((ax - bx).powi(2) + (ay - by).powi(2)).sqrt().recip();
-                // The partial derivative of the radius depends on whether we're steering towards
-                // internal/external tangency. Because the internal tangency residual has an
-                // absolute value, we don't differentiate it directly, we just check whether
-                // the sign is positive or negative (i.e. which radius is larger) and differentiate
-                // that specific equation for that specific case.
-                let pd_ar_internal_ra_greater = 1.0;
-                let pd_br_internal_ra_greater = -1.0;
-                let pd_ar_internal_rb_greater = -1.0;
-                let pd_br_internal_rb_greater = 1.0;
-                let pd_ar_external = 1.0;
-                let pd_br_external = 1.0;
-                let (pd_ar, pd_br) = if is_internal {
-                    if ar > br {
-                        (pd_ar_internal_ra_greater, pd_br_internal_ra_greater)
-                    } else {
-                        (pd_ar_internal_rb_greater, pd_br_internal_rb_greater)
-                    }
+                let d = b_c - a_c;
+                let mag_d = d.magnitude();
+
+                if mag_d <= EPSILON {
+                    *degenerate = true;
+                    return;
+                }
+
+                let u_d = d * mag_d.recip();
+
+                let dr_dax = u_d.x;
+                let dr_day = u_d.y;
+                let dr_dbx = -u_d.x;
+                let dr_dby = -u_d.y;
+
+                let (dr_dar, dr_dbr) = if *side == CircleSide::Interior {
+                    if a_r > b_r { (1.0, -1.0) } else { (-1.0, 1.0) }
                 } else {
-                    (pd_ar_external, pd_br_external)
+                    (1.0, 1.0)
                 };
 
-                // Done!
-                let pds = [
+                let coeffs = [
                     JacobianVar {
-                        id: ax_id,
-                        partial_derivative: pd_ax,
+                        id: circle_a.center.id_x(),
+                        partial_derivative: dr_dax,
                     },
                     JacobianVar {
-                        id: ay_id,
-                        partial_derivative: pd_ay,
+                        id: circle_a.center.id_y(),
+                        partial_derivative: dr_day,
                     },
                     JacobianVar {
-                        id: ar_id,
-                        partial_derivative: pd_ar,
+                        id: circle_a.radius.id,
+                        partial_derivative: dr_dar,
                     },
                     JacobianVar {
-                        id: bx_id,
-                        partial_derivative: pd_bx,
+                        id: circle_b.center.id_x(),
+                        partial_derivative: dr_dbx,
                     },
                     JacobianVar {
-                        id: by_id,
-                        partial_derivative: pd_by,
+                        id: circle_b.center.id_y(),
+                        partial_derivative: dr_dby,
                     },
                     JacobianVar {
-                        id: br_id,
-                        partial_derivative: pd_br,
+                        id: circle_b.radius.id,
+                        partial_derivative: dr_dbr,
                     },
                 ];
-                row0.extend(pds.as_slice());
+                row0.extend(coeffs.as_slice());
             }
             Constraint::Distance(p0, p1, _expected_distance) => {
                 // Residual: R = sqrt((x1-x2)**2 + (y1-y2)**2) - d

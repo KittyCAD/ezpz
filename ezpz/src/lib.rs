@@ -5,8 +5,8 @@ use std::collections::HashSet;
 pub use crate::analysis::FreedomAnalysis;
 use crate::analysis::{Analysis, NoAnalysis, SolveOutcomeAnalysis};
 pub use crate::constraint_request::ConstraintRequest;
-pub use crate::constraints::Constraint;
 use crate::constraints::ConstraintEntry;
+pub use crate::constraints::{CircleSide, Constraint, LineSide};
 pub use crate::error::*;
 pub use crate::solver::Config;
 // Only public for now so that I can benchmark it.
@@ -166,6 +166,22 @@ pub(crate) fn solve_with_priority_inner<A: Analysis>(
                 priority_solved: 0,
             },
         });
+    }
+
+    let max_id = initial_guesses
+        .iter()
+        .map(|(id, _)| *id as usize)
+        .max()
+        .unwrap_or(0);
+    let mut initial_values = vec![0.0; max_id + 1];
+    for (id, guess) in &initial_guesses {
+        initial_values[*id as usize] = *guess;
+    }
+
+    // Infer any undefined constraint state from initial values
+    let mut reqs = reqs.to_vec();
+    for req in &mut reqs {
+        req.set_from_initial_values(&initial_values);
     }
 
     let reqs: Vec<_> = reqs
