@@ -1651,3 +1651,210 @@ fn lines_angle_sign_check() {
         }
     }
 }
+
+/// Returns the signed angle from (p1 - p0) to (p2 - p0), reading variable
+/// ids 0..5 = `[p0_x, p0_y, p1_x, p1_y, p2_x, p2_y]` from `vals`.
+fn points_at_angle_from_vals(vals: &[f64]) -> f64 {
+    let u = V::new(vals[2] - vals[0], vals[3] - vals[1]);
+    let v = V::new(vals[4] - vals[0], vals[5] - vals[1]);
+    u.signed_angle(v)
+}
+
+#[test]
+fn points_at_angle_already_satisfied() {
+    // Cases where the geometry already satisfies the constraint: expect 0 Newton iterations.
+    struct TestCase {
+        p1: [f64; 2], // first arm endpoint; vertex is always at origin
+        p2: [f64; 2], // second arm endpoint
+        angle: f64,
+    }
+
+    let test_cases = [
+        TestCase {
+            p1: [1.0, 0.0],
+            p2: [0.0, 2.0],
+            angle: 0.5 * PI,
+        },
+        TestCase {
+            p1: [1.0, 0.0],
+            p2: [0.0, -2.0],
+            angle: -0.5 * PI,
+        },
+        TestCase {
+            p1: [1.0, 0.0],
+            p2: [3.0, 0.0],
+            angle: 0.0,
+        },
+        TestCase {
+            p1: [1.0, 0.0],
+            p2: [-2.0, 0.0],
+            angle: PI,
+        },
+        TestCase {
+            p1: [2.0, 0.0],
+            p2: [1.0, 1.0],
+            angle: 0.25 * PI,
+        },
+    ];
+
+    let vertex = DatumPoint { x_id: 0, y_id: 1 };
+    let p1 = DatumPoint { x_id: 2, y_id: 3 };
+    let p2 = DatumPoint { x_id: 4, y_id: 5 };
+
+    for tc in &test_cases {
+        let constraints = [ConstraintRequest::highest_priority(
+            Constraint::PointsAtAngle(
+                vertex,
+                p1,
+                p2,
+                AngleKind::Other(Angle::from_radians(tc.angle)),
+            ),
+        )];
+        let initial_guesses = vec![
+            (0, 0.0),
+            (1, 0.0),
+            (2, tc.p1[0]),
+            (3, tc.p1[1]),
+            (4, tc.p2[0]),
+            (5, tc.p2[1]),
+        ];
+        let outcome = solve(
+            &constraints,
+            initial_guesses,
+            Config::default().with_max_iterations(100),
+        )
+        .unwrap_or_else(|e| panic!("failed for angle {}: {e:?}", tc.angle));
+        assert!(outcome.is_satisfied());
+        assert_eq!(
+            outcome.iterations(),
+            0,
+            "angle {} should already be satisfied (0 iterations)",
+            tc.angle
+        );
+    }
+}
+
+#[test]
+fn points_at_angle_unique_solution() {
+    // PointsAtAngle has exactly one solution unlike LinesAtAngle which has two solutions for each
+    // arm that differ by π
+    //
+    // Concretely, with target angle π/4 and u = (1,0):
+    //   - v = (1,1) direction satisfies PointsAtAngle
+    //   - v = (-1,-1) direction satisfies LinesAtAngle but not PointsAtAngle
+    //
+    // Starting from either initial condition, PointsAtAngle must converge to angle π/4.
+    let vertex = DatumPoint { x_id: 0, y_id: 1 };
+    let p1 = DatumPoint { x_id: 2, y_id: 3 };
+    let p2 = DatumPoint { x_id: 4, y_id: 5 };
+
+    let target_angle = 0.25 * PI;
+
+    let constraints = [
+        // Fix vertex and first arm
+        ConstraintRequest::highest_priority(Constraint::Fixed(0, 0.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(1, 0.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(2, 1.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(3, 0.0)),
+        ConstraintRequest::highest_priority(Constraint::PointsAtAngle(
+            vertex,
+            p1,
+            p2,
+            AngleKind::Other(Angle::from_radians(target_angle)),
+        )),
+    ];
+
+    // p2 starts on the correct side: direction (1,1), angle π/4 so already satisfied
+    let guesses_correct: Vec<(u32, f64)> =
+        vec![(0, 0.0), (1, 0.0), (2, 1.0), (3, 0.0), (4, 1.0), (5, 1.0)];
+
+    // p2 starts on the π-shifted side: direction (-1,-1), angle -3π/4.
+    // This is the other zero of LinesAtAngle, but it should not satisfy PointsAtAngle.
+    let guesses_shifted: Vec<(u32, f64)> =
+        vec![(0, 0.0), (1, 0.0), (2, 1.0), (3, 0.0), (4, -1.0), (5, -1.0)];
+
+    let outcome_correct = solve(
+        &constraints,
+        guesses_correct,
+        Config::default().with_max_iterations(100),
+    )
+    .unwrap();
+    let outcome_shifted = solve(
+        &constraints,
+        guesses_shifted,
+        Config::default().with_max_iterations(100),
+    )
+    .unwrap();
+
+    assert!(outcome_correct.is_satisfied());
+    assert!(outcome_shifted.is_satisfied());
+
+    // Both must converge to target_angle, not to target_angle - π.
+    assert_nearly_eq(
+        points_at_angle_from_vals(&outcome_correct.final_values),
+        target_angle,
+    );
+    assert_nearly_eq(
+        points_at_angle_from_vals(&outcome_shifted.final_values),
+        target_angle,
+    );
+}
+
+#[test]
+fn points_at_angle_sign_distinguishable() {
+    // Checks that PointsAtAngle respects the sign of the specified angle i.e. using +θ and -θ
+    // should place the second arm on opposite sides of the first
+    let vertex = DatumPoint { x_id: 0, y_id: 1 };
+    let p1 = DatumPoint { x_id: 2, y_id: 3 };
+    let p2 = DatumPoint { x_id: 4, y_id: 5 };
+    let theta = 0.25 * PI;
+
+    // (target_angle, initial_p2)
+    let cases: &[(f64, [f64; 2])] = &[
+        (theta, [1.0, 0.0]),
+        (-theta, [1.0, 0.0]),
+        (theta, [0.0, 1.0]),
+        (-theta, [0.0, 1.0]),
+        (theta, [-1.0, 0.0]),
+        (-theta, [-1.0, 0.0]),
+        (theta, [0.0, -1.0]),
+        (-theta, [0.0, -1.0]),
+    ];
+
+    for &(target_angle, init_p2) in cases {
+        let constraints = [
+            // Fix vertex, first arm, and length of second arm
+            ConstraintRequest::highest_priority(Constraint::Fixed(0, 0.0)),
+            ConstraintRequest::highest_priority(Constraint::Fixed(1, 0.0)),
+            ConstraintRequest::highest_priority(Constraint::Fixed(2, 1.0)),
+            ConstraintRequest::highest_priority(Constraint::Fixed(3, 0.0)),
+            ConstraintRequest::highest_priority(Constraint::Distance(vertex, p2, 1.0)),
+            ConstraintRequest::highest_priority(Constraint::PointsAtAngle(
+                vertex,
+                p1,
+                p2,
+                AngleKind::Other(Angle::from_radians(target_angle)),
+            )),
+        ];
+        let initial_guesses: Vec<(u32, f64)> = vec![
+            (0, 0.0),
+            (1, 0.0),
+            (2, 1.0),
+            (3, 0.0),
+            (4, init_p2[0]),
+            (5, init_p2[1]),
+        ];
+
+        let outcome = solve(
+            &constraints,
+            initial_guesses,
+            Config::default().with_max_iterations(100),
+        )
+        .unwrap_or_else(|e| panic!("failed for angle {target_angle}: {e:?}"));
+        assert!(outcome.is_satisfied());
+        assert_nearly_eq(
+            points_at_angle_from_vals(&outcome.final_values),
+            target_angle,
+        );
+    }
+}
