@@ -2232,10 +2232,10 @@ impl Constraint {
                 let rot_e2 = rot.apply(V::new(0.0, 1.0));
 
                 // ∂r/∂u
-                let dr_du0 = res * (u_hat.x * 0.5)
-                    + (rot_u_hat * u_hat.x - rot_e1) * (scale * inv_len_u);
-                let dr_du1 = res * (u_hat.y * 0.5)
-                    + (rot_u_hat * u_hat.y - rot_e2) * (scale * inv_len_u);
+                let dr_du0 =
+                    res * (u_hat.x * 0.5) + (rot_u_hat * u_hat.x - rot_e1) * (scale * inv_len_u);
+                let dr_du1 =
+                    res * (u_hat.y * 0.5) + (rot_u_hat * u_hat.y - rot_e2) * (scale * inv_len_u);
 
                 // ∂r/∂v
                 let dr_dv0 = res * (v_hat.x * 0.5)
