@@ -85,6 +85,8 @@ pub enum Constraint {
     ArcLength(DatumCircularArc, f64),
     /// The arc should span this angle.
     ArcAngle(DatumCircularArc, Angle),
+    /// The oriented angle from (p1 - p0) to (p2 - p0) should equal the given angle.
+    PointsAtAngle(DatumPoint, DatumPoint, DatumPoint, AngleKind),
 }
 
 /// Describes one value in one row of the Jacobian matrix.
@@ -267,6 +269,11 @@ impl Constraint {
             }
             Constraint::ArcLength(circular_arc, _dist) => out.extend(circular_arc.all_variables()),
             Constraint::ArcAngle(circular_arc, _angle) => out.extend(circular_arc.all_variables()),
+            Constraint::PointsAtAngle(p0, p1, p2, _angle) => {
+                out.extend(p0.all_variables());
+                out.extend(p1.all_variables());
+                out.extend(p2.all_variables());
+            }
         }
     }
 
@@ -356,6 +363,11 @@ impl Constraint {
             }
             Constraint::ArcLength(circular_arc, _dist) => out.extend(circular_arc.all_variables()),
             Constraint::ArcAngle(circular_arc, _angle) => out.extend(circular_arc.all_variables()),
+            Constraint::PointsAtAngle(p0, p1, p2, _angle) => {
+                out.extend(p0.all_variables());
+                out.extend(p1.all_variables());
+                out.extend(p2.all_variables());
+            }
         }
     }
 
@@ -464,6 +476,14 @@ impl Constraint {
                 AngleKind::Other(*angle),
             )
             .nonzeroes(row0, row1, _row2),
+            Constraint::PointsAtAngle(p0, p1, p2, _angle) => {
+                row0.extend(p0.all_variables());
+                row0.extend(p1.all_variables());
+                row0.extend(p2.all_variables());
+                row1.extend(p0.all_variables());
+                row1.extend(p1.all_variables());
+                row1.extend(p2.all_variables());
+            }
         }
     }
 
@@ -897,6 +917,41 @@ impl Constraint {
                 _residual2,
                 degenerate,
             ),
+            Constraint::PointsAtAngle(p0, p1, p2, expected_angle) => {
+                let p0v = V::new(
+                    current_assignments[layout.index_of(p0.id_x())],
+                    current_assignments[layout.index_of(p0.id_y())],
+                );
+                let p1v = V::new(
+                    current_assignments[layout.index_of(p1.id_x())],
+                    current_assignments[layout.index_of(p1.id_y())],
+                );
+                let p2v = V::new(
+                    current_assignments[layout.index_of(p2.id_x())],
+                    current_assignments[layout.index_of(p2.id_y())],
+                );
+
+                let u = p1v - p0v;
+                let v = p2v - p0v;
+                let len_u = u.magnitude();
+                let len_v = v.magnitude();
+
+                if len_u <= EPSILON || len_v <= EPSILON {
+                    *degenerate = true;
+                    return;
+                }
+
+                let rot = rotation_for_angle_kind(*expected_angle);
+                let u_hat = u * (1.0 / len_u);
+                let v_hat = v * (1.0 / len_v);
+                let rot_u_hat = rot.apply(u_hat);
+                let scale = (len_u + len_v) * 0.5;
+                let res = v_hat - rot_u_hat;
+
+                // Residual: r = (|u| + |v|) / 2 * (v_hat - R * u_hat)
+                *residual0 = scale * res.x;
+                *residual1 = scale * res.y;
+            }
         }
     }
 
@@ -939,6 +994,7 @@ impl Constraint {
                 AngleKind::Other(*angle),
             )
             .residual_dim(),
+            Constraint::PointsAtAngle(..) => 2,
         }
     }
 
@@ -2138,6 +2194,111 @@ impl Constraint {
                 AngleKind::Other(*angle),
             )
             .jacobian_rows(layout, current_assignments, row0, row1, _row2, degenerate),
+            Constraint::PointsAtAngle(p0, p1, p2, expected_angle) => {
+                let p0v = V::new(
+                    current_assignments[layout.index_of(p0.id_x())],
+                    current_assignments[layout.index_of(p0.id_y())],
+                );
+                let p1v = V::new(
+                    current_assignments[layout.index_of(p1.id_x())],
+                    current_assignments[layout.index_of(p1.id_y())],
+                );
+                let p2v = V::new(
+                    current_assignments[layout.index_of(p2.id_x())],
+                    current_assignments[layout.index_of(p2.id_y())],
+                );
+
+                let u = p1v - p0v;
+                let v = p2v - p0v;
+                let len_u = u.magnitude();
+                let len_v = v.magnitude();
+
+                if len_u <= EPSILON || len_v <= EPSILON {
+                    *degenerate = true;
+                    return;
+                }
+
+                let inv_len_u = 1.0 / len_u;
+                let inv_len_v = 1.0 / len_v;
+                let rot = rotation_for_angle_kind(*expected_angle);
+                let u_hat = u * inv_len_u;
+                let v_hat = v * inv_len_v;
+                let rot_u_hat = rot.apply(u_hat);
+                let scale = (len_u + len_v) * 0.5;
+                let res = v_hat - rot_u_hat;
+
+                // Columns of R: R*e1 = (ca, sa), R*e2 = (-sa, ca)
+                let rot_e1 = rot.apply(V::new(1.0, 0.0));
+                let rot_e2 = rot.apply(V::new(0.0, 1.0));
+
+                // ∂r/∂u
+                let dr_du0 = res * (u_hat.x * 0.5)
+                    + (rot_u_hat * u_hat.x - rot_e1) * (scale * inv_len_u);
+                let dr_du1 = res * (u_hat.y * 0.5)
+                    + (rot_u_hat * u_hat.y - rot_e2) * (scale * inv_len_u);
+
+                // ∂r/∂v
+                let dr_dv0 = res * (v_hat.x * 0.5)
+                    + (V::new(1.0, 0.0) - v_hat * v_hat.x) * (scale * inv_len_v);
+                let dr_dv1 = res * (v_hat.y * 0.5)
+                    + (V::new(0.0, 1.0) - v_hat * v_hat.y) * (scale * inv_len_v);
+
+                // ∂r/∂p0 = -(∂r/∂u + ∂r/∂v)
+                // ∂r/∂p1 = ∂r/∂u
+                // ∂r/∂p2 = ∂r/∂v
+                row0.extend([
+                    JacobianVar {
+                        id: p0.id_x(),
+                        partial_derivative: -(dr_du0.x + dr_dv0.x),
+                    },
+                    JacobianVar {
+                        id: p0.id_y(),
+                        partial_derivative: -(dr_du1.x + dr_dv1.x),
+                    },
+                    JacobianVar {
+                        id: p1.id_x(),
+                        partial_derivative: dr_du0.x,
+                    },
+                    JacobianVar {
+                        id: p1.id_y(),
+                        partial_derivative: dr_du1.x,
+                    },
+                    JacobianVar {
+                        id: p2.id_x(),
+                        partial_derivative: dr_dv0.x,
+                    },
+                    JacobianVar {
+                        id: p2.id_y(),
+                        partial_derivative: dr_dv1.x,
+                    },
+                ]);
+                row1.extend([
+                    JacobianVar {
+                        id: p0.id_x(),
+                        partial_derivative: -(dr_du0.y + dr_dv0.y),
+                    },
+                    JacobianVar {
+                        id: p0.id_y(),
+                        partial_derivative: -(dr_du1.y + dr_dv1.y),
+                    },
+                    JacobianVar {
+                        id: p1.id_x(),
+                        partial_derivative: dr_du0.y,
+                    },
+                    JacobianVar {
+                        id: p1.id_y(),
+                        partial_derivative: dr_du1.y,
+                    },
+                    JacobianVar {
+                        id: p2.id_x(),
+                        partial_derivative: dr_dv0.y,
+                    },
+                    JacobianVar {
+                        id: p2.id_y(),
+                        partial_derivative: dr_dv1.y,
+                    },
+                ]);
+            }
         }
     }
 
@@ -2173,6 +2334,7 @@ impl Constraint {
             Constraint::PointArcCoincident(..) => "PointArcCoincident",
             Constraint::ArcLength(..) => "ArcLength",
             Constraint::ArcAngle(..) => "ArcAngle",
+            Constraint::PointsAtAngle(..) => "PointsAtAngle",
         }
     }
 }
