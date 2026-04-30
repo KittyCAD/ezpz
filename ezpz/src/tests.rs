@@ -1735,6 +1735,32 @@ fn points_at_angle_already_satisfied() {
 }
 
 #[test]
+fn points_at_angle_degenerate() {
+    let vertex = DatumPoint { x_id: 0, y_id: 1 };
+    let p1 = DatumPoint { x_id: 2, y_id: 3 };
+    let p2 = DatumPoint { x_id: 4, y_id: 5 };
+
+    let constraints = [ConstraintRequest::highest_priority(
+        Constraint::PointsAtAngle(vertex, p1, p2, AngleKind::Other(Angle::from_degrees(180.0))),
+    )];
+    let initial_guesses = vec![
+        (0, 0.0),
+        (1, 0.0),
+        (2, 13.0),
+        (3, 13.0),
+        (4, 13.0),
+        (5, 13.0),
+    ];
+    let outcome = solve(
+        &constraints,
+        initial_guesses,
+        Config::default().with_max_iterations(100),
+    )
+    .unwrap();
+    assert!(outcome.warnings.first().unwrap().content == WarningContent::Degenerate);
+}
+
+#[test]
 fn points_at_angle_unique_solution() {
     // PointsAtAngle has exactly one solution unlike LinesAtAngle which has two solutions for each
     // arm that differ by π
