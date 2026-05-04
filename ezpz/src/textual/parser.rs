@@ -388,47 +388,55 @@ fn sv<T>(t: T) -> Vec<T> {
 fn parse_instruction(i: &mut &str) -> WResult<Vec<Instruction>> {
     ignore_ws(i);
     alt((
-        parse_declare_point.map(Instruction::DeclarePoint).map(sv),
-        parse_declare_circle.map(Instruction::DeclareCircle).map(sv),
-        parse_declare_arc.map(Instruction::DeclareArc).map(sv),
-        parse_fix_point_component
-            .map(Instruction::FixPointComponent)
-            .map(sv),
-        parse_fix_center_point_component
-            .map(Instruction::FixCenterPointComponent)
-            .map(sv),
-        assign_point,
-        parse_horizontal.map(Instruction::Horizontal).map(sv),
-        parse_coincident.map(Instruction::PointsCoincident).map(sv),
-        parse_point_arc_coincident
-            .map(Instruction::PointArcCoincident)
-            .map(sv),
-        parse_midpoint.map(Instruction::Midpoint).map(sv),
-        parse_symmetric.map(Instruction::Symmetric).map(sv),
-        parse_vertical.map(Instruction::Vertical).map(sv),
-        parse_other_instructions,
+        alt((
+            parse_declare_point.map(Instruction::DeclarePoint).map(sv),
+            parse_declare_circle.map(Instruction::DeclareCircle).map(sv),
+            parse_declare_arc.map(Instruction::DeclareArc).map(sv),
+            parse_fix_point_component
+                .map(Instruction::FixPointComponent)
+                .map(sv),
+            parse_fix_center_point_component
+                .map(Instruction::FixCenterPointComponent)
+                .map(sv),
+            assign_point,
+        )),
+        alt((
+            parse_horizontal.map(Instruction::Horizontal).map(sv),
+            parse_coincident.map(Instruction::PointsCoincident).map(sv),
+            parse_point_arc_coincident
+                .map(Instruction::PointArcCoincident)
+                .map(sv),
+            parse_midpoint.map(Instruction::Midpoint).map(sv),
+            parse_symmetric.map(Instruction::Symmetric).map(sv),
+            parse_vertical.map(Instruction::Vertical).map(sv),
+            parse_other_instructions,
+        )),
     ))
     .parse_next(i)
 }
 
 fn parse_other_instructions(i: &mut &str) -> WResult<Vec<Instruction>> {
     alt((
-        parse_distance.map(Instruction::Distance).map(sv),
-        parse_parallel.map(Instruction::Parallel).map(sv),
-        parse_perpendicular.map(Instruction::Perpendicular).map(sv),
-        parse_angle_line.map(Instruction::AngleLine).map(sv),
-        parse_circle_radius.map(Instruction::CircleRadius).map(sv),
-        parse_tangent.map(Instruction::Tangent).map(sv),
-        parse_arc_radius.map(Instruction::ArcRadius).map(sv),
-        parse_arc_length.map(Instruction::ArcLength).map(sv),
-        parse_is_arc.map(Instruction::IsArc).map(sv),
-        parse_point_line_distance
-            .map(Instruction::PointLineDistance)
-            .map(sv),
-        parse_line.map(Instruction::Line).map(sv),
-        parse_lines_equal_length
-            .map(Instruction::LinesEqualLength)
-            .map(sv),
+        alt((
+            parse_distance.map(Instruction::Distance).map(sv),
+            parse_parallel.map(Instruction::Parallel).map(sv),
+            parse_perpendicular.map(Instruction::Perpendicular).map(sv),
+            parse_angle_line.map(Instruction::AngleLine).map(sv),
+            parse_circle_radius.map(Instruction::CircleRadius).map(sv),
+            parse_tangent.map(Instruction::Tangent).map(sv),
+            parse_arc_radius.map(Instruction::ArcRadius).map(sv),
+            parse_arc_length.map(Instruction::ArcLength).map(sv),
+            parse_is_arc.map(Instruction::IsArc).map(sv),
+        )),
+        alt((
+            parse_point_line_distance
+                .map(Instruction::PointLineDistance)
+                .map(sv),
+            parse_line.map(Instruction::Line).map(sv),
+            parse_lines_equal_length
+                .map(Instruction::LinesEqualLength)
+                .map(sv),
+        )),
     ))
     .parse_next(i)
 }
