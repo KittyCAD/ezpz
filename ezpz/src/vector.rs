@@ -18,7 +18,7 @@ impl V {
 
     #[inline(always)]
     pub fn magnitude_squared(self) -> f64 {
-        self.x.powi(2) + self.y.powi(2)
+        libm::pow(self.x, 2.0) + libm::pow(self.y, 2.0)
     }
 
     #[inline(always)]
