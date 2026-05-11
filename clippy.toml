@@ -10,6 +10,8 @@ disallowed-methods = [
   { path = "f64::acos",  reason = "Use trig functions from libm crate instead, to ensure FP math works the same across OSs and platforms."},
   { path = "f64::atan",  reason = "Use trig functions from libm crate instead, to ensure FP math works the same across OSs and platforms."},
   { path = "f64::atan2", reason = "Use trig functions from libm crate instead, to ensure FP math works the same across OSs and platforms."},
+  { path = "f64::powf", reason = "Use trig functions from libm crate instead, to ensure FP math works the same across OSs and platforms."},
+  { path = "f64::powi", reason = "Use trig functions from libm crate instead, to ensure FP math works the same across OSs and platforms."},
   { path = "f32::sin",   reason = "Use trig functions from libm crate instead, to ensure FP math works the same across OSs and platforms."},
   { path = "f32::sin_cos", reason = "Use trig functions from libm crate instead, to ensure FP math works the same across OSs and platforms."},
   { path = "f32::cos",   reason = "Use trig functions from libm crate instead, to ensure FP math works the same across OSs and platforms."},
@@ -18,4 +20,6 @@ disallowed-methods = [
   { path = "f32::acos",  reason = "Use trig functions from libm crate instead, to ensure FP math works the same across OSs and platforms."},
   { path = "f32::atan",  reason = "Use trig functions from libm crate instead, to ensure FP math works the same across OSs and platforms."},
   { path = "f32::atan2", reason = "Use trig functions from libm crate instead, to ensure FP math works the same across OSs and platforms."},
+  { path = "f32::powf", reason = "Use trig functions from libm crate instead, to ensure FP math works the same across OSs and platforms."},
+  { path = "f32::powi", reason = "Use trig functions from libm crate instead, to ensure FP math works the same across OSs and platforms."},
 ]
