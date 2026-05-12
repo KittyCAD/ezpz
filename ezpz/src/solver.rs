@@ -341,7 +341,7 @@ impl Model<'_> {
             {
                 let this_row = row_num;
                 row_num += 1;
-                out[this_row] = **row;
+                out[this_row] = constraint.weight * **row;
             }
         }
     }
@@ -391,10 +391,10 @@ impl Model<'_> {
                 #[cfg(feature = "dbg-jac")]
                 dbg_matrix.push(vec![0.0; self.layout.num_variables]);
                 for jacobian_var in row {
+                    let weighted_partial = constraint.weight * jacobian_var.partial_derivative;
                     #[cfg(feature = "dbg-jac")]
                     {
-                        dbg_matrix.last_mut().unwrap()[jacobian_var.id as usize] +=
-                            jacobian_var.partial_derivative;
+                        dbg_matrix.last_mut().unwrap()[jacobian_var.id as usize] += weighted_partial;
                     }
                     let col = self.layout.index_of(jacobian_var.id);
 
@@ -405,7 +405,7 @@ impl Model<'_> {
                     // Search for our row within this column's entries.
                     let idx = col_range.find(|idx| row_indices[*idx] == this_row).unwrap();
                     // Found the right position; accumulate the partials.
-                    self.jc.vals[idx] += jacobian_var.partial_derivative;
+                    self.jc.vals[idx] += weighted_partial;
                 }
             }
         }
@@ -444,6 +444,7 @@ mod tests {
             constraint: &constraint,
             id: 42,
             priority: 0,
+            weight: 1.0,
         };
 
         let all_variables = vec![0, 2]; // Only X components, missing Y components.

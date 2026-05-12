@@ -190,6 +190,7 @@ pub(crate) fn solve_with_priority_inner<A: Analysis>(
         .map(|(id, c)| ConstraintEntry {
             constraint: c.constraint(),
             priority: c.priority(),
+            weight: c.weight(),
             id,
         })
         .collect();

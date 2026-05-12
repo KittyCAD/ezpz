@@ -19,6 +19,9 @@ pub(crate) struct ConstraintEntry<'c> {
     pub id: usize,
     /// The constraint's priority. 0 is highest, larger numbers are lower.
     pub priority: u32,
+    /// Multiplicative weight applied to this constraint's residual and Jacobian
+    /// rows during global assembly. 1.0 is the unweighted default.
+    pub weight: f64,
 }
 
 impl AsRef<Constraint> for ConstraintEntry<'_> {

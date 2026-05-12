@@ -115,11 +115,13 @@ mod tests {
                 constraint: &parallel,
                 id: 7,
                 priority: 0,
+                weight: 1.0,
             },
             ConstraintEntry {
                 constraint: &perpendicular,
                 id: 9,
                 priority: 0,
+                weight: 1.0,
             },
         ];
 
