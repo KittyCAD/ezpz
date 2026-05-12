@@ -266,7 +266,7 @@ fn weight_biases_inconsistent_solution() {
         ConstraintRequest::highest_priority(Constraint::Fixed(var_id, 100.0)).with_weight(100.0),
     ];
     let initial_guesses = vec![(var_id, 50.0)];
-    
+
     let solved = solve(&constraints, initial_guesses, Config::default()).unwrap();
     let final_value = solved.final_values()[0];
     assert!(

@@ -394,7 +394,8 @@ impl Model<'_> {
                     let weighted_partial = constraint.weight * jacobian_var.partial_derivative;
                     #[cfg(feature = "dbg-jac")]
                     {
-                        dbg_matrix.last_mut().unwrap()[jacobian_var.id as usize] += weighted_partial;
+                        dbg_matrix.last_mut().unwrap()[jacobian_var.id as usize] +=
+                            weighted_partial;
                     }
                     let col = self.layout.index_of(jacobian_var.id);
 
