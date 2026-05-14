@@ -18,6 +18,12 @@ pub struct ConstraintRequest {
     /// 0 is highest priority.
     /// Larger numbers are lower priority.
     priority: u32,
+
+    /// Multiplicative weight applied to this constraint's residual and Jacobian
+    /// rows when assembled into the global system. Higher weights make the
+    /// solver pull harder on this constraint relative to others within the same
+    /// priority tier. Defaults to 1.0.
+    weight: f64,
 }
 
 impl ConstraintRequest {
@@ -33,6 +39,7 @@ impl ConstraintRequest {
         Self {
             constraint,
             priority,
+            weight: 1.0,
         }
     }
 
@@ -47,6 +54,17 @@ impl ConstraintRequest {
         Self::new(constraint, 0)
     }
 
+    /// Override the default unit weight.
+    /// ```
+    /// use ezpz::{Constraint, ConstraintRequest};
+    /// let req = ConstraintRequest::highest_priority(Constraint::Fixed(0, 1.0))
+    ///     .with_weight(100.0);
+    /// ```
+    pub fn with_weight(mut self, weight: f64) -> Self {
+        self.weight = weight;
+        self
+    }
+
     /// Get the underlying constraint.
     pub fn constraint(&self) -> &Constraint {
         &self.constraint
@@ -55,6 +73,11 @@ impl ConstraintRequest {
     /// Get the underlying priority.
     pub fn priority(&self) -> u32 {
         self.priority
+    }
+
+    /// Get the assigned weight.
+    pub fn weight(&self) -> f64 {
+        self.weight
     }
 
     pub(crate) fn set_from_initial_values(&mut self, initial_values: &[f64]) {

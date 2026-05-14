@@ -253,6 +253,37 @@ fn inconsistent() {
 }
 
 #[test]
+fn weight_biases_inconsistent_solution() {
+    // Two competing Fixed constraints on the same variable at the same priority:
+    // target=0 with default weight 1, and target=100 with weight 100. With equal
+    // weights the least-squares minimum sits at the midpoint (50). With 100x on
+    // the second target the solver should pull almost all the way to 100.
+    let mut ids = IdGenerator::default();
+    let var_id = ids.next_id();
+
+    let constraints = vec![
+        ConstraintRequest::highest_priority(Constraint::Fixed(var_id, 0.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(var_id, 100.0)).with_weight(100.0),
+    ];
+    let initial_guesses = vec![(var_id, 50.0)];
+
+    let solved = solve(&constraints, initial_guesses, Config::default()).unwrap();
+    let final_value = solved.final_values()[0];
+    assert!(
+        final_value > 99.0,
+        "weighted target should dominate; got {final_value}",
+    );
+
+    // Equal weights for comparison: should settle at the midpoint.
+    let baseline = vec![
+        ConstraintRequest::highest_priority(Constraint::Fixed(var_id, 0.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(var_id, 100.0)),
+    ];
+    let baseline_solved = solve(&baseline, vec![(var_id, 50.0)], Config::default()).unwrap();
+    assert_nearly_eq(baseline_solved.final_values()[0], 50.0);
+}
+
+#[test]
 fn circle() {
     let solved = run("circle");
     assert!(solved.is_satisfied());
