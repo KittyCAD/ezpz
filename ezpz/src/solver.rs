@@ -39,6 +39,11 @@ pub struct Config {
 
 impl Config {
     /// How many iteration rounds before the solver gives up?
+    pub(crate) fn max_iterations(&self) -> usize {
+        self.max_iterations
+    }
+
+    /// How many iteration rounds before the solver gives up?
     pub fn with_max_iterations(mut self, value: usize) -> Self {
         self.max_iterations = value;
         self

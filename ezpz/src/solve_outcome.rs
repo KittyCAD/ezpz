@@ -119,6 +119,8 @@ impl AsRef<SolveOutcome> for SolveOutcomeFreedomAnalysis {
 pub struct FailureOutcome {
     /// The error that stopped the system from being solved.
     pub error: NonLinearSystemError,
+    /// Best-effort values from the final solver iteration, when available.
+    pub best_effort: Option<SolveOutcome>,
     /// Other warnings which might have contributed,
     /// or might be suboptimal for other reasons.
     pub warnings: Vec<Warning>,
@@ -132,6 +134,11 @@ impl FailureOutcome {
     /// The error that stopped the system from being solved.
     pub fn error(&self) -> &NonLinearSystemError {
         &self.error
+    }
+
+    /// Best-effort values from the final solver iteration, when available.
+    pub fn best_effort(&self) -> Option<&SolveOutcome> {
+        self.best_effort.as_ref()
     }
 
     /// Other warnings which might have contributed,

@@ -284,6 +284,51 @@ fn weight_biases_inconsistent_solution() {
 }
 
 #[test]
+fn non_convergence_exposes_best_effort_values() {
+    let mut ids = IdGenerator::default();
+    let p = DatumPoint::new(&mut ids);
+    let q = DatumPoint::new(&mut ids);
+    let constraints = vec![
+        ConstraintRequest::highest_priority(Constraint::Fixed(p.id_x(), 0.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p.id_y(), 0.0)),
+        ConstraintRequest::new(Constraint::Distance(p, q, 10.0), 1),
+    ];
+    let initial_guesses = vec![
+        (p.id_x(), 0.0),
+        (p.id_y(), 0.0),
+        (q.id_x(), 20.0),
+        (q.id_y(), 20.0),
+    ];
+    let initial_values = initial_guesses
+        .iter()
+        .map(|(_, guess)| *guess)
+        .collect::<Vec<_>>();
+
+    let failure = solve(
+        &constraints,
+        initial_guesses,
+        Config::default().with_max_iterations(1),
+    )
+    .expect_err("one iteration should not converge this solve");
+
+    assert!(matches!(
+        failure.error(),
+        NonLinearSystemError::DidNotConverge
+    ));
+    let best_effort = failure
+        .best_effort()
+        .expect("non-convergence should return the last solver iterate");
+    assert_eq!(best_effort.final_values().len(), initial_values.len());
+    assert!(
+        best_effort
+            .final_values()
+            .iter()
+            .zip(initial_values)
+            .any(|(actual, initial)| (actual - initial).abs() > EPSILON)
+    );
+}
+
+#[test]
 fn circle() {
     let solved = run("circle");
     assert!(solved.is_satisfied());

@@ -236,6 +236,9 @@ pub(crate) fn solve_with_priority_inner<A: Analysis>(
             }
             // If this constraint couldn't be solved,
             Err(e) => {
+                if e.best_effort().is_some() {
+                    return Err(e);
+                }
                 // then return a previous solved system with fewer (higher-priority) constraints,
                 // or if there was no such previous system, then this was the first run,
                 // and we should just return the error.
@@ -279,6 +282,7 @@ fn solve_inner<A: Analysis>(
         Err(error) => {
             return Err(FailureOutcome {
                 error,
+                best_effort: None,
                 warnings,
                 num_vars,
                 num_eqs,
@@ -286,20 +290,75 @@ fn solve_inner<A: Analysis>(
         }
     };
 
-    let mut unsatisfied: Vec<usize> = Vec::new();
+    let priority_solved = constraints
+        .iter()
+        .map(|c| c.priority)
+        .max()
+        .unwrap_or_default();
     let outcome = model.solve_gauss_newton(&mut values, config);
     warnings.extend(model.warnings.lock().unwrap().drain(..));
     let success = match outcome {
         Ok(o) => o,
         Err(error) => {
+            let best_effort = matches!(error, NonLinearSystemError::DidNotConverge).then(|| {
+                solve_outcome_from_values(
+                    constraints,
+                    values,
+                    config.max_iterations(),
+                    warnings.clone(),
+                    priority_solved,
+                    config,
+                )
+            });
             return Err(FailureOutcome {
                 error,
+                best_effort,
                 warnings,
                 num_vars,
                 num_eqs,
             });
         }
     };
+    let analysis = match A::analyze(model) {
+        Ok(o) => o,
+        Err(error) => {
+            let best_effort = Some(solve_outcome_from_values(
+                constraints,
+                values,
+                success.iterations,
+                warnings.clone(),
+                priority_solved,
+                config,
+            ));
+            return Err(FailureOutcome {
+                error,
+                best_effort,
+                warnings,
+                num_vars,
+                num_eqs,
+            });
+        }
+    };
+    let outcome = solve_outcome_from_values(
+        constraints,
+        values,
+        success.iterations,
+        warnings,
+        priority_solved,
+        config,
+    );
+    Ok(SolveOutcomeAnalysis { outcome, analysis })
+}
+
+fn solve_outcome_from_values(
+    constraints: &[ConstraintEntry<'_>],
+    values: Vec<f64>,
+    iterations: usize,
+    warnings: Vec<Warning>,
+    priority_solved: u32,
+    config: Config,
+) -> SolveOutcome {
+    let mut unsatisfied: Vec<usize> = Vec::new();
     let cs: Vec<_> = constraints.iter().map(|c| c.constraint).collect();
     let layout = solver::Layout::new(&Vec::new(), cs.as_slice(), config);
     for constraint in constraints {
@@ -323,33 +382,14 @@ fn solve_inner<A: Analysis>(
             unsatisfied.push(constraint.id);
         }
     }
-    let analysis = match A::analyze(model) {
-        Ok(o) => o,
-        Err(error) => {
-            return Err(FailureOutcome {
-                error,
-                warnings,
-                num_vars,
-                num_eqs,
-            });
-        }
-    };
 
-    let lowest_priority = constraints
-        .iter()
-        .map(|c| c.priority)
-        .max()
-        .unwrap_or_default();
-    Ok(SolveOutcomeAnalysis {
-        outcome: SolveOutcome {
-            priority_solved: lowest_priority,
-            unsatisfied,
-            final_values: values,
-            iterations: success.iterations,
-            warnings,
-        },
-        analysis,
-    })
+    SolveOutcome {
+        priority_solved,
+        unsatisfied,
+        final_values: values,
+        iterations,
+        warnings,
+    }
 }
 
 fn is_satisfied(residual_dim: usize, residuals: [f64; 3]) -> bool {

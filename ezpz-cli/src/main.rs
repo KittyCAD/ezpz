@@ -203,6 +203,7 @@ fn print_failure_output(outcome: FailureOutcome) {
         warnings,
         num_vars,
         num_eqs,
+        ..
     } = outcome;
     print_warnings(&warnings);
     print_problem_size(num_vars, num_eqs);
