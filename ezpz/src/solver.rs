@@ -103,7 +103,7 @@ impl Layout {
 
 /// A Jacobian cache.
 /// Stores the Jacobian so we don't constantly reallocate it.
-struct Jc {
+struct JacobianCache {
     /// The symbolic structure of the matrix (i.e. which cells are non-zero).
     /// This way the matrix's structure is only allocated once, and reused
     /// between different Jacobian calculations.
@@ -117,7 +117,7 @@ struct Jc {
 /// Note that the initial values of each variable are required for Tikhonov regularization.
 pub(crate) struct Model<'c> {
     layout: Layout,
-    jc: Jc,
+    jacobian_cache: JacobianCache,
     constraints: &'c [ConstraintEntry<'c>],
     row0_scratch: Vec<JacobianVar>,
     row1_scratch: Vec<JacobianVar>,
@@ -252,7 +252,7 @@ impl<'c> Model<'c> {
         // the solver takes smaller and smaller steps.
         let lambda_i = build_lambda_i(layout.num_variables);
 
-        let jc = Jc {
+        let jc = JacobianCache {
             vals: vec![0.0; sym.compute_nnz()], // We have a nonzero count util.
             sym,
         };
@@ -264,7 +264,7 @@ impl<'c> Model<'c> {
         Ok(Self {
             warnings: Default::default(),
             layout,
-            jc,
+            jacobian_cache: jc,
             constraints,
             row0_scratch: Vec::with_capacity(NONZEROES_PER_ROW),
             row1_scratch: Vec::with_capacity(NONZEROES_PER_ROW),
@@ -350,7 +350,7 @@ impl Model<'_> {
     fn refresh_jacobian(&mut self, current_assignments: &[f64]) {
         // To enable per-variable partial derivative accumulation (i.e. local to global
         // Jacobian assembly), we need to zero out the Jacobian values first.
-        self.jc.vals.fill(0.0);
+        self.jacobian_cache.vals.fill(0.0);
 
         // Allocate some scratch space for the Jacobian calculations, so that we can
         // do one allocation here and then won't need any allocations per-row or per-column.
@@ -400,13 +400,13 @@ impl Model<'_> {
                     let col = self.layout.index_of(jacobian_var.id);
 
                     // Find where this (row_num, col) entry should go in the sparse structure.
-                    let mut col_range = self.jc.sym.col_range(col);
-                    let row_indices = self.jc.sym.row_idx();
+                    let mut col_range = self.jacobian_cache.sym.col_range(col);
+                    let row_indices = self.jacobian_cache.sym.row_idx();
 
                     // Search for our row within this column's entries.
                     let idx = col_range.find(|idx| row_indices[*idx] == this_row).unwrap();
                     // Found the right position; accumulate the partials.
-                    self.jc.vals[idx] += weighted_partial;
+                    self.jacobian_cache.vals[idx] += weighted_partial;
                 }
             }
         }

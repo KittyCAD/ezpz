@@ -48,6 +48,7 @@ impl FreedomAnalysis {
     pub(crate) fn new(underconstrained: Vec<crate::Id>) -> Self {
         Self { underconstrained }
     }
+
     /// Is any variable in the system underconstrained?
     pub fn is_underconstrained(&self) -> bool {
         !self.underconstrained.is_empty()
