@@ -18,7 +18,7 @@ impl V {
 
     #[inline(always)]
     pub fn magnitude_squared(self) -> f64 {
-        libm::pow(self.x, 2.0) + libm::pow(self.y, 2.0)
+        self.x * self.x + self.y * self.y
     }
 
     #[inline(always)]
@@ -92,6 +92,17 @@ impl std::ops::Mul<f64> for V {
         Self {
             x: self.x * scale,
             y: self.y * scale,
+        }
+    }
+}
+
+impl std::ops::Div<f64> for V {
+    type Output = Self;
+
+    fn div(self, scale: f64) -> Self::Output {
+        Self {
+            x: self.x / scale,
+            y: self.y / scale,
         }
     }
 }

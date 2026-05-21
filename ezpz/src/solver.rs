@@ -4,7 +4,8 @@ use faer::sparse::{Pair, SparseColMatRef, SymbolicSparseColMat, linalg::solvers:
 
 use crate::{
     Constraint, ConstraintEntry, NonLinearSystemError, Warning, WarningContent,
-    constraints::JacobianVar, id::Id,
+    constraints::{JacobianVar, Residual},
+    id::Id,
 };
 
 mod find_dof;
@@ -310,38 +311,26 @@ impl Model<'_> {
         // Each row of `out` corresponds to one row of the matrix, i.e. one equation.
         // Each item of `current_assignments` corresponds to one column of the matrix, i.e. one variable.
         let mut row_num = 0;
-        let mut residuals0;
-        let mut residuals1;
-        let mut residuals2;
 
         // Compute constraint residuals.
-        for (i, constraint) in self.constraints.iter().enumerate() {
-            let mut degenerate = false;
-            residuals0 = 0.0;
-            residuals1 = 0.0;
-            residuals2 = 0.0;
-            constraint.constraint.residual(
-                &self.layout,
-                current_assignments,
-                &mut residuals0,
-                &mut residuals1,
-                &mut residuals2,
-                &mut degenerate,
-            );
-            if degenerate {
+        for (ix, constraint) in self.constraints.iter().enumerate() {
+            let residual = constraint
+                .constraint
+                .residual(&self.layout, current_assignments);
+            if residual.is_degenerate() {
                 let mut warnings = self.warnings.lock().unwrap();
                 warnings.push(Warning {
-                    about_constraint: Some(i),
+                    about_constraint: Some(ix),
                     content: WarningContent::Degenerate,
                 });
             }
-            for row in [&residuals0, &residuals1, &residuals2]
-                .iter()
-                .take(constraint.constraint.residual_dim())
-            {
+
+            let residual_slice = residual_slice!(residual);
+
+            for row in residual_slice {
                 let this_row = row_num;
                 row_num += 1;
-                out[this_row] = constraint.weight * **row;
+                out[this_row] = constraint.weight * (*row);
             }
         }
     }
