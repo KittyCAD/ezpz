@@ -87,24 +87,18 @@ fn underconstrained_variables(
     // Compute participation norm for each variable.
     // If a variable's participation is basically zero, then it's constrained.
     // If it's nonzero, then it moves in some DOF and is unconstrained.
-    let participation: Vec<f64> = (0..nvars)
-        .map(|j| {
-            (0..nullspace.ncols())
-                .map(|k| {
-                    let n_jk = nullspace.get(j, k);
-                    n_jk * n_jk
-                })
-                .sum::<f64>()
-                .sqrt()
-        })
+    let participation: Vec<f64> = nullspace
+        .row_iter()
+        .map(|row| row.squared_norm_l2())
         .collect();
     let max_participation = participation.iter().copied().fold(0.0, libm::fmax);
 
     // Relative threshold to classify variables
     let var_tol = 1e-3 * max_participation;
+    let squared_tol = var_tol * var_tol;
 
     (0..nvars)
-        .filter(|&j| participation[j] > var_tol)
+        .filter(|&j| participation[j] > squared_tol)
         .map(|x| x as u32)
         .collect()
 }
