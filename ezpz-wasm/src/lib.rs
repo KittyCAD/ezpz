@@ -87,6 +87,7 @@ impl From<WasmConfig> for Config {
 
 impl From<&NonLinearSystemError> for WasmNonLinearSystemError {
     fn from(value: &NonLinearSystemError) -> Self {
+        #[allow(unreachable_patterns)]
         match value {
             NonLinearSystemError::NotFound(id) => Self::NotFound(*id),
             NonLinearSystemError::WrongNumberGuesses { labels, guesses } => {
@@ -116,6 +117,9 @@ impl From<&NonLinearSystemError> for WasmNonLinearSystemError {
             },
             NonLinearSystemError::DidNotConverge => Self::DidNotConverge,
             NonLinearSystemError::EmptySystemNotAllowed => Self::EmptySystemNotAllowed,
+            _ => Self::Faer {
+                message: value.to_string(),
+            },
         }
     }
 }
