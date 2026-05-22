@@ -103,10 +103,8 @@ fn underconstrained_variables(
     // Relative threshold to classify variables
     let var_tol = 1e-3 * max_participation;
 
-    let underconstrained = (0..nvars)
+    (0..nvars)
         .filter(|&j| participation[j] > var_tol)
         .map(|x| x as u32)
-        .collect();
-
-    underconstrained
+        .collect()
 }
