@@ -116,9 +116,6 @@ impl From<&NonLinearSystemError> for WasmNonLinearSystemError {
             },
             NonLinearSystemError::DidNotConverge => Self::DidNotConverge,
             NonLinearSystemError::EmptySystemNotAllowed => Self::EmptySystemNotAllowed,
-            _ => Self::Faer {
-                message: value.to_string(),
-            },
         }
     }
 }
