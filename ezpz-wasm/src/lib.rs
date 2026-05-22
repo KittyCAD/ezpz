@@ -1,9 +1,6 @@
 use std::str::FromStr;
 
-use ezpz::{
-    Config, ConstraintRequest, FailureOutcome, NonLinearSystemError, SolveOutcome,
-    SolveOutcomeFreedomAnalysis, textual,
-};
+use ezpz::{Config, ConstraintRequest, FailureOutcome, NonLinearSystemError, textual};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use wasm_bindgen::prelude::*;
 
@@ -157,33 +154,17 @@ fn parse_config(config: Option<JsValue>) -> JsResult<Config> {
     }
 }
 
-fn parse_requests(value: JsValue) -> JsResult<Vec<ConstraintRequest>> {
-    deserialize(value)
-}
-
-fn parse_initial_guesses(value: JsValue) -> JsResult<Vec<(ezpz::Id, f64)>> {
-    deserialize(value)
-}
-
-fn serialize_solve_outcome(outcome: &SolveOutcome) -> JsResult<JsValue> {
-    serialize(outcome)
-}
-
-fn serialize_solve_outcome_analysis(outcome: &SolveOutcomeFreedomAnalysis) -> JsResult<JsValue> {
-    serialize(outcome)
-}
-
 #[wasm_bindgen]
 pub fn solve(
     requests: JsValue,
     initial_guesses: JsValue,
     config: Option<JsValue>,
 ) -> JsResult<JsValue> {
-    let requests = parse_requests(requests)?;
-    let initial_guesses = parse_initial_guesses(initial_guesses)?;
+    let requests: Vec<ConstraintRequest> = deserialize(requests)?;
+    let initial_guesses: Vec<(ezpz::Id, f64)> = deserialize(initial_guesses)?;
     let config = parse_config(config)?;
     match ezpz::solve(&requests, initial_guesses, config) {
-        Ok(outcome) => serialize_solve_outcome(&outcome),
+        Ok(outcome) => serialize(&outcome),
         Err(error) => Err(failure_to_js(&error)),
     }
 }
@@ -194,11 +175,11 @@ pub fn solve_analysis(
     initial_guesses: JsValue,
     config: Option<JsValue>,
 ) -> JsResult<JsValue> {
-    let requests = parse_requests(requests)?;
-    let initial_guesses = parse_initial_guesses(initial_guesses)?;
+    let requests: Vec<ConstraintRequest> = deserialize(requests)?;
+    let initial_guesses: Vec<(ezpz::Id, f64)> = deserialize(initial_guesses)?;
     let config = parse_config(config)?;
     match ezpz::solve_analysis(&requests, initial_guesses, config) {
-        Ok(outcome) => serialize_solve_outcome_analysis(&outcome),
+        Ok(outcome) => serialize(&outcome),
         Err(error) => Err(failure_to_js(&error)),
     }
 }
