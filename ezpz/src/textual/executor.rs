@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use indexmap::IndexMap;
+use serde::{Deserialize, Serialize};
 
 use crate::Analysis;
 use crate::Config;
@@ -582,7 +583,7 @@ impl ConstraintSystem<'_> {
 }
 
 /// Outcome of successfully solving a constraint system.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Outcome {
     /// All constraint IDs which couldn't be satisfied.
     pub unsatisfied: Vec<usize>,
@@ -609,7 +610,7 @@ pub struct Outcome {
 }
 
 /// Outcome of solving an ezpz system, and degrees-of-freedom analysis.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct OutcomeAnalysis {
     /// Degrees of freedom analysis
     pub analysis: FreedomAnalysis,

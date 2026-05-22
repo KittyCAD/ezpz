@@ -3,6 +3,7 @@ mod geometry_variables;
 mod instruction;
 mod parser;
 
+use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
 pub use executor::ConstraintSystem;
@@ -50,7 +51,7 @@ impl FromStr for Problem {
 
 /// The label of a variable being solved for in the system.
 /// E.g. `p.x` or `p.y` or `arc.center`.
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
 pub struct Label(String);
 
 impl From<&str> for Label {

@@ -1,6 +1,7 @@
 use std::sync::Mutex;
 
 use faer::sparse::{Pair, SparseColMatRef, SymbolicSparseColMat, linalg::solvers::SymbolicLu};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     Constraint, ConstraintEntry, NonLinearSystemError, Warning, WarningContent,
@@ -25,7 +26,7 @@ const REGULARIZATION_LAMBDA: f64 = 1e-9;
 ///     .with_max_iterations(200)
 ///     .with_convergence_tolerance(1e-10);
 /// ```
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct Config {
     /// How many iteration rounds before the solver gives up?

@@ -2,11 +2,12 @@ use faer::{
     linalg::svd::SvdError,
     sparse::{CreationError, FaerError, linalg::LuError},
 };
+use serde::{Deserialize, Serialize};
 
 use crate::Id;
 
 /// Errors from parsing and executing ezpz's textual representation.
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug, Serialize, Deserialize)]
 #[cfg_attr(not(feature = "unstable-exhaustive"), non_exhaustive)]
 pub enum TextualError {
     /// No initial guess was given for this label.

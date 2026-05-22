@@ -1,4 +1,5 @@
 use crate::Constraint;
+use serde::{Deserialize, Serialize};
 
 /// A constraint that EZPZ should solve for.
 /// ```
@@ -8,7 +9,7 @@ use crate::Constraint;
 /// let priority = 3;
 /// let constraint_req = ConstraintRequest::new(constraint, priority);
 /// ```
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct ConstraintRequest {
     /// The constraint itself.

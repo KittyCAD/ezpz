@@ -1,5 +1,7 @@
 //! Geometric entities that can be constrained and solved by ezpz.
 
+use serde::{Deserialize, Serialize};
+
 use crate::{Id, IdGenerator};
 
 pub(crate) trait Datum {
@@ -14,7 +16,7 @@ pub(crate) trait Datum {
 /// let mut ids = IdGenerator::default();
 /// let dist = DatumDistance::new(ids.next_id());
 /// ```
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct DatumDistance {
     /// ID of the variable for this distance.
@@ -49,7 +51,7 @@ impl Datum for DatumDistance {
 /// let mut ids = IdGenerator::default();
 /// let p = DatumPoint::new(&mut ids);
 /// ```
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct DatumPoint {
     /// ID of the variable for this point's X component.
@@ -109,7 +111,7 @@ impl Datum for DatumPoint {
 /// Finite segment of a line.
 /// It has two points, one at each end, and those points
 /// can be determined by the constraint solver.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct DatumLineSegment {
     /// Point for one end of this line.
@@ -146,7 +148,7 @@ impl Datum for DatumLineSegment {
 }
 
 /// A circle, whose radius and position can be determined by the constraint solver.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct DatumCircle {
     /// Center of the circle.
@@ -166,7 +168,7 @@ impl Datum for DatumCircle {
 /// The arc's start, end and center can be determined by the constraint solver.
 /// The arc always goes counter-clockwise from start to end.
 /// To get a clockwise arc, swap start and end.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct DatumCircularArc {
     /// Center of the circle

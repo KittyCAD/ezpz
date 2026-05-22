@@ -563,6 +563,7 @@ dependencies = [
  "libm",
  "mutants",
  "proptest",
+ "serde",
  "thiserror 2.0.18",
  "twenty-twenty",
  "winnow",

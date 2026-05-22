@@ -5,9 +5,10 @@ use crate::{
         outputs::{Arc, Circle, Point},
     },
 };
+use serde::{Deserialize, Serialize};
 
 /// Data from a successful solved system.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 #[cfg_attr(not(feature = "unstable-exhaustive"), non_exhaustive)]
 pub struct SolveOutcome {
     /// Which constraints couldn't be satisfied
@@ -98,7 +99,7 @@ impl SolveOutcome {
 /// Created from [`crate::solve_analysis`].
 // This is just like `SolveOutcomeAnalysis<FreedomAnalysis>`,
 // except it doesn't leak the private trait `Analysis`.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SolveOutcomeFreedomAnalysis {
     /// Extra analysis for the system,
     /// which is probably expensive to compute.

@@ -3,9 +3,10 @@ use crate::{
     constraints::ConstraintEntry,
     datatypes::{Angle, AngleKind},
 };
+use serde::{Deserialize, Serialize};
 
 /// Something bad that users should know about.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct Warning {
     /// If this warning is about a particular constraint, which constraint?
@@ -16,7 +17,7 @@ pub struct Warning {
 }
 
 /// What went wrong, or should be done differently.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(not(feature = "unstable-exhaustive"), non_exhaustive)]
 pub enum WarningContent {

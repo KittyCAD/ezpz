@@ -1,4 +1,5 @@
 use crate::{NonLinearSystemError, SolveOutcomeFreedomAnalysis, solver::Model};
+use serde::{Deserialize, Serialize};
 
 pub(crate) trait Analysis: Sized {
     fn analyze(model: Model<'_>) -> Result<Self, NonLinearSystemError>;
@@ -22,7 +23,7 @@ impl Analysis for NoAnalysis {
 
 /// Results from analyzing the freedom of each variable.
 /// Created from [`crate::solve_analysis`].
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Serialize, Deserialize)]
 #[cfg_attr(not(feature = "unstable-exhaustive"), non_exhaustive)]
 pub struct FreedomAnalysis {
     /// These variables are underconstrained, and the user could (probably should)

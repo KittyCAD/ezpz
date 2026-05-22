@@ -1,9 +1,11 @@
 pub mod inputs;
 pub mod outputs;
 
+use serde::{Deserialize, Serialize};
+
 /// Possible angles, with specific descriptors for special angles
 /// like parallel or perpendicular.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 #[cfg_attr(not(feature = "unstable-exhaustive"), non_exhaustive)]
 pub enum AngleKind {
@@ -16,7 +18,7 @@ pub enum AngleKind {
 }
 
 /// A measurement of a particular angle, could be degrees or radians.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct Angle {
