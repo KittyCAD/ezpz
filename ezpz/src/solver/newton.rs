@@ -51,7 +51,8 @@ impl Model<'_> {
                b = -Jᵀr
             */
 
-            let j = SparseColMatRef::new(self.jc.sym.as_ref(), &self.jc.vals);
+            let j =
+                SparseColMatRef::new(self.jacobian_cache.sym.as_ref(), &self.jacobian_cache.vals);
             // TODO: Is there any way to transpose `j` and keep it in column-major?
             // Converting from row- to column-major might not be necessary.
             let jtj = j.transpose().to_col_major()? * j;
