@@ -1,3 +1,21 @@
+# 0.2.26
+
+## Added
+
+ - Per-constraint weights (#260)
+
+## Changed
+
+ - DidNotConverge is no longer an error, instead, check the `.converged` property (#266)
+ - Faster freedom analysis (#263)
+
+# 0.2.25
+
+## Changed
+
+ - Bump faer
+ - Do floating-point math in libm rather than std::f64
+
 # 0.2.24
 
 ## Added
