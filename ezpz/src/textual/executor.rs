@@ -515,6 +515,7 @@ impl ConstraintSystem<'_> {
                     final_values,
                     unsatisfied,
                     priority_solved,
+                    converged,
                 },
         } = self.solve_no_metadata_inner::<A>(config)?;
         let num_points = self.inner_points.len();
@@ -566,6 +567,7 @@ impl ConstraintSystem<'_> {
         Ok((
             analysis,
             Outcome {
+                converged,
                 priority_solved,
                 unsatisfied,
                 iterations,
@@ -606,6 +608,8 @@ pub struct Outcome {
     /// The constraint solver stops when it cannot solve any more constraints, i.e.
     /// got an error.
     pub priority_solved: u32,
+    /// Did the solver converge on a solution?
+    pub converged: bool,
 }
 
 /// Outcome of solving an ezpz system, and degrees-of-freedom analysis.
