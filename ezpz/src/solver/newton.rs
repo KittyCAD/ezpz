@@ -28,8 +28,6 @@ impl Model<'_> {
             // Assemble global residual and Jacobian
             // Re-evaluate the global residual.
             self.residual(current_values, &mut global_residual);
-            // Re-evaluate the global jacobian, write it into self.jc
-            self.refresh_jacobian(current_values);
 
             // Convergence check: if the residual is within our tolerance,
             // then the system is totally solved and we can return.
@@ -43,6 +41,9 @@ impl Model<'_> {
                     iterations: this_iteration,
                 });
             }
+
+            // Re-evaluate the global jacobian, write it into self.jc
+            self.refresh_jacobian(current_values);
 
             /* NOTE(dr): We solve the following linear system to get the damped Gauss-Newton step d
                (JᵀJ + λI) d = -Jᵀr

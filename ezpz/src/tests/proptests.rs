@@ -5,12 +5,12 @@ use proptest::prelude::*;
 
 use crate::{
     CircleSide, Config, Constraint, ConstraintRequest, EPSILON, Id, IdGenerator, LineSide,
-    constraints::JacobianVar,
-    datatypes::inputs::{
-        DatumCircle, DatumCircularArc, DatumDistance, DatumLineSegment, DatumPoint,
+    constraints::{JacobianVar, Residual},
+    datatypes::{
+        Angle, AngleKind,
+        inputs::{DatumCircle, DatumCircularArc, DatumDistance, DatumLineSegment, DatumPoint},
+        outputs::Point,
     },
-    datatypes::outputs::Point,
-    datatypes::{Angle, AngleKind},
     solve,
     solver::Layout,
     tests::assert_nearly_eq,
@@ -534,8 +534,8 @@ proptest! {
             make_distance_var_constraint(px, py, qx, qy, d);
         let swapped = Constraint::DistanceVar(q, p, dist);
 
-        let (residual, _) = distance_var_residual(&constraint, &layout, &values);
-        let (swapped_residual, _) = distance_var_residual(&swapped, &layout, &values);
+        let Residual::One(residual, _) = constraint.residual(&layout, &values) else { panic!("bad residual") };
+        let Residual::One(swapped_residual, _) = swapped.residual(&layout, &values) else { panic!("bad residual") };
         let residual_error = (residual - swapped_residual).abs();
         prop_assert!(
             residual_error <= 1e-12,
@@ -570,7 +570,6 @@ proptest! {
             prop_assert!((df_dpy + df_dqy).abs() <= 1e-12, "df/dpy should equal -df/dqy");
         }
     }
-
 }
 
 fn make_distance_var_constraint(
@@ -604,22 +603,6 @@ fn make_distance_var_constraint(
     current_assignments[dist.id as usize] = d;
 
     (constraint, layout, current_assignments, p, q, dist)
-}
-
-fn distance_var_residual(constraint: &Constraint, layout: &Layout, values: &[f64]) -> (f64, bool) {
-    let mut residual0 = 0.0;
-    let mut residual1 = 0.0;
-    let mut residual2 = 0.0;
-    let mut degenerate = false;
-    constraint.residual(
-        layout,
-        values,
-        &mut residual0,
-        &mut residual1,
-        &mut residual2,
-        &mut degenerate,
-    );
-    (residual0, degenerate)
 }
 
 fn distance_var_jacobian(
@@ -664,20 +647,17 @@ fn central_difference_derivative(
 
     let mut plus_values = values.to_vec();
     plus_values[index] += step;
-    let (plus_residual, plus_degenerate) = distance_var_residual(constraint, layout, &plus_values);
-    assert!(
-        !plus_degenerate,
-        "finite-difference +step should not be degenerate for id {var}"
-    );
+
+    let Residual::One(plus_residual, _) = constraint.residual(layout, &plus_values) else {
+        panic!("finite-difference +step should return one residual for id {var}");
+    };
 
     let mut minus_values = values.to_vec();
     minus_values[index] -= step;
-    let (minus_residual, minus_degenerate) =
-        distance_var_residual(constraint, layout, &minus_values);
-    assert!(
-        !minus_degenerate,
-        "finite-difference -step should not be degenerate for id {var}"
-    );
+
+    let Residual::One(minus_residual, _) = constraint.residual(layout, &minus_values) else {
+        panic!("finite-difference -step should return one residual for id {var}");
+    };
 
     (plus_residual - minus_residual) / (2.0 * step)
 }

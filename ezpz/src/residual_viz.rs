@@ -3,7 +3,7 @@
 //! Renders the residual as a 2D scalar field (e.g. over x,y) and saves as an image,
 //! useful as a sanity check when changing residual math: the image should change.
 
-use crate::constraints::Constraint;
+use crate::constraints::{Constraint, Residual};
 use crate::datatypes::inputs::{DatumLineSegment, DatumPoint};
 use crate::solver::{Config, Layout};
 use std::io;
@@ -77,6 +77,13 @@ fn mag_to_pixel(mag: f64) -> image::Rgb<u8> {
         let fractional = value - value.trunc();
         let intensity = (255.0 - fractional * 255.0).round() as u8;
         image::Rgb([intensity, intensity, intensity])
+    }
+}
+
+fn residual_magnitude(residual: Residual) -> f64 {
+    match residual {
+        Residual::One(r0, _) => r0.abs(),
+        Residual::Two(r0, r1, _) => libm::hypot(r0, r1),
     }
 }
 
@@ -225,19 +232,7 @@ pub fn render_points_coincident_residual_to_image(
     let mut buf = render_residual_field(&viewport, |x, y| {
         assignments[0] = x;
         assignments[1] = y;
-        let mut r0 = 0.0_f64;
-        let mut r1 = 0.0_f64;
-        let mut r2 = 0.0_f64;
-        let mut degenerate = false;
-        constraint.residual(
-            &layout,
-            &assignments,
-            &mut r0,
-            &mut r1,
-            &mut r2,
-            &mut degenerate,
-        );
-        (r0 * r0 + r1 * r1).sqrt()
+        residual_magnitude(constraint.residual(&layout, &assignments))
     });
     // Green = constraint solution (PointsCoincident ⇒ must coincide with fixed point).
     draw_solver_overlay(
@@ -279,19 +274,7 @@ pub fn render_distance_residual_to_image(
     let mut buf = render_residual_field(&viewport, |x, y| {
         assignments[0] = x;
         assignments[1] = y;
-        let mut r0 = 0.0_f64;
-        let mut r1 = 0.0_f64;
-        let mut r2 = 0.0_f64;
-        let mut degenerate = false;
-        constraint.residual(
-            &layout,
-            &assignments,
-            &mut r0,
-            &mut r1,
-            &mut r2,
-            &mut degenerate,
-        );
-        r0.abs()
+        residual_magnitude(constraint.residual(&layout, &assignments))
     });
 
     let ex_x = DISTANCE_EXAMPLE_POINT_X;
@@ -357,19 +340,7 @@ pub fn render_point_line_distance_residual_to_image(
     let mut buf = render_residual_field(&viewport, |x, y| {
         assignments[0] = x;
         assignments[1] = y;
-        let mut r0 = 0.0_f64;
-        let mut r1 = 0.0_f64;
-        let mut r2 = 0.0_f64;
-        let mut degenerate = false;
-        constraint.residual(
-            &layout,
-            &assignments,
-            &mut r0,
-            &mut r1,
-            &mut r2,
-            &mut degenerate,
-        );
-        r0.abs()
+        residual_magnitude(constraint.residual(&layout, &assignments))
     });
 
     let ex_x = PERP_DISTANCE_EXAMPLE_POINT_X;
@@ -406,19 +377,7 @@ pub fn render_vertical_residual_to_image(
     let mut buf = render_residual_field(&viewport, |x, y| {
         assignments[0] = x;
         assignments[1] = y;
-        let mut r0 = 0.0_f64;
-        let mut r1 = 0.0_f64;
-        let mut r2 = 0.0_f64;
-        let mut degenerate = false;
-        constraint.residual(
-            &layout,
-            &assignments,
-            &mut r0,
-            &mut r1,
-            &mut r2,
-            &mut degenerate,
-        );
-        r0.abs()
+        residual_magnitude(constraint.residual(&layout, &assignments))
     });
 
     let ex_x = VERTICAL_HORIZONTAL_EXAMPLE_POINT_X;
@@ -453,19 +412,7 @@ pub fn render_horizontal_residual_to_image(
     let mut buf = render_residual_field(&viewport, |x, y| {
         assignments[0] = x;
         assignments[1] = y;
-        let mut r0 = 0.0_f64;
-        let mut r1 = 0.0_f64;
-        let mut r2 = 0.0_f64;
-        let mut degenerate = false;
-        constraint.residual(
-            &layout,
-            &assignments,
-            &mut r0,
-            &mut r1,
-            &mut r2,
-            &mut degenerate,
-        );
-        r0.abs()
+        residual_magnitude(constraint.residual(&layout, &assignments))
     });
 
     let ex_x = VERTICAL_HORIZONTAL_EXAMPLE_POINT_X;

@@ -142,6 +142,56 @@ impl std::fmt::Debug for JacobianVar {
     }
 }
 
+/// TODO: doc comment
+#[derive(Clone, Copy)]
+pub(crate) enum Residual {
+    /// A single residual value
+    One(f64, bool),
+    /// Two residual values
+    Two(f64, f64, bool),
+}
+
+impl Residual {
+    pub fn one(value: f64) -> Self {
+        Self::One(value, false)
+    }
+
+    pub fn two(one: f64, two: f64) -> Self {
+        Self::Two(one, two, false)
+    }
+
+    pub fn degenerate_one() -> Self {
+        Self::One(0.0, true)
+    }
+
+    pub fn degenerate_two() -> Self {
+        Self::Two(0.0, 0.0, true)
+    }
+
+    pub fn is_degenerate(&self) -> bool {
+        match *self {
+            Residual::One(_, degenerate) | Residual::Two(_, _, degenerate) => degenerate,
+        }
+    }
+
+    pub fn is_satisfied(&self) -> bool {
+        match *self {
+            Residual::One(val, _) => val.abs() < EPSILON,
+            Residual::Two(one, two, _) => one.abs() < EPSILON && two.abs() < EPSILON,
+        }
+    }
+}
+
+/// Macro that helps interpret a `Residual` as a slice
+macro_rules! residual_slice {
+    ($residual:expr) => {
+        match $residual {
+            Residual::One(val, _) => &[val] as &[f64],
+            Residual::Two(one, two, _) => &[one, two] as &[f64],
+        }
+    };
+}
+
 impl Constraint {
     pub(crate) fn set_from_initial_values(&mut self, initial_values: &[f64]) {
         match self {
@@ -491,21 +541,10 @@ impl Constraint {
     }
 
     /// How close is this constraint to being satisfied?
-    /// For performance reasons (avoiding allocations), this doesn't return a `Vec<f64>`,
-    /// instead it takes one as a mutable argument and writes out all residuals to that.
     /// Most constraints have a residual measured as a single number (scalar),
     /// but some constraints have two residuals (e.g. one for the X axis and one for the Y axis).
-    /// That's why there's two possible residuals to calculate (and therefore, two &mut residual to write into).
-    pub(crate) fn residual(
-        &self,
-        layout: &Layout,
-        current_assignments: &[f64],
-        residual0: &mut f64,
-        residual1: &mut f64,
-        _residual2: &mut f64,
-        degenerate: &mut bool,
-    ) {
-        match self {
+    pub(crate) fn residual(&self, layout: &Layout, current_assignments: &[f64]) -> Residual {
+        let residual = match self {
             Constraint::LineTangentToCircle(line, circle, side) => {
                 // Get current state of the entities.
                 let p0_x = current_assignments[layout.index_of(line.p0.id_x())];
@@ -530,9 +569,7 @@ impl Constraint {
                 // Handle degenerate line case
                 if mag_u <= EPSILON {
                     // TODO: Could revert to point circle constraint here
-                    *residual0 = 0.0;
-                    *degenerate = true;
-                    return;
+                    return Residual::degenerate_one();
                 }
 
                 let v = c - p0;
@@ -540,7 +577,7 @@ impl Constraint {
                 let side_sign = if *side == LineSide::Right { -1.0 } else { 1.0 };
                 let cen_dist = side_sign * cross_uv / mag_u;
 
-                *residual0 = cen_dist - radius;
+                Residual::one(cen_dist - radius)
             }
             Constraint::CircleTangentToCircle(circle_a, circle_b, side) => {
                 let a_c = V::new(
@@ -556,11 +593,13 @@ impl Constraint {
                 let b_r = current_assignments[layout.index_of(circle_b.radius.id)].abs();
 
                 let dist = (a_c - b_c).magnitude();
-                *residual0 = if *side == CircleSide::Interior {
+                let residual = if *side == CircleSide::Interior {
                     (a_r - b_r).abs() - dist
                 } else {
                     a_r + b_r - dist
                 };
+
+                Residual::one(residual)
             }
             Constraint::Distance(p0, p1, expected_distance) => {
                 let p0_x = current_assignments[layout.index_of(p0.id_x())];
@@ -570,7 +609,8 @@ impl Constraint {
                 let p1_y = current_assignments[layout.index_of(p1.id_y())];
                 let p1 = V::new(p1_x, p1_y);
                 let actual_distance = p0.euclidean_distance(p1);
-                *residual0 = actual_distance - expected_distance;
+
+                Residual::one(actual_distance - expected_distance)
             }
             Constraint::DistanceVar(p, q, d) => {
                 let px = current_assignments[layout.index_of(p.id_x())];
@@ -579,7 +619,8 @@ impl Constraint {
                 let qy = current_assignments[layout.index_of(q.id_y())];
                 let d = current_assignments[layout.index_of(d.id)];
                 let residual = -d + (libm::pow(px - qx, 2.0) + libm::pow(py - qy, 2.0)).sqrt();
-                *residual0 = residual;
+
+                Residual::one(residual)
             }
             Constraint::VerticalDistance(p0, p1, expected_distance) => {
                 let p0_y = current_assignments[layout.index_of(p0.id_y())];
@@ -587,32 +628,32 @@ impl Constraint {
                 // Residual:
                 // p0.y - p1.y = d
                 // p0.y - p1.y - d = 0
-                *residual0 = (p0_y - p1_y) - expected_distance;
+                Residual::one((p0_y - p1_y) - expected_distance)
             }
             Constraint::HorizontalDistance(p0, p1, expected_distance) => {
                 let p0_x = current_assignments[layout.index_of(p0.id_x())];
                 let p1_x = current_assignments[layout.index_of(p1.id_x())];
-                *residual0 = (p0_x - p1_x) - expected_distance;
+                Residual::one((p0_x - p1_x) - expected_distance)
             }
             Constraint::Vertical(line) => {
                 let p0_x = current_assignments[layout.index_of(line.p0.id_x())];
                 let p1_x = current_assignments[layout.index_of(line.p1.id_x())];
-                *residual0 = p0_x - p1_x;
+                Residual::one(p0_x - p1_x)
             }
             Constraint::Horizontal(line) => {
                 let p0_y = current_assignments[layout.index_of(line.p0.id_y())];
                 let p1_y = current_assignments[layout.index_of(line.p1.id_y())];
-                *residual0 = p0_y - p1_y;
+                Residual::one(p0_y - p1_y)
             }
             Constraint::Fixed(id, expected) => {
                 let actual = current_assignments[layout.index_of(*id)];
-                *residual0 = actual - expected;
+                Residual::one(actual - expected)
             }
             Constraint::ScalarEqual(x, y) => {
                 // Residual equation R: x-y=0
                 let vx = current_assignments[layout.index_of(*x)];
                 let vy = current_assignments[layout.index_of(*y)];
-                *residual0 = vx - vy;
+                Residual::one(vx - vy)
             }
             Constraint::LinesAtAngle(line0, line1, expected_angle) => {
                 let x0 = current_assignments[layout.index_of(line0.p0.id_x())];
@@ -627,56 +668,48 @@ impl Constraint {
                 let u = V::new(x1 - x0, y1 - y0);
                 let v = V::new(x3 - x2, y3 - y2);
 
-                let sqr_tol = EPSILON * EPSILON;
-                if (u.magnitude_squared() <= sqr_tol) || (v.magnitude_squared() <= sqr_tol) {
-                    *degenerate = true;
-                    return;
+                let eps_squared = EPSILON * EPSILON;
+                if u.magnitude_squared() <= eps_squared || v.magnitude_squared() <= eps_squared {
+                    return Residual::degenerate_one();
                 }
 
                 let rot = rotation_for_angle_kind(*expected_angle);
-                *residual0 = u.cross_2d(rot.inverse().apply(v));
+
+                Residual::one(u.cross_2d(rot.inverse().apply(v)))
             }
             Constraint::PointsCoincident(p0, p1) => {
                 let p0_x = current_assignments[layout.index_of(p0.id_x())];
                 let p0_y = current_assignments[layout.index_of(p0.id_y())];
                 let p1_x = current_assignments[layout.index_of(p1.id_x())];
                 let p1_y = current_assignments[layout.index_of(p1.id_y())];
-                *residual0 = p0_x - p1_x;
-                *residual1 = p0_y - p1_y;
+
+                Residual::two(p0_x - p1_x, p0_y - p1_y)
             }
             Constraint::CircleRadius(circle, expected_radius) => {
                 let actual_radius = current_assignments[layout.index_of(circle.radius.id)];
-                *residual0 = actual_radius - *expected_radius;
+                Residual::one(actual_radius - *expected_radius)
             }
             Constraint::LinesEqualLength(line0, line1) => {
                 let (l0, l1) = get_line_ends(current_assignments, line0, line1, layout);
                 let len0 = l0.0.euclidean_distance(l0.1);
                 let len1 = l1.0.euclidean_distance(l1.1);
-                *residual0 = len0 - len1;
+                Residual::one(len0 - len1)
             }
             Constraint::ArcRadius(arc, radius) => {
                 // This is really just equivalent to 2 constraints,
                 // distance(center, start) and distance(center, end).
-                let constraints = (
-                    Constraint::Distance(arc.center, arc.start, *radius),
-                    Constraint::Distance(arc.center, arc.end, *radius),
-                );
-                constraints.0.residual(
-                    layout,
-                    current_assignments,
-                    residual0,
-                    residual1,
-                    _residual2,
-                    degenerate,
-                );
-                constraints.1.residual(
-                    layout,
-                    current_assignments,
-                    residual1,
-                    residual0,
-                    _residual2,
-                    degenerate,
-                );
+                let Residual::One(res1, _) = Constraint::Distance(arc.center, arc.start, *radius)
+                    .residual(layout, current_assignments)
+                else {
+                    unreachable!()
+                };
+                let Residual::One(res2, _) = Constraint::Distance(arc.center, arc.end, *radius)
+                    .residual(layout, current_assignments)
+                else {
+                    unreachable!()
+                };
+
+                Residual::two(res1, res2)
             }
             Constraint::Arc(arc) => {
                 let start_x = current_assignments[layout.index_of(arc.start.id_x())];
@@ -691,7 +724,7 @@ impl Constraint {
                 let dist0_sq = libm::pow(start_x - cx, 2.0) + libm::pow(start_y - cy, 2.0);
                 let dist1_sq = libm::pow(end_x - cx, 2.0) + libm::pow(end_y - cy, 2.0);
 
-                *residual0 = dist0_sq - dist1_sq;
+                Residual::one(dist0_sq - dist1_sq)
             }
             Constraint::Midpoint(line, point) => {
                 let p = line.p0;
@@ -705,8 +738,7 @@ impl Constraint {
                 // Equation:
                 //   ax = (px + qx)/2,
                 // ∴ ax - px/2 - qx/2 = 0
-                *residual0 = ax - px / 2.0 - qx / 2.0;
-                *residual1 = ay - py / 2.0 - qy / 2.0;
+                Residual::two(ax - px / 2.0 - qx / 2.0, ay - py / 2.0 - qy / 2.0)
             }
             Constraint::PointLineDistance(point, line, target_distance) => {
                 // Equation:
@@ -725,17 +757,13 @@ impl Constraint {
 
                 // The above equation is a division, so make sure not to divide by zero.
                 let denominator = libm::hypot(a, b);
-                let is_invalid = denominator < EPSILON;
-                if is_invalid {
-                    *residual0 = 0.0;
-                    *degenerate = true;
-                    return;
+                if denominator < EPSILON {
+                    return Residual::degenerate_one();
                 }
                 let actual_distance = (a * px + b * py + c) / denominator;
 
                 // Residual is then easy to calculate, it's just the gap between actual and target.
-                let residual = actual_distance - target_distance;
-                *residual0 = residual;
+                Residual::one(actual_distance - target_distance)
             }
             Constraint::VerticalPointLineDistance(point, line, desired_distance) => {
                 // See notebook:
@@ -754,11 +782,10 @@ impl Constraint {
                 let dy = qy - py;
                 if dx.abs() < EPSILON || (dx * dx + dy * dy) < EPSILON {
                     // vertical or zero-length line
-                    *degenerate = true;
-                    return;
+                    return Residual::degenerate_one();
                 }
                 let residual = (ay - py - desired_distance) * dx - dy * (ax - px);
-                *residual0 = residual;
+                Residual::one(residual)
             }
             Constraint::HorizontalPointLineDistance(point, line, d) => {
                 // See notebook:
@@ -777,11 +804,10 @@ impl Constraint {
                 let dy = qy - py;
                 if dy.abs() < EPSILON || (dx * dx + dy * dy) < EPSILON {
                     // horizontal or zero-length line
-                    *degenerate = true;
-                    return;
+                    return Residual::degenerate_one();
                 }
-                let residual = ax - d - px - (ay - py) * (-px + qx) * (-py + qy).recip();
-                *residual0 = residual;
+                let residual = ax - d - px - (ay - py) * (-px + qx) / (-py + qy);
+                Residual::one(residual)
             }
             Constraint::Symmetric(line, a, b) => {
                 // Equation: reflect(a - p, q - p) - b + p
@@ -803,8 +829,8 @@ impl Constraint {
                 let q = V::new(qx, qy);
 
                 let residual = (a - p).reflect(q - p) - b + p;
-                *residual0 = residual.x;
-                *residual1 = residual.y;
+
+                Residual::two(residual.x, residual.y)
             }
             Constraint::PointArcCoincident(circular_arc, point) => {
                 let cx = current_assignments[layout.index_of(circular_arc.center.id_x())];
@@ -827,34 +853,27 @@ impl Constraint {
                 let r_e = e.magnitude();
                 let r_p = p.magnitude();
                 if r < EPSILON || r_e < EPSILON || r_p < EPSILON {
-                    *residual0 = 0.0;
-                    *residual1 = 0.0;
-                    *degenerate = true;
-                    return;
+                    return Residual::degenerate_two();
                 }
 
                 let e_proj = e * (r / r_e);
 
-                match classify_point_arc_coincident(s, e_proj, p) {
+                let f = match classify_point_arc_coincident(s, e_proj, p) {
                     PointArcCoincidentPart::Interior => {
                         // Point is closest to arc interior
-                        let f = p * (r / r_p - 1.0);
-                        *residual0 = f.x;
-                        *residual1 = f.y;
+                        p * (r / r_p - 1.0)
                     }
                     PointArcCoincidentPart::End => {
                         // Point is closest to arc end
-                        let f = e_proj - p;
-                        *residual0 = f.x;
-                        *residual1 = f.y;
+                        e_proj - p
                     }
                     PointArcCoincidentPart::Start => {
                         // Point is closest to arc start
-                        let f = s - p;
-                        *residual0 = f.x;
-                        *residual1 = f.y;
+                        s - p
                     }
-                }
+                };
+
+                Residual::two(f.x, f.y)
             }
             Constraint::ArcLength(circular_arc, d) => {
                 // Residual math, see ezpz-sympy for notebook.
@@ -884,30 +903,18 @@ impl Constraint {
                 let by = current_assignments[layout.index_of(circular_arc.end.id_y())];
                 let dx = ax - cx;
                 let dy = ay - cy;
-                let r2 = dx * dx + dy * dy;
-                if r2 < EPSILON {
-                    *residual0 = 0.0;
-                    *residual1 = 0.0;
-                    *degenerate = true;
-                    return;
+                let dx_squared = dx * dx;
+                let dy_squared = dy * dy;
+                let scale = dx_squared + dy_squared;
+                if scale < EPSILON {
+                    return Residual::degenerate_two();
                 }
-                let res0 = ((ax - cx) * (bx - cx) + (ay - cy) * (by - cy))
-                    * (libm::pow(ax - cx, 2.0) + libm::pow(ay - cy, 2.0)).recip()
-                    - libm::cos(
-                        d * (libm::pow(ax - cx, 2.0) + libm::pow(ay - cy, 2.0))
-                            .sqrt()
-                            .recip(),
-                    );
-                let res1 = ((ax - cx) * (by - cy) - (ay - cy) * (bx - cx))
-                    * (libm::pow(ax - cx, 2.0) + libm::pow(ay - cy, 2.0)).recip()
-                    - libm::sin(
-                        d * (libm::pow(ax - cx, 2.0) + libm::pow(ay - cy, 2.0))
-                            .sqrt()
-                            .recip(),
-                    );
 
-                *residual0 = res0;
-                *residual1 = res1;
+                let angle = d / (dx_squared + dy_squared).sqrt();
+                let res0 = (dx * (bx - cx) + dy * (by - cy)) / scale - libm::cos(angle);
+                let res1 = (dx * (by - cy) - dy * (bx - cx)) / scale - libm::sin(angle);
+
+                Residual::two(res0, res1)
             }
             Constraint::ArcAngle(circular_arc, angle) => Constraint::LinesAtAngle(
                 DatumLineSegment {
@@ -920,14 +927,7 @@ impl Constraint {
                 },
                 AngleKind::Other(*angle),
             )
-            .residual(
-                layout,
-                current_assignments,
-                residual0,
-                residual1,
-                _residual2,
-                degenerate,
-            ),
+            .residual(layout, current_assignments),
             Constraint::PointsAtAngle(p0, p1, p2, expected_angle) => {
                 let p0v = V::new(
                     current_assignments[layout.index_of(p0.id_x())],
@@ -948,22 +948,32 @@ impl Constraint {
                 let len_v = v.magnitude();
 
                 if len_u <= EPSILON || len_v <= EPSILON {
-                    *degenerate = true;
-                    return;
+                    return Residual::degenerate_two();
                 }
 
                 let rot = rotation_for_angle_kind(*expected_angle);
-                let u_hat = u * (1.0 / len_u);
-                let v_hat = v * (1.0 / len_v);
+                let u_hat = u / len_u;
+                let v_hat = v / len_v;
                 let rot_u_hat = rot.apply(u_hat);
-                let scale = (len_u + len_v) * 0.5;
-                let res = v_hat - rot_u_hat;
 
-                // Residual: r = (|u| + |v|) / 2 * (v_hat - R * u_hat)
-                *residual0 = scale * res.x;
-                *residual1 = scale * res.y;
+                // Residual = (v_hat - R * u_hat) * (|u| + |v|) / 2
+                let res = (v_hat - rot_u_hat) * ((len_u + len_v) * 0.5);
+
+                Residual::two(res.x, res.y)
             }
-        }
+        };
+
+        // This forces the methods `residual` and `residual_dim` to agree
+        // on the dimension of the residual for every constraint.
+        debug_assert_eq!(
+            {
+                let slice = residual_slice!(residual);
+                slice.len()
+            },
+            self.residual_dim()
+        );
+
+        residual
     }
 
     /// How many equations does this constraint correspond to?
@@ -1122,7 +1132,7 @@ impl Constraint {
                     return;
                 }
 
-                let u_d = d * mag_d.recip();
+                let u_d = d / mag_d;
 
                 let dr_dax = u_d.x;
                 let dr_day = u_d.y;
@@ -3087,5 +3097,37 @@ mod tests {
     fn assert_close(actual: f64, expected: f64) {
         let delta = actual - expected;
         assert!((delta).abs() <= 0.00001, "Delta is {}", delta);
+    }
+
+    #[test]
+    fn residual_is_satisfied_0() {
+        assert!(Residual::one(1e-8).is_satisfied());
+    }
+
+    #[test]
+    fn residual_is_satisfied_1() {
+        assert!(Residual::two(1e-8, 1e-8).is_satisfied());
+    }
+
+    #[test]
+    fn residual_is_unsatisfied_0() {
+        assert!(!Residual::one(44.0).is_satisfied());
+    }
+
+    #[test]
+    fn residual_is_unsatisfied_1() {
+        assert!(!Residual::two(1e-8, 44.0).is_satisfied());
+    }
+
+    #[test]
+    fn degenerate_residual_tracks_degeneracy_separately() {
+        let residual = Residual::degenerate_one();
+        assert!(residual.is_degenerate());
+        assert!(residual.is_satisfied());
+    }
+
+    #[test]
+    fn residual_is_unsatisfied_3() {
+        assert!(!Residual::one(-44.0).is_satisfied());
     }
 }
