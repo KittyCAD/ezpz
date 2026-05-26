@@ -80,10 +80,6 @@ pub enum NonLinearSystemError {
     /// Faer: could not decompose Jacobian.
     #[error("Something went wrong doing SVD in faer")]
     FaerSvd(SvdError),
-    /// Solver did not find a solution within the allowed number of iterations.
-    /// Consider raising the iterations?
-    #[error("Could not find a solution in the allowed number of iterations")]
-    DidNotConverge,
     /// You provided an empty constraint system.
     #[error("Cannot solve an empty system")]
     EmptySystemNotAllowed,

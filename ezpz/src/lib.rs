@@ -164,6 +164,7 @@ pub(crate) fn solve_with_priority_inner<A: Analysis>(
                 iterations: 0,
                 warnings: Vec::new(),
                 priority_solved: 0,
+                converged: true,
             },
         });
     }
@@ -256,6 +257,7 @@ pub(crate) fn solve_with_priority_inner<A: Analysis>(
             iterations: 0,
             warnings: Vec::new(),
             priority_solved: lowest_priority,
+            converged: true,
         },
     }))
 }
@@ -347,6 +349,7 @@ fn solve_inner<A: Analysis>(
             final_values: values,
             iterations: success.iterations,
             warnings,
+            converged: success.converged,
         },
         analysis,
     })

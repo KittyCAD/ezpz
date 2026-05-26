@@ -10,7 +10,10 @@ use super::Model;
 
 #[derive(Debug)]
 pub struct SuccessfulSolve {
+    /// How many iterations did the solver run for?
     pub iterations: usize,
+    /// Did it ultimately converge, or not?
+    pub converged: bool,
 }
 
 impl Model<'_> {
@@ -41,6 +44,7 @@ impl Model<'_> {
             if largest_absolute_elem <= config.convergence_tolerance {
                 return Ok(SuccessfulSolve {
                     iterations: this_iteration,
+                    converged: true,
                 });
             }
 
@@ -84,9 +88,13 @@ impl Model<'_> {
             if step_inf_norm <= step_threshold {
                 return Ok(SuccessfulSolve {
                     iterations: this_iteration,
+                    converged: true,
                 });
             }
         }
-        Err(NonLinearSystemError::DidNotConverge)
+        Ok(SuccessfulSolve {
+            iterations: config.max_iterations,
+            converged: false,
+        })
     }
 }

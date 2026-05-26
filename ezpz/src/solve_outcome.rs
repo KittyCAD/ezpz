@@ -12,6 +12,8 @@ use crate::{
 pub struct SolveOutcome {
     /// Which constraints couldn't be satisfied
     pub(crate) unsatisfied: Vec<usize>,
+    /// Did the solver converge on a solution?
+    pub(crate) converged: bool,
     /// Each variable's final value.
     pub(crate) final_values: Vec<f64>,
     /// How many iterations of Newton's method were required?
@@ -27,6 +29,11 @@ impl SolveOutcome {
     /// Which constraints couldn't be satisfied
     pub fn unsatisfied(&self) -> &[usize] {
         &self.unsatisfied
+    }
+
+    /// Did the solver converge on a solution?
+    pub fn converged(&self) -> bool {
+        self.converged
     }
 
     /// Each variable's final value.
@@ -165,6 +172,7 @@ mod tests {
             iterations: 1,
             warnings: Vec::new(),
             priority_solved: 0,
+            converged: Default::default(),
         };
 
         assert!(so.is_unsatisfied());

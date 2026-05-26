@@ -115,12 +115,18 @@ fn print_output((outcome, duration, constraints): &RunOutcome, show_points: bool
         lines: _, // these are only used for visuals
         unsatisfied,
         priority_solved,
+        converged,
     } = outcome;
     print_warnings(warnings);
     print_unsatisfied(unsatisfied, constraints);
     print_problem_size(*num_vars, *num_eqs);
     println!("Iterations needed: {iterations}");
     println!("Solved up to priority: {priority_solved}");
+    if !converged {
+        use colored::Colorize;
+        let error = "Error".to_string().red();
+        println!("{error}: solver did not converge!")
+    }
     print_performance(*duration);
     if show_points {
         println!("Points:");
