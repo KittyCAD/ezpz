@@ -1,7 +1,9 @@
 //! The final solved values of various geometry.
 
+use serde::{Deserialize, Serialize};
+
 /// A 2D point that ezpz solved for, i.e. found values for all its variables.
-#[derive(Clone, Copy, PartialEq, Debug, Default)]
+#[derive(Clone, Copy, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct Point {
     #[allow(missing_docs)]
     pub x: f64,
@@ -24,7 +26,7 @@ impl From<Point> for (f64, f64) {
 }
 
 /// A 2D circle that ezpz solved for, i.e. found values for all its variables.
-#[derive(Clone, Copy, PartialEq, Debug, Default)]
+#[derive(Clone, Copy, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct Circle {
     /// Radius of the circle.
     pub radius: f64,
@@ -33,7 +35,7 @@ pub struct Circle {
 }
 
 /// A 2D circular arc that ezpz solved for, i.e. found values for all its variables.
-#[derive(Clone, Copy, PartialEq, Debug, Default)]
+#[derive(Clone, Copy, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct Arc {
     /// A point at one end of the arc.
     /// This doesn't specifically mean the start or end or anything.
@@ -60,7 +62,7 @@ impl Point {
 }
 
 /// Component of a 2D point.
-#[derive(Clone, Copy, Eq, PartialEq, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub enum Component {
     /// Horizontal (X) component.
     X,

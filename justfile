@@ -1,5 +1,6 @@
 clippy-flags := "--workspace --tests --benches --examples --all-targets"
 gen := "test_cases/massive_parallel_system/gen_big_problem.py"
+wasm-pack-flags := "--target web --scope kittycad"
 
 # Check most of CI, but locally.
 @check-most:
@@ -20,7 +21,11 @@ lint-fix:
 # Check our WASM projects build properly.
 check-wasm:
     cargo check -p ezpz-wasm --target wasm32-unknown-unknown
-    cd ezpz-wasm; wasm-pack build --target web --dev; cd -
+    cd ezpz-wasm; wasm-pack build {{wasm-pack-flags}} --dev; cd -
+
+# Build the published WASM package.
+build-wasm:
+    cd ezpz-wasm; wasm-pack build {{wasm-pack-flags}}; cd -
 
 test:
     cargo nextest run --all-features --release

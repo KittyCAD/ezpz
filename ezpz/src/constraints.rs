@@ -5,6 +5,7 @@ use crate::{
     solver::Layout,
     vector::{Rotation2, V},
 };
+use serde::{Deserialize, Serialize};
 use std::f64::consts::PI;
 
 /// Constructors for constraints which are a composition of
@@ -31,7 +32,7 @@ impl AsRef<Constraint> for ConstraintEntry<'_> {
 }
 
 /// Each geometric constraint we support.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 #[cfg_attr(not(feature = "unstable-exhaustive"), non_exhaustive)]
 pub enum Constraint {
@@ -102,7 +103,7 @@ pub(crate) struct JacobianVar {
     pub partial_derivative: f64,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 #[cfg_attr(not(feature = "unstable-exhaustive"), non_exhaustive)]
 /// Which side of a directed line a constraint refers to.
@@ -115,7 +116,7 @@ pub enum LineSide {
     Right,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 #[cfg_attr(not(feature = "unstable-exhaustive"), non_exhaustive)]
 /// Which side of a circle a constraint refers to.

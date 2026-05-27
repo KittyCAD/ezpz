@@ -1,3 +1,4 @@
+SPECIFICATION.txt
 target/
 mutants.out*
 node_modules

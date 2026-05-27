@@ -1,103 +1,212 @@
-use ezpz::{
-    Config, Constraint, ConstraintRequest, IdGenerator,
-    datatypes::inputs::{DatumLineSegment, DatumPoint},
-    solve,
-};
+use std::str::FromStr;
+
+use ezpz::{Config, ConstraintRequest, FailureOutcome, NonLinearSystemError, textual};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use wasm_bindgen::prelude::*;
 
-#[wasm_bindgen]
-pub fn hello() -> i32 {
-    33
+type JsResult<T> = Result<T, JsValue>;
+
+#[derive(Clone, Copy, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WasmConfig {
+    max_iterations: Option<usize>,
+    convergence_tolerance: Option<f64>,
+    step_tolerance: Option<f64>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", content = "data")]
+enum WasmNonLinearSystemError {
+    NotFound(ezpz::Id),
+    WrongNumberGuesses {
+        labels: usize,
+        guesses: usize,
+    },
+    MissingGuess {
+        constraint_id: usize,
+        variable: ezpz::Id,
+    },
+    FaerMatrix {
+        message: String,
+    },
+    Faer {
+        message: String,
+    },
+    FaerSolve {
+        message: String,
+    },
+    FaerSvd {
+        message: String,
+    },
+    DidNotConverge,
+    EmptySystemNotAllowed,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+struct WasmFailureOutcome {
+    error: WasmNonLinearSystemError,
+    message: String,
+    warnings: Vec<ezpz::Warning>,
+    num_vars: usize,
+    num_eqs: usize,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", content = "data")]
+enum WasmStringError {
+    Parse { message: String },
+}
+
+fn serialize<T: Serialize>(value: &T) -> JsResult<JsValue> {
+    serde_wasm_bindgen::to_value(value).map_err(js_value_from_display)
+}
+
+fn deserialize<T: DeserializeOwned>(value: JsValue) -> JsResult<T> {
+    serde_wasm_bindgen::from_value(value).map_err(js_value_from_display)
+}
+
+fn js_value_from_display(error: impl std::fmt::Display) -> JsValue {
+    JsValue::from_str(&error.to_string())
+}
+
+impl From<WasmConfig> for Config {
+    fn from(value: WasmConfig) -> Self {
+        let mut out = Config::default();
+        if let Some(max_iterations) = value.max_iterations {
+            out = out.with_max_iterations(max_iterations);
+        }
+        if let Some(convergence_tolerance) = value.convergence_tolerance {
+            out = out.with_convergence_tolerance(convergence_tolerance);
+        }
+        if let Some(step_tolerance) = value.step_tolerance {
+            out = out.with_step_tolerance(step_tolerance);
+        }
+        out
+    }
+}
+
+impl From<&NonLinearSystemError> for WasmNonLinearSystemError {
+    fn from(value: &NonLinearSystemError) -> Self {
+        #[allow(unreachable_patterns)]
+        match value {
+            NonLinearSystemError::NotFound(id) => Self::NotFound(*id),
+            NonLinearSystemError::WrongNumberGuesses { labels, guesses } => {
+                Self::WrongNumberGuesses {
+                    labels: *labels,
+                    guesses: *guesses,
+                }
+            }
+            NonLinearSystemError::MissingGuess {
+                constraint_id,
+                variable,
+            } => Self::MissingGuess {
+                constraint_id: *constraint_id,
+                variable: *variable,
+            },
+            NonLinearSystemError::FaerMatrix { error } => Self::FaerMatrix {
+                message: error.to_string(),
+            },
+            NonLinearSystemError::Faer { error } => Self::Faer {
+                message: error.to_string(),
+            },
+            NonLinearSystemError::FaerSolve { error } => Self::FaerSolve {
+                message: error.to_string(),
+            },
+            NonLinearSystemError::FaerSvd(error) => Self::FaerSvd {
+                message: format!("{error:?}"),
+            },
+            NonLinearSystemError::DidNotConverge => Self::DidNotConverge,
+            NonLinearSystemError::EmptySystemNotAllowed => Self::EmptySystemNotAllowed,
+            _ => Self::Faer {
+                message: value.to_string(),
+            },
+        }
+    }
+}
+
+impl From<&FailureOutcome> for WasmFailureOutcome {
+    fn from(value: &FailureOutcome) -> Self {
+        Self {
+            error: value.error().into(),
+            message: value.error().to_string(),
+            warnings: value.warnings().to_vec(),
+            num_vars: value.num_vars(),
+            num_eqs: value.num_eqs(),
+        }
+    }
+}
+
+fn failure_to_js(error: &FailureOutcome) -> JsValue {
+    serialize(&WasmFailureOutcome::from(error))
+        .unwrap_or_else(|_| JsValue::from_str(&error.error().to_string()))
+}
+
+fn parse_string_error_to_js(message: String) -> JsValue {
+    serialize(&WasmStringError::Parse { message })
+        .unwrap_or_else(|_| JsValue::from_str("parse error"))
+}
+
+fn parse_config(config: Option<JsValue>) -> JsResult<Config> {
+    match config {
+        Some(config) if !config.is_undefined() && !config.is_null() => {
+            Ok(Config::from(deserialize::<WasmConfig>(config)?))
+        }
+        _ => Ok(Config::default()),
+    }
 }
 
 #[wasm_bindgen]
-pub fn test_faer() -> f64 {
-    use faer::mat;
-
-    let a = mat![
-        [1.0, 5.0, 9.0], //
-        [2.0, 6.0, 10.0],
-        [3.0, 7.0, 11.0],
-        [4.0, 8.0, 12.0f64],
-    ];
-
-    a[(0, 0)]
+pub fn solve(
+    requests: JsValue,
+    initial_guesses: JsValue,
+    config: Option<JsValue>,
+) -> JsResult<JsValue> {
+    let requests: Vec<ConstraintRequest> = deserialize(requests)?;
+    let initial_guesses: Vec<(ezpz::Id, f64)> = deserialize(initial_guesses)?;
+    let config = parse_config(config)?;
+    match ezpz::solve(&requests, initial_guesses, config) {
+        Ok(outcome) => serialize(&outcome),
+        Err(error) => Err(failure_to_js(&error)),
+    }
 }
 
-#[wasm_bindgen]
-pub fn benchmark() -> Vec<f64> {
-    let mut id_generator = IdGenerator::default();
-    let p0 = DatumPoint::new(&mut id_generator);
-    let p1 = DatumPoint::new(&mut id_generator);
-    let p2 = DatumPoint::new(&mut id_generator);
-    let p3 = DatumPoint::new(&mut id_generator);
-    let line0_bottom = DatumLineSegment::new(p0, p1);
-    let line0_right = DatumLineSegment::new(p1, p2);
-    let line0_top = DatumLineSegment::new(p2, p3);
-    let line0_left = DatumLineSegment::new(p3, p0);
-    // Second square (upper case IDs)
-    let p5 = DatumPoint::new(&mut id_generator);
-    let p6 = DatumPoint::new(&mut id_generator);
-    let p7 = DatumPoint::new(&mut id_generator);
-    let line1_bottom = DatumLineSegment::new(p2, p5);
-    let line1_right = DatumLineSegment::new(p5, p6);
-    let line1_top = DatumLineSegment::new(p6, p7);
-    let line1_left = DatumLineSegment::new(p7, p2);
-    // First square (lower case IDs)
-    let constraints0 = vec![
-        Constraint::Fixed(p0.id_x(), 1.0),
-        Constraint::Fixed(p0.id_y(), 1.0),
-        Constraint::Horizontal(line0_bottom),
-        Constraint::Horizontal(line0_top),
-        Constraint::Vertical(line0_left),
-        Constraint::Vertical(line0_right),
-        Constraint::Distance(p0, p1, 4.0),
-        Constraint::Distance(p0, p3, 3.0),
-    ];
+#[wasm_bindgen(js_name = solveAnalysis)]
+pub fn solve_analysis(
+    requests: JsValue,
+    initial_guesses: JsValue,
+    config: Option<JsValue>,
+) -> JsResult<JsValue> {
+    let requests: Vec<ConstraintRequest> = deserialize(requests)?;
+    let initial_guesses: Vec<(ezpz::Id, f64)> = deserialize(initial_guesses)?;
+    let config = parse_config(config)?;
+    match ezpz::solve_analysis(&requests, initial_guesses, config) {
+        Ok(outcome) => serialize(&outcome),
+        Err(error) => Err(failure_to_js(&error)),
+    }
+}
 
-    // Start p at the origin, and q at (1,9)
-    let initial_guesses = vec![
-        // First square.
-        (p0.id_x(), 1.0),
-        (p0.id_y(), 1.0),
-        (p1.id_x(), 4.5),
-        (p1.id_y(), 1.5),
-        (p2.id_x(), 4.0),
-        (p2.id_y(), 3.5),
-        (p3.id_x(), 1.5),
-        (p3.id_y(), 3.0),
-        // Second square.
-        (p5.id_x(), 5.5),
-        (p5.id_y(), 3.5),
-        (p6.id_x(), 5.0),
-        (p6.id_y(), 4.5),
-        (p7.id_x(), 2.5),
-        (p7.id_y(), 4.0),
-    ];
+#[wasm_bindgen(js_name = solveText)]
+pub fn solve_text(source: &str, config: Option<JsValue>) -> JsResult<JsValue> {
+    let problem = textual::Problem::from_str(source).map_err(parse_string_error_to_js)?;
+    let system = problem.to_constraint_system().map_err(|error| {
+        serialize(&error).unwrap_or_else(|_| JsValue::from_str("textual error"))
+    })?;
+    let config = parse_config(config)?;
+    match system.solve_with_config(config) {
+        Ok(outcome) => serialize(&outcome),
+        Err(error) => Err(failure_to_js(&error)),
+    }
+}
 
-    let constraints1 = vec![
-        Constraint::Horizontal(line1_bottom),
-        Constraint::Horizontal(line1_top),
-        Constraint::Vertical(line1_left),
-        Constraint::Vertical(line1_right),
-        Constraint::Distance(p2, p5, 4.0),
-        Constraint::Distance(p2, p7, 4.0),
-    ];
-
-    let mut constraints: Vec<_> = constraints0
-        .into_iter()
-        .map(ConstraintRequest::highest_priority)
-        .collect();
-    constraints.extend(
-        constraints1
-            .into_iter()
-            .map(ConstraintRequest::highest_priority),
-    );
-    let actual = solve(
-        &constraints.clone(),
-        initial_guesses.clone(),
-        Config::default(),
-    )
-    .unwrap();
-    actual.final_values().to_owned()
+#[wasm_bindgen(js_name = solveTextAnalysis)]
+pub fn solve_text_analysis(source: &str, config: Option<JsValue>) -> JsResult<JsValue> {
+    let problem = textual::Problem::from_str(source).map_err(parse_string_error_to_js)?;
+    let system = problem.to_constraint_system().map_err(|error| {
+        serialize(&error).unwrap_or_else(|_| JsValue::from_str("textual error"))
+    })?;
+    let config = parse_config(config)?;
+    match system.solve_with_config_analysis(config) {
+        Ok(outcome) => serialize(&outcome),
+        Err(error) => Err(failure_to_js(&error)),
+    }
 }
