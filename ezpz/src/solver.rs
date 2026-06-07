@@ -35,6 +35,12 @@ pub struct Config {
     convergence_tolerance: f64,
     /// Stop iterating if the step size becomes negligible (relative infinity norm).
     step_tolerance: f64,
+    /// If true, estimate the 2-norm condition number of the linear system
+    /// solved at each Newton iteration and report it via
+    /// [`crate::SolveOutcome::condition_numbers`]. Off by default because it
+    /// adds a little work per iteration; opt in when diagnosing numerical
+    /// trouble (e.g. redundant or nearly-parallel constraints).
+    estimate_condition_number: bool,
 }
 
 impl Config {
@@ -56,6 +62,18 @@ impl Config {
         self.step_tolerance = value;
         self
     }
+
+    /// Estimate the 2-norm condition number of the linear system solved at each
+    /// Newton iteration, reported via [`crate::SolveOutcome::condition_numbers`].
+    ///
+    /// Off by default, since it does extra work per iteration. A large condition
+    /// number means the system is close to singular (e.g. redundant or
+    /// nearly-parallel constraints), so the solve may be inaccurate even when it
+    /// converges.
+    pub fn with_condition_number_estimates(mut self, value: bool) -> Self {
+        self.estimate_condition_number = value;
+        self
+    }
 }
 
 impl Default for Config {
@@ -64,6 +82,7 @@ impl Default for Config {
             max_iterations: 35,
             convergence_tolerance: 1e-8,
             step_tolerance: 1e-12,
+            estimate_condition_number: false,
         }
     }
 }
