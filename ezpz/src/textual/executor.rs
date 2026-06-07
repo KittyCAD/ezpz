@@ -516,6 +516,9 @@ impl ConstraintSystem<'_> {
                     unsatisfied,
                     priority_solved,
                     converged,
+                    // Surfacing condition-number diagnostics through the textual
+                    // CLI outcome is a separate follow-up; not needed here.
+                    condition_numbers: _,
                 },
         } = self.solve_no_metadata_inner::<A>(config)?;
         let num_points = self.inner_points.len();

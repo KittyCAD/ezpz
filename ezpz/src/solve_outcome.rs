@@ -23,6 +23,10 @@ pub struct SolveOutcome {
     /// What is the lowest priority that got solved?
     /// 0 is the highest priority. Larger numbers are lower priority.
     pub(crate) priority_solved: u32,
+    /// Estimated 2-norm condition number of the linear system solved at each
+    /// Newton iteration, in iteration order. Empty unless
+    /// [`crate::Config::with_condition_number_estimates`] was enabled.
+    pub(crate) condition_numbers: Vec<f64>,
 }
 
 impl SolveOutcome {
@@ -55,6 +59,21 @@ impl SolveOutcome {
     /// 0 is the highest priority. Larger numbers are lower priority.
     pub fn priority_solved(&self) -> u32 {
         self.priority_solved
+    }
+
+    /// Estimated 2-norm condition number of the linear system solved at each
+    /// Newton iteration, in iteration order.
+    ///
+    /// Empty unless [`crate::Config::with_condition_number_estimates`] was
+    /// enabled. A large value (say, above `1e8`) signals an ill-conditioned
+    /// system, typically redundant or nearly-parallel constraints, whose
+    /// solution may be inaccurate even when the solver reports convergence.
+    ///
+    /// The estimate is for the normal-equations matrix `A = JᵀJ + λI`. Since
+    /// `A = JᵀJ`, the condition number of the Jacobian itself is roughly the
+    /// square root of these values.
+    pub fn condition_numbers(&self) -> &[f64] {
+        &self.condition_numbers
     }
 
     /// Look up the solved value for this distance.
@@ -173,6 +192,7 @@ mod tests {
             warnings: Vec::new(),
             priority_solved: 0,
             converged: Default::default(),
+            condition_numbers: Vec::new(),
         };
 
         assert!(so.is_unsatisfied());

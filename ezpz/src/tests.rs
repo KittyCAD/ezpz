@@ -1915,3 +1915,85 @@ fn points_at_angle_sign_distinguishable() {
         );
     }
 }
+
+/// The condition-number diagnostic (issue #89) is opt-in, and reports one
+/// estimate per linear solve when enabled.
+///
+/// `A = JᵀJ + λI` is SPD, so its 2-norm condition number `λ_max / λ_min` is
+/// always `≥ 1`. This checks the plumbing and a few invariants: off (the
+/// default) nothing is collected; on, the series is non-empty, has at most one
+/// estimate per iteration (plus the solve that triggers the step-size return),
+/// and every estimate is finite and `≥ 1`.
+///
+/// No upper bound is asserted on purpose: this system is under-determined (one
+/// angle residual, eight coordinates), so `J` is rank-deficient and the
+/// regularized condition number is genuinely large, which is exactly the
+/// diagnostic flagging an under-constrained system.
+#[test]
+fn condition_number_estimate_is_opt_in_and_well_defined() {
+    let p0 = DatumPoint { x_id: 0, y_id: 1 };
+    let p1 = DatumPoint { x_id: 2, y_id: 3 };
+    let p2 = DatumPoint { x_id: 4, y_id: 5 };
+    let p3 = DatumPoint { x_id: 6, y_id: 7 };
+    let line0 = DatumLineSegment { p0, p1 };
+    let line1 = DatumLineSegment { p0: p2, p1: p3 };
+
+    let constraints = [ConstraintRequest::highest_priority(
+        Constraint::LinesAtAngle(
+            line0,
+            line1,
+            AngleKind::Other(Angle::from_radians(-0.5 * PI)),
+        ),
+    )];
+    let initial_guesses: Vec<(Id, f64)> = vec![
+        (0, 0.0),
+        (1, 0.0),
+        (2, 1.0),
+        (3, 0.0),
+        (4, 0.0),
+        (5, 0.0),
+        (6, 1.0),
+        (7, 1.0),
+    ];
+
+    // Default: diagnostic off, so nothing is collected.
+    let off = solve(
+        &constraints,
+        initial_guesses.clone(),
+        Config::default().with_max_iterations(100),
+    )
+    .expect("solve (diagnostic off)");
+    assert!(off.is_satisfied());
+    assert!(
+        off.condition_numbers().is_empty(),
+        "condition numbers must not be collected unless opted in"
+    );
+
+    // Opt in: one condition-number estimate per linear solve.
+    let on = solve(
+        &constraints,
+        initial_guesses,
+        Config::default()
+            .with_max_iterations(100)
+            .with_condition_number_estimates(true),
+    )
+    .expect("solve (diagnostic on)");
+    assert!(on.is_satisfied());
+
+    let kappas = on.condition_numbers();
+    assert!(
+        !kappas.is_empty(),
+        "expected at least one condition-number estimate when opted in"
+    );
+    assert!(
+        kappas.len() <= on.iterations() + 1,
+        "got {} estimates for {} iterations",
+        kappas.len(),
+        on.iterations()
+    );
+    for &k in kappas {
+        assert!(k.is_finite(), "condition number must be finite, got {k}");
+        // κ₂ = σ_max / σ_min ≥ 1 for any matrix; allow a hair of estimator slack.
+        assert!(k >= 1.0 - 1e-6, "condition number must be ≥ 1, got {k}");
+    }
+}
