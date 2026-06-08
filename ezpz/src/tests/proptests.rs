@@ -132,8 +132,31 @@ fn arb_constraint() -> BoxedStrategy<Constraint> {
             .prop_map(|(arc, point)| Constraint::PointArcCoincident(arc, point)),
         (arb_arc(), arb_scalar()).prop_map(|(arc, dist)| Constraint::ArcLength(arc, dist)),
         (arb_arc(), arb_angle()).prop_map(|(arc, angle)| Constraint::ArcAngle(arc, angle)),
+        (arb_point(), arb_point(), arb_point(), arb_angle_kind())
+            .prop_map(|(p0, p1, p2, angle)| Constraint::PointsAtAngle(p0, p1, p2, angle)),
     ]
     .boxed()
+}
+
+/// Returns a copy of the constraint with every length-valued *constant* target scaled by `k`. Used
+/// to rescale a whole constraint instance to the same shape at a different model scale. Angle
+/// targets are dimensionless (unscaled); radii/distances supplied as solver variables scale via the
+/// assignment vector, not here.
+fn scale_constraint(c: &Constraint, k: f64) -> Constraint {
+    use Constraint::*;
+    match *c {
+        Distance(p0, p1, d) => Distance(p0, p1, d * k),
+        VerticalDistance(p0, p1, d) => VerticalDistance(p0, p1, d * k),
+        HorizontalDistance(p0, p1, d) => HorizontalDistance(p0, p1, d * k),
+        Fixed(id, v) => Fixed(id, v * k),
+        CircleRadius(circle, r) => CircleRadius(circle, r * k),
+        ArcRadius(arc, r) => ArcRadius(arc, r * k),
+        ArcLength(arc, d) => ArcLength(arc, d * k),
+        PointLineDistance(p, l, d) => PointLineDistance(p, l, d * k),
+        VerticalPointLineDistance(p, l, d) => VerticalPointLineDistance(p, l, d * k),
+        HorizontalPointLineDistance(p, l, d) => HorizontalPointLineDistance(p, l, d * k),
+        other => other,
+    }
 }
 
 proptest! {
@@ -205,6 +228,64 @@ proptest! {
                     component,
                     var,
                     (analytic - numeric).abs(),
+                );
+            }
+        }
+    }
+
+    /// Every constraint residual must be homogeneous of degree 1 in its variables (length units),
+    /// so the assembled least-squares system is uniformly scaled and well conditioned regardless of
+    /// model size. We can't assert that directly since constraints with a constant target aren't
+    /// homogeneous (e.g. `|p0 - p1| - d` has an additive constant), so we assert the equivalent
+    /// invariant on the gradient: a degree-1-homogeneous variable part has a degree-0
+    /// (scale-invariant) Jacobian. Rescaling the whole problem (variables and length-valued
+    /// targets) by `k` must leave every Jacobian entry unchanged.
+    #[test]
+    fn residual_jacobian_is_scale_invariant(
+        constraint in arb_constraint(),
+        raw_vals in proptest::collection::vec(-8.0f64..8.0, 32),
+    ) {
+        let mut ids = Vec::with_capacity(16);
+        constraint.extend_dependent_variable_ids(&mut ids);
+        let n = ids.iter().map(|id| *id as usize + 1).max().unwrap_or(0);
+        prop_assume!(n > 0 && n <= raw_vals.len());
+
+        let vals = raw_vals[..n].to_vec();
+        let layout = Layout::new(
+            &(0..n as Id).collect::<Vec<_>>(),
+            &[&constraint],
+            Config::default(),
+        );
+
+        let jac = |c: &Constraint, v: &[f64]| {
+            let (mut r0, mut r1, mut r2) = (Vec::new(), Vec::new(), Vec::new());
+            let mut degenerate = false;
+            c.jacobian_rows(&layout, v, &mut r0, &mut r1, &mut r2, &mut degenerate);
+            (r0, r1, r2, degenerate)
+        };
+
+        let (a0, a1, a2, deg_a) = jac(&constraint, &vals);
+        prop_assume!(!deg_a);
+
+        // Rescale the whole problem to the same shape at a different model scale.
+        let k = 8.0;
+        let scaled_vals: Vec<f64> = vals.iter().map(|v| v * k).collect();
+        let scaled_constraint = scale_constraint(&constraint, k);
+        let (b0, b1, b2, deg_b) = jac(&scaled_constraint, &scaled_vals);
+        prop_assume!(!deg_b);
+
+        for (row, (orig, scaled)) in [(&a0, &b0), (&a1, &b1), (&a2, &b2)].into_iter().enumerate() {
+            prop_assert_eq!(orig.len(), scaled.len(), "row {} sparsity changed under scaling", row);
+            for (jo, js) in orig.iter().zip(scaled.iter()) {
+                prop_assert_eq!(jo.id, js.id);
+                prop_assume!(jo.partial_derivative.is_finite() && js.partial_derivative.is_finite());
+                let (po, ps) = (jo.partial_derivative, js.partial_derivative);
+                let tol = 1e-6 * (1.0 + po.abs().max(ps.abs()));
+                prop_assert!(
+                    (po - ps).abs() <= tol,
+                    "{} Jacobian not scale-invariant (∂/∂id {}): {} at scale 1 vs {} at scale {} \
+                     - residual is not homogeneous degree 1",
+                    constraint.constraint_kind(), jo.id, po, ps, k,
                 );
             }
         }
@@ -835,8 +916,7 @@ fn test_point_arc_length(
     ];
 
     let requests: Vec<_> = vec![
-        // Fix the arc in place.
-        Constraint::Arc(arc),
+        // Pin the center and start in place
         Constraint::Fixed(arc.center.id_x(), arc_center_x),
         Constraint::Fixed(arc.center.id_y(), arc_center_y),
         Constraint::Fixed(arc.start.id_x(), arc_start.x),
