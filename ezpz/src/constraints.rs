@@ -627,17 +627,19 @@ impl Constraint {
                 let u = V::new(x1 - x0, y1 - y0);
                 let v = V::new(x3 - x2, y3 - y2);
 
-                let sqr_tol = EPSILON * EPSILON;
-                if (u.magnitude_squared() <= sqr_tol) || (v.magnitude_squared() <= sqr_tol) {
+                let len_u = u.magnitude();
+                let len_v = v.magnitude();
+                if len_u <= EPSILON || len_v <= EPSILON {
                     *degenerate = true;
                     return;
                 }
 
-                // We divide by the average arm length to make the residual length-covariant.
-                // Its Jacobian is then O(1) regardless of model scale.
+                // Residual: r = ((|u| + |v|)/2) (û × R⁻¹v̂)
                 let rot = rotation_for_angle_kind(*expected_angle);
-                let scale = (u.magnitude() + v.magnitude()) * 0.5;
-                *residual0 = u.cross_2d(rot.inverse().apply(v)) / scale;
+                let u_hat = u * (1.0 / len_u);
+                let v_hat = v * (1.0 / len_v);
+                let scale = (len_u + len_v) * 0.5;
+                *residual0 = scale * u_hat.cross_2d(rot.inverse().apply(v_hat));
             }
             Constraint::PointsCoincident(p0, p1) => {
                 let p0_x = current_assignments[layout.index_of(p0.id_x())];
@@ -938,10 +940,12 @@ impl Constraint {
                     return;
                 }
 
-                let rot = rotation_for_angle_kind(*expected_angle);
                 let u_hat = u * (1.0 / len_u);
                 let v_hat = v * (1.0 / len_v);
+
+                let rot = rotation_for_angle_kind(*expected_angle);
                 let rot_u_hat = rot.apply(u_hat);
+
                 let scale = (len_u + len_v) * 0.5;
                 let res = v_hat - rot_u_hat;
 
@@ -1378,22 +1382,39 @@ impl Constraint {
                     return;
                 }
 
-                let rot = rotation_for_angle_kind(*expected_angle);
-
-                let area = u.cross_2d(rot.inverse().apply(v));
-                let scale = (len_u + len_v) * 0.5;
-
                 let u_hat = u * (1.0 / len_u);
                 let v_hat = v * (1.0 / len_v);
 
-                let da_du = rot.inverse().apply(v).perp_cw();
-                let da_dv = rot.apply(u).perp_ccw();
+                let rot = rotation_for_angle_kind(*expected_angle);
+                let r_v = rot.inverse().apply(v_hat); // R⁻¹ v̂
+                let r_u = rot.apply(u_hat); // R û
+                let sin_diff = u_hat.cross_2d(r_v);
 
-                let inv_s = 1.0 / scale;
-                let t = area * inv_s * 0.5;
+                /*
+                    Residual
 
-                let df_du = (da_du - u_hat * t) * inv_s;
-                let df_dv = (da_dv - v_hat * t) * inv_s;
+                        r = s (û × R⁻¹v̂)
+
+                    Where
+
+                        s := (|u| + |v|) / 2
+
+                    Differentiate in u (via product rule)
+
+                        ∂r/∂u = (s/|u|)·w + û·(û × R⁻¹v̂)·(1/2 - s/|u|)
+
+                    Where
+
+                        w := perp_cw(R⁻¹v̂)
+
+                    Symmetric for v with w := perp_ccw(R û)
+                */
+
+                let s = (len_u + len_v) * 0.5;
+                let s_u = s / len_u;
+                let s_v = s / len_v;
+                let df_du = r_v.perp_cw() * s_u + u_hat * (sin_diff * (0.5 - s_u));
+                let df_dv = r_u.perp_ccw() * s_v + v_hat * (sin_diff * (0.5 - s_v));
 
                 let pds = PartialDerivatives4Points {
                     x0: -df_du.x,
@@ -2192,28 +2213,43 @@ impl Constraint {
 
                 let inv_len_u = 1.0 / len_u;
                 let inv_len_v = 1.0 / len_v;
-                let rot = rotation_for_angle_kind(*expected_angle);
                 let u_hat = u * inv_len_u;
                 let v_hat = v * inv_len_v;
+
+                let rot = rotation_for_angle_kind(*expected_angle);
                 let rot_u_hat = rot.apply(u_hat);
+
                 let scale = (len_u + len_v) * 0.5;
-                let res = v_hat - rot_u_hat;
+                let diff = v_hat - rot_u_hat;
+
+                /*
+                    Residual
+
+                        r = s (v̂ - R û)
+
+                    Where
+
+                        s := (|u| + |v|) / 2
+
+                    Differentiate in u and v (via product rule)
+
+                        ∂r/∂u = (û / 2) rᵀ + s |u|⁻¹ (R û ûᵀ - R)
+                        ∂r/∂v = (v̂ / 2) rᵀ + s |v|⁻¹ (I - v̂ v̂ᵀ)
+                */
 
                 // Columns of R: R*e1 = (ca, sa), R*e2 = (-sa, ca)
                 let rot_e1 = rot.apply(V::new(1.0, 0.0));
                 let rot_e2 = rot.apply(V::new(0.0, 1.0));
 
                 // ∂r/∂u
-                let dr_du0 =
-                    res * (u_hat.x * 0.5) + (rot_u_hat * u_hat.x - rot_e1) * (scale * inv_len_u);
-                let dr_du1 =
-                    res * (u_hat.y * 0.5) + (rot_u_hat * u_hat.y - rot_e2) * (scale * inv_len_u);
+                let s_u = scale * inv_len_u;
+                let dr_du0 = diff * (u_hat.x * 0.5) + (rot_u_hat * u_hat.x - rot_e1) * s_u;
+                let dr_du1 = diff * (u_hat.y * 0.5) + (rot_u_hat * u_hat.y - rot_e2) * s_u;
 
                 // ∂r/∂v
-                let dr_dv0 = res * (v_hat.x * 0.5)
-                    + (V::new(1.0, 0.0) - v_hat * v_hat.x) * (scale * inv_len_v);
-                let dr_dv1 = res * (v_hat.y * 0.5)
-                    + (V::new(0.0, 1.0) - v_hat * v_hat.y) * (scale * inv_len_v);
+                let s_v = scale * inv_len_v;
+                let dr_dv0 = diff * (v_hat.x * 0.5) + (V::new(1.0, 0.0) - v_hat * v_hat.x) * s_v;
+                let dr_dv1 = diff * (v_hat.y * 0.5) + (V::new(0.0, 1.0) - v_hat * v_hat.y) * s_v;
 
                 // ∂r/∂p0 = -(∂r/∂u + ∂r/∂v)
                 // ∂r/∂p1 = ∂r/∂u
