@@ -184,7 +184,11 @@ proptest! {
         prop_assume!(!degenerate);
 
         let rows = [&row0, &row1, &row2];
-        for component in 0..constraint.residual_dim().min(3) {
+        for (component, &row) in rows
+            .iter()
+            .enumerate()
+            .take(constraint.residual_dim().min(3))
+        {
             for &var in &ids {
                 let Some(numeric) =
                     finite_difference_derivative(&constraint, &layout, &vals, var, component)
@@ -192,8 +196,8 @@ proptest! {
                     // Non-smooth or degenerate perturbation (finite diff is unreliable here)
                     continue;
                 };
-                let analytic = sum_partial_derivatives(rows[component], var);
-                let tol = 1e-6 + 1e-4 * analytic.abs().max(numeric.abs());
+                let analytic = sum_partial_derivatives(row, var);
+                let tol = 1e-6 + 1e-4 * libm::fmax(analytic.abs(), numeric.abs());
                 prop_assert!(
                     (analytic - numeric).abs() <= tol,
                     "{} ∂r{}/∂id{}: analytic={analytic}, numeric={numeric}, err={}, tol={tol}",
