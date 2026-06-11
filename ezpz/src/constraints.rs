@@ -11,6 +11,10 @@ use std::f64::consts::PI;
 /// existing constraints.
 mod composite;
 
+// DEBUG(dr): For testing purposes
+const LINES_AT_ANGLE_HARMONIC: bool = true;
+const POINTS_AT_ANGLE_HARMONIC: bool = true;
+
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct ConstraintEntry<'c> {
     /// The constraint itself.
@@ -634,12 +638,17 @@ impl Constraint {
                     return;
                 }
 
-                // Residual: r = ((|u| + |v|)/2) (û × R⁻¹v̂)
                 let rot = rotation_for_angle_kind(*expected_angle);
-                let u_hat = u * (1.0 / len_u);
-                let v_hat = v * (1.0 / len_v);
-                let scale = (len_u + len_v) * 0.5;
-                *residual0 = scale * u_hat.cross_2d(rot.inverse().apply(v_hat));
+                let s = (len_u + len_v) * 0.5;
+                *residual0 = if LINES_AT_ANGLE_HARMONIC {
+                    // Residual (harmonic mean form): r = (u × R⁻¹v) / s
+                    u.cross_2d(rot.inverse().apply(v)) / s
+                } else {
+                    // Residual (arithmetic mean form): r = s (û × R⁻¹v̂)
+                    let u_hat = u * (1.0 / len_u);
+                    let v_hat = v * (1.0 / len_v);
+                    s * u_hat.cross_2d(rot.inverse().apply(v_hat))
+                };
             }
             Constraint::PointsCoincident(p0, p1) => {
                 let p0_x = current_assignments[layout.index_of(p0.id_x())];
@@ -940,18 +949,21 @@ impl Constraint {
                     return;
                 }
 
-                let u_hat = u * (1.0 / len_u);
-                let v_hat = v * (1.0 / len_v);
-
                 let rot = rotation_for_angle_kind(*expected_angle);
-                let rot_u_hat = rot.apply(u_hat);
+                let s = (len_u + len_v) * 0.5;
 
-                let scale = (len_u + len_v) * 0.5;
-                let res = v_hat - rot_u_hat;
+                let res = if POINTS_AT_ANGLE_HARMONIC {
+                    // Residual (harmonic mean form): r = (|u| v - |v| R u) / s
+                    (v * len_u - rot.apply(u) * len_v) * (1.0 / s)
+                } else {
+                    // Residual (arithmetic mean form): r = s (v̂ - R û)
+                    let u_hat = u * (1.0 / len_u);
+                    let v_hat = v * (1.0 / len_v);
+                    (v_hat - rot.apply(u_hat)) * s
+                };
 
-                // Residual: r = (|u| + |v|) / 2 * (v_hat - R * u_hat)
-                *residual0 = scale * res.x;
-                *residual1 = scale * res.y;
+                *residual0 = res.x;
+                *residual1 = res.y;
             }
         }
     }
@@ -1386,35 +1398,60 @@ impl Constraint {
                 let v_hat = v * (1.0 / len_v);
 
                 let rot = rotation_for_angle_kind(*expected_angle);
-                let r_v = rot.inverse().apply(v_hat); // R⁻¹ v̂
-                let r_u = rot.apply(u_hat); // R û
-                let sin_diff = u_hat.cross_2d(r_v);
-
-                /*
-                    Residual
-
-                        r = s (û × R⁻¹v̂)
-
-                    Where
-
-                        s := (|u| + |v|) / 2
-
-                    Differentiate in u (via product rule)
-
-                        ∂r/∂u = (s/|u|)·w + û·(û × R⁻¹v̂)·(1/2 - s/|u|)
-
-                    Where
-
-                        w := perp_cw(R⁻¹v̂)
-
-                    Symmetric for v with w := perp_ccw(R û)
-                */
-
                 let s = (len_u + len_v) * 0.5;
-                let s_u = s / len_u;
-                let s_v = s / len_v;
-                let df_du = r_v.perp_cw() * s_u + u_hat * (sin_diff * (0.5 - s_u));
-                let df_dv = r_u.perp_ccw() * s_v + v_hat * (sin_diff * (0.5 - s_v));
+
+                let (df_du, df_dv) = if LINES_AT_ANGLE_HARMONIC {
+                    /*
+                        Residual (harmonic mean form)
+
+                            r = a / s
+                            a := u × R⁻¹v
+                            s := (|u| + |v|) / 2
+
+                        Differentiate in u (via quotient rule)
+
+                            ∂a/∂u = perp_cw(R⁻¹v)
+                            ∂s/∂u = û/2
+                            ∂r/∂u = ((∂a/∂u) - (a/s)·(∂s/∂u)) / s
+
+                        Symmetric for v with ∂a/∂v = perp_ccw(R u), ∂s/∂v = v̂/2
+                    */
+                    let a = u.cross_2d(rot.inverse().apply(v));
+                    let inv_s = 1.0 / s;
+                    let t = a * inv_s * 0.5;
+                    (
+                        (rot.inverse().apply(v).perp_cw() - u_hat * t) * inv_s,
+                        (rot.apply(u).perp_ccw() - v_hat * t) * inv_s,
+                    )
+                } else {
+                    /*
+                        Residual (arithmetic mean form)
+
+                            r = s a
+                            a := û × R⁻¹v̂
+                            s := (|u| + |v|) / 2
+
+                        Differentiate in u (via product/chain rule)
+
+                            ∂s/∂u = û/2
+                            ∂a/∂u = (∂a/∂û) (∂û/∂u) = (perp_cw(R⁻¹v̂)) ((I − û ûᵀ)/|u|) = ((∂a/∂û) − a û)/|u|
+                            ∂r/∂u = (∂s/∂u) a + s (∂a/∂u) = (s/|u|) (∂a/∂û) + û a (1/2 − s/|u|)
+
+                        Symmetric in v with
+
+                            ∂s/∂v = v̂/2
+                            ∂a/∂v̂ = perp_ccw(R û)
+                    */
+                    let r_v = rot.inverse().apply(v_hat);
+                    let r_u = rot.apply(u_hat);
+                    let sin_diff = u_hat.cross_2d(r_v);
+                    let s_u = s / len_u;
+                    let s_v = s / len_v;
+                    (
+                        r_v.perp_cw() * s_u + u_hat * (sin_diff * (0.5 - s_u)),
+                        r_u.perp_ccw() * s_v + v_hat * (sin_diff * (0.5 - s_v)),
+                    )
+                };
 
                 let pds = PartialDerivatives4Points {
                     x0: -df_du.x,
@@ -2217,39 +2254,62 @@ impl Constraint {
                 let v_hat = v * inv_len_v;
 
                 let rot = rotation_for_angle_kind(*expected_angle);
-                let rot_u_hat = rot.apply(u_hat);
-
-                let scale = (len_u + len_v) * 0.5;
-                let diff = v_hat - rot_u_hat;
-
-                /*
-                    Residual
-
-                        r = s (v̂ - R û)
-
-                    Where
-
-                        s := (|u| + |v|) / 2
-
-                    Differentiate in u and v (via product rule)
-
-                        ∂r/∂u = (û / 2) rᵀ + s |u|⁻¹ (R û ûᵀ - R)
-                        ∂r/∂v = (v̂ / 2) rᵀ + s |v|⁻¹ (I - v̂ v̂ᵀ)
-                */
+                let s = (len_u + len_v) * 0.5;
 
                 // Columns of R: R*e1 = (ca, sa), R*e2 = (-sa, ca)
                 let rot_e1 = rot.apply(V::new(1.0, 0.0));
                 let rot_e2 = rot.apply(V::new(0.0, 1.0));
 
-                // ∂r/∂u
-                let s_u = scale * inv_len_u;
-                let dr_du0 = diff * (u_hat.x * 0.5) + (rot_u_hat * u_hat.x - rot_e1) * s_u;
-                let dr_du1 = diff * (u_hat.y * 0.5) + (rot_u_hat * u_hat.y - rot_e2) * s_u;
+                let (dr_du0, dr_du1, dr_dv0, dr_dv1) = if POINTS_AT_ANGLE_HARMONIC {
+                    /*
+                        Residual (harmonic mean form)
 
-                // ∂r/∂v
-                let s_v = scale * inv_len_v;
-                let dr_dv0 = diff * (v_hat.x * 0.5) + (V::new(1.0, 0.0) - v_hat * v_hat.x) * s_v;
-                let dr_dv1 = diff * (v_hat.y * 0.5) + (V::new(0.0, 1.0) - v_hat * v_hat.y) * s_v;
+                            r = a / s
+                            a := (|u| v - |v| R u)
+                            s := (|u| + |v|) / 2
+
+                        Differentiate in u and v (via quotient/chain rule)
+
+                            ∂a/∂u = v ûᵀ - |v| R
+                            ∂r/∂u = (∂a/∂u - r (∂s/∂u)ᵀ) / s = ((v - r/2) ûᵀ - |v| R) / s
+
+                            ∂a/∂v = |u| I - (R u) v̂ᵀ
+                            ∂r/∂v = (∂a/∂v - r (∂s/∂v)ᵀ) / s = (|u| I - (R u + r/2) v̂ᵀ) / s
+                    */
+                    let inv_s = 1.0 / s;
+                    let rot_u = rot.apply(u);
+                    let res = (v * len_u - rot_u * len_v) * inv_s;
+                    let half_res = res * 0.5;
+                    (
+                        ((v - half_res) * u_hat.x - rot_e1 * len_v) * inv_s,
+                        ((v - half_res) * u_hat.y - rot_e2 * len_v) * inv_s,
+                        (V::new(len_u, 0.0) - (rot_u + half_res) * v_hat.x) * inv_s,
+                        (V::new(0.0, len_u) - (rot_u + half_res) * v_hat.y) * inv_s,
+                    )
+                } else {
+                    /*
+                        Residual (arithmetic mean form)
+
+                            r = s a
+                            a := v̂ - R û
+                            s := (|u| + |v|) / 2
+
+                        Differentiate in u and v (via product/chain rule)
+
+                            ∂r/∂u = (û / 2) rᵀ + s |u|⁻¹ (R û ûᵀ - R)
+                            ∂r/∂v = (v̂ / 2) rᵀ + s |v|⁻¹ (I - v̂ v̂ᵀ)
+                    */
+                    let rot_u_hat = rot.apply(u_hat);
+                    let diff = v_hat - rot_u_hat;
+                    let s_u = s * inv_len_u;
+                    let s_v = s * inv_len_v;
+                    (
+                        diff * (u_hat.x * 0.5) + (rot_u_hat * u_hat.x - rot_e1) * s_u,
+                        diff * (u_hat.y * 0.5) + (rot_u_hat * u_hat.y - rot_e2) * s_u,
+                        diff * (v_hat.x * 0.5) + (V::new(1.0, 0.0) - v_hat * v_hat.x) * s_v,
+                        diff * (v_hat.y * 0.5) + (V::new(0.0, 1.0) - v_hat * v_hat.y) * s_v,
+                    )
+                };
 
                 // ∂r/∂p0 = -(∂r/∂u + ∂r/∂v)
                 // ∂r/∂p1 = ∂r/∂u
