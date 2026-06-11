@@ -1025,7 +1025,7 @@ impl Constraint {
     ) {
         match self {
             Constraint::LineTangentToCircle(line, circle, side) => {
-                // Residual: R = cross(u, v) / |u| - r
+                // Residual: R = cross(u, v) / |u| - |r|
                 // where u = p1 - p0 and v = c - p0.
                 let p0 = V::new(
                     current_assignments[layout.index_of(line.p0.id_x())],
@@ -1067,7 +1067,11 @@ impl Constraint {
                 let dr_dy1 = dr_du_y;
                 let dr_dxc = dr_dv_x;
                 let dr_dyc = dr_dv_y;
-                let dr_dr = -1.0;
+
+                // The residual uses |radius| to guard against negative values, so we have to
+                // differentiate through the abs
+                let radius = current_assignments[layout.index_of(circle.radius.id)];
+                let dr_dr = -radius.signum();
 
                 let coeffs = [
                     JacobianVar {
@@ -1129,10 +1133,17 @@ impl Constraint {
                 let dr_dbx = -u_d.x;
                 let dr_dby = -u_d.y;
 
+                // The residual uses |a_r| and |b_r| to guard against negative values so we have to
+                // differentiate through the abs
+                let a_sign = a_r.signum();
+                let b_sign = b_r.signum();
                 let (dr_dar, dr_dbr) = if *side == CircleSide::Interior {
-                    if a_r > b_r { (1.0, -1.0) } else { (-1.0, 1.0) }
+                    // r = ||a_r| - |b_r|| - dist
+                    let inner = (a_r.abs() - b_r.abs()).signum();
+                    (inner * a_sign, -inner * b_sign)
                 } else {
-                    (1.0, 1.0)
+                    // r = |a_r| + |b_r| - dist
+                    (a_sign, b_sign)
                 };
 
                 let coeffs = [
