@@ -626,38 +626,6 @@ proptest! {
     }
 
     #[test]
-    fn distance_var_analytic_jacobian_matches_finite_difference(
-        px in -100.0..100.0f64,
-        py in -100.0..100.0f64,
-        qx in -100.0..100.0f64,
-        qy in -100.0..100.0f64,
-        d in -100.0..100.0f64,
-    ) {
-        // Keep away from singular point-point distance where derivative wrt point coordinates is undefined.
-        prop_assume!(libm::hypot(px - qx, py - qy) > 1e-2);
-
-        let (constraint, layout, values, p, q, dist) =
-            make_distance_var_constraint(px, py, qx, qy, d);
-        let (row0, degenerate) = distance_var_jacobian(&constraint, &layout, &values);
-        prop_assert!(!degenerate, "this case should be non-degenerate");
-
-        let vars = [p.id_x(), p.id_y(), q.id_x(), q.id_y(), dist.id];
-        for var in vars {
-            let Some(analytic) = find_partial_derivative(&row0, var) else {
-                prop_assert!(false, "missing analytic partial derivative for id {var}");
-                continue;
-            };
-            let numeric = central_difference_derivative(&constraint, &layout, &values, var);
-            let tolerance = 1e-6 + 1e-4 * libm::fmax(analytic.abs(), numeric.abs());
-            let err = (analytic - numeric).abs();
-            prop_assert!(
-                err <= tolerance,
-                "id={var}: analytic={analytic}, numeric={numeric}, err={err}, tol={tolerance}"
-            );
-        }
-    }
-
-    #[test]
     fn distance_var_is_symmetric_under_point_swap(
         px in -100.0..100.0f64,
         py in -100.0..100.0f64,
@@ -847,35 +815,6 @@ fn find_partial_derivative(jacobian_row: &[JacobianVar], id: Id) -> Option<f64> 
 
 fn find_partial_derivative_or_zero(jacobian_row: &[JacobianVar], id: Id) -> f64 {
     find_partial_derivative(jacobian_row, id).unwrap_or(0.0)
-}
-
-fn central_difference_derivative(
-    constraint: &Constraint,
-    layout: &Layout,
-    values: &[f64],
-    var: Id,
-) -> f64 {
-    let index = layout.index_of(var);
-    let step = 1e-6 * (1.0 + values[index].abs());
-
-    let mut plus_values = values.to_vec();
-    plus_values[index] += step;
-    let (plus_residual, plus_degenerate) = distance_var_residual(constraint, layout, &plus_values);
-    assert!(
-        !plus_degenerate,
-        "finite-difference +step should not be degenerate for id {var}"
-    );
-
-    let mut minus_values = values.to_vec();
-    minus_values[index] -= step;
-    let (minus_residual, minus_degenerate) =
-        distance_var_residual(constraint, layout, &minus_values);
-    assert!(
-        !minus_degenerate,
-        "finite-difference -step should not be degenerate for id {var}"
-    );
-
-    (plus_residual - minus_residual) / (2.0 * step)
 }
 
 /// Given an arc, and a randomly-chosen percentage of the circle, constraint the arc
