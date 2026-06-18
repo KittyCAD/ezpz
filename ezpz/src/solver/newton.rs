@@ -36,8 +36,7 @@ impl Model<'_> {
         // NOTE(dr): We use a standard Levenberg-Marquardt adaptive damping scheme here where the
         // damping parameter λ is scaled down on accepted steps and up on rejected ones. A step is
         // rejected if it doesn't reduce the squared norm of the residual, which biases toward
-        // gradient descent (more stable) near singular configurations where Gauss-Newton
-        // overshoots.
+        // gradient descent near singular configurations where Gauss-Newton tends to overshoot.
         let mut lambda = config.initial_lambda;
 
         let mut residual_sq = self.eval(current_values, &mut global_residual);
