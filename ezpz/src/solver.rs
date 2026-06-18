@@ -34,7 +34,7 @@ pub struct Config {
     max_iterations: usize,
     /// How close can the residual be to 0 before we declare the system is solved?
     /// Smaller number means more precise solves.
-    convergence_tolerance: f64,
+    residual_tolerance: f64,
     /// Stop iterating if the step size becomes negligible (relative infinity norm).
     step_tolerance: f64,
     /// Initial value of the Levenberg-Marquardt damping parameter λ.
@@ -51,7 +51,7 @@ impl Config {
     /// How close can the residual be to 0 before we declare the system is solved?
     /// Smaller number means more precise solves.
     pub fn with_convergence_tolerance(mut self, value: f64) -> Self {
-        self.convergence_tolerance = value;
+        self.residual_tolerance = value;
         self
     }
 
@@ -72,7 +72,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             max_iterations: 35,
-            convergence_tolerance: 1e-8,
+            residual_tolerance: 1e-8,
             step_tolerance: 1e-12,
             initial_lambda: DEFAULT_INITIAL_LAMBDA,
         }

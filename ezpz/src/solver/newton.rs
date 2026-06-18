@@ -51,7 +51,7 @@ impl Model<'_> {
                 .map(|x| x.abs())
                 .reduce(libm::fmax)
                 .ok_or(NonLinearSystemError::EmptySystemNotAllowed)?;
-            if largest_absolute_elem <= config.convergence_tolerance {
+            if largest_absolute_elem <= config.residual_tolerance {
                 return Ok(SuccessfulSolve {
                     iterations: this_iteration,
                     converged: true,
