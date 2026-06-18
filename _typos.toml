@@ -1,2 +1,3 @@
 [default.extend-words]
 nd = "nd" # Name of variables used throughout newton-faer crate
+ue = "ue" # Math variable name (end - center) in Arc residual derivation
