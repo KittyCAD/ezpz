@@ -134,6 +134,7 @@ pub(crate) struct Model<'c> {
     row1_scratch: Vec<JacobianVar>,
     row2_scratch: Vec<JacobianVar>,
     pub(crate) warnings: Mutex<Vec<Warning>>,
+    lambda_i: faer::sparse::SparseColMat<usize, f64>,
     lu_symbolic: SymbolicLu<usize>,
 }
 
@@ -275,6 +276,7 @@ impl<'c> Model<'c> {
             row0_scratch: Vec::with_capacity(NONZEROES_PER_ROW),
             row1_scratch: Vec::with_capacity(NONZEROES_PER_ROW),
             row2_scratch: Vec::with_capacity(NONZEROES_PER_ROW),
+            lambda_i,
             lu_symbolic,
         })
     }
