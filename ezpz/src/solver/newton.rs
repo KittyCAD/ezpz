@@ -31,6 +31,7 @@ impl Model<'_> {
         let n = current_values.len();
 
         let mut global_residual = vec![0.0; m];
+        let mut tentative_residual = vec![0.0; m];
         let mut step = vec![0.0; n];
 
         // NOTE(dr): We use a standard Levenberg-Marquardt adaptive damping scheme here where the
@@ -99,25 +100,26 @@ impl Model<'_> {
                 d.iter().map(|d| d.abs()).reduce(libm::fmax).unwrap_or(0.0)
             };
 
-            // Take the tentative step and re-evaluate at the new position.
+            // Take the tentative step and evaluate the residual at the new position
             current_values
                 .iter_mut()
                 .zip(step.iter())
                 .for_each(|(curr_val, d)| *curr_val += d);
-            let residual_sq_new = self.eval(current_values, &mut global_residual);
+            self.residual(current_values, &mut tentative_residual);
+            let residual_sq_new: f64 = tentative_residual.iter().map(|x| x * x).sum();
 
             if residual_sq_new < residual_sq {
                 // Step reduced the residual: accept it and decrease λ.
-                lambda *= LM_LAMBDA_DECR;
+                std::mem::swap(&mut global_residual, &mut tentative_residual);
+                self.refresh_jacobian(current_values);
                 residual_sq = residual_sq_new;
+                lambda *= LM_LAMBDA_DECR;
             } else {
-                // Step didn't reduce the residual: revert it, restore the residual and Jacobian to
-                // the old position, and increase λ.
+                // Step didn't reduce the residual: revert it and increase λ.
                 current_values
                     .iter_mut()
                     .zip(step.iter())
                     .for_each(|(curr_val, d)| *curr_val -= d);
-                residual_sq = self.eval(current_values, &mut global_residual);
                 lambda *= LM_LAMBDA_INCR;
             }
 
