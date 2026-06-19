@@ -156,6 +156,60 @@ proptest! {
         prop_assert_eq!(dependent_ids, nonzero_ids);
     }
 
+    /// Every constraint's analytic Jacobian must match a finite difference of its residual. Driven
+    /// by `arb_constraint()`, so it covers every constraint type. Sample points where the residual
+    /// is non-smooth (the `abs()` kinks in the tangent constraints, the angle-wrap branch cuts in
+    /// the arc constraints) or where a perturbation is degenerate are detected and skipped since a
+    /// finite difference is meaningless there.
+    #[test]
+    fn analytic_jacobian_matches_finite_difference(
+        constraint in arb_constraint(),
+        raw_vals in proptest::collection::vec(-8.0f64..8.0, 32),
+    ) {
+        let mut ids = Vec::with_capacity(16);
+        constraint.extend_dependent_variable_ids(&mut ids);
+        let n = ids.iter().map(|id| *id as usize + 1).max().unwrap_or(0);
+        prop_assume!(n > 0 && n <= raw_vals.len());
+
+        let vals = raw_vals[..n].to_vec();
+        let layout = Layout::new(
+            &(0..n as Id).collect::<Vec<_>>(),
+            &[&constraint],
+            Config::default(),
+        );
+
+        let (mut row0, mut row1, mut row2) = (Vec::new(), Vec::new(), Vec::new());
+        let mut degenerate = false;
+        constraint.jacobian_rows(&layout, &vals, &mut row0, &mut row1, &mut row2, &mut degenerate);
+        prop_assume!(!degenerate);
+
+        let rows = [&row0, &row1, &row2];
+        for (component, &row) in rows
+            .iter()
+            .enumerate()
+            .take(constraint.residual_dim().min(3))
+        {
+            for &var in &ids {
+                let Some(numeric) =
+                    finite_difference_derivative(&constraint, &layout, &vals, var, component)
+                else {
+                    // Non-smooth or degenerate perturbation (finite diff is unreliable here)
+                    continue;
+                };
+                let analytic = sum_partial_derivatives(row, var);
+                let tol = 1e-6 + 1e-4 * libm::fmax(analytic.abs(), numeric.abs());
+                prop_assert!(
+                    (analytic - numeric).abs() <= tol,
+                    "{} ∂r{}/∂id{}: analytic={analytic}, numeric={numeric}, err={}, tol={tol}",
+                    constraint.constraint_kind(),
+                    component,
+                    var,
+                    (analytic - numeric).abs(),
+                );
+            }
+        }
+    }
+
     #[test]
     fn square(
         x0 in -10000i32..10000,
@@ -571,6 +625,67 @@ proptest! {
         }
     }
 
+}
+
+/// Sums all Jacobian entries for `id` in a row. A variable can appear in more than one term of a
+/// constraint (e.g. a shared apex point); global assembly sums those, so the test must too.
+fn sum_partial_derivatives(row: &[JacobianVar], id: Id) -> f64 {
+    row.iter()
+        .filter(|entry| entry.id == id)
+        .map(|entry| entry.partial_derivative)
+        .sum()
+}
+
+/// Evaluates one residual component, reporting whether the configuration is degenerate.
+fn residual_component(
+    constraint: &Constraint,
+    layout: &Layout,
+    values: &[f64],
+    component: usize,
+) -> (f64, bool) {
+    let (mut r0, mut r1, mut r2) = (0.0, 0.0, 0.0);
+    let mut degenerate = false;
+    constraint.residual(layout, values, &mut r0, &mut r1, &mut r2, &mut degenerate);
+    let r = match component {
+        0 => r0,
+        1 => r1,
+        _ => r2,
+    };
+    (r, degenerate)
+}
+
+/// Central-difference derivative of one residual component with respect to one variable. Returns
+/// `None` when a perturbation is degenerate, or when the residual looks non-smooth at this point
+/// i.e. the one-sided slopes disagree far more than rounding and curvature would explain, which
+/// signals a kink (`abs()`) or an angle-wrap branch cut where a finite difference can't match the
+/// analytic derivative.
+fn finite_difference_derivative(
+    constraint: &Constraint,
+    layout: &Layout,
+    values: &[f64],
+    var: Id,
+    component: usize,
+) -> Option<f64> {
+    let index = layout.index_of(var);
+    let step = 1e-6 * (1.0 + values[index].abs());
+
+    let eval = |delta: f64| -> Option<f64> {
+        let mut v = values.to_vec();
+        v[index] += delta;
+        let (r, degenerate) = residual_component(constraint, layout, &v, component);
+        (!degenerate).then_some(r)
+    };
+
+    let f_plus = eval(step)?;
+    let f_minus = eval(-step)?;
+    let f_zero = eval(0.0)?;
+
+    let central = (f_plus - f_minus) / (2.0 * step);
+    let forward = (f_plus - f_zero) / step;
+    let backward = (f_zero - f_minus) / step;
+
+    let smooth = (forward - backward).abs() <= 1e-3 * (1.0 + central.abs()) + 1e-6;
+    smooth.then_some(central)
 }
 
 fn make_distance_var_constraint(

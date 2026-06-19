@@ -740,32 +740,9 @@ impl Constraint {
             Constraint::VerticalPointLineDistance(point, line, desired_distance) => {
                 // See notebook:
                 // https://github.com/KittyCAD/ezpz-sympy/blob/main/main.py
-                // Residual (scaled to avoid dividing by dx):
-                // dx = qx - px
-                // dy = qy - py
-                // r = (ay - py - desired) * dx - dy * (ax - px)
-                let ax = current_assignments[layout.index_of(point.id_x())];
-                let ay = current_assignments[layout.index_of(point.id_y())];
-                let px = current_assignments[layout.index_of(line.p0.id_x())];
-                let py = current_assignments[layout.index_of(line.p0.id_y())];
-                let qx = current_assignments[layout.index_of(line.p1.id_x())];
-                let qy = current_assignments[layout.index_of(line.p1.id_y())];
-                let dx = qx - px;
-                let dy = qy - py;
-                if dx.abs() < EPSILON || (dx * dx + dy * dy) < EPSILON {
-                    // vertical or zero-length line
-                    *degenerate = true;
-                    return;
-                }
-                let residual = (ay - py - desired_distance) * dx - dy * (ax - px);
-                *residual0 = residual;
-            }
-            Constraint::HorizontalPointLineDistance(point, line, d) => {
-                // See notebook:
-                // https://github.com/KittyCAD/ezpz-sympy/blob/main/main.py
                 // Residual:
-                // m = (qy-py)/(qx-px)
-                // actual = ay - (m * (ax - px) + py)
+                // m = (qy - py) / (qx - px)
+                // actual = ay - py - m * (ax - px)
                 // residual = actual - desired_distance
                 let ax = current_assignments[layout.index_of(point.id_x())];
                 let ay = current_assignments[layout.index_of(point.id_y())];
@@ -775,12 +752,34 @@ impl Constraint {
                 let qy = current_assignments[layout.index_of(line.p1.id_y())];
                 let dx = qx - px;
                 let dy = qy - py;
-                if dy.abs() < EPSILON || (dx * dx + dy * dy) < EPSILON {
+                if dx.abs() <= EPSILON || (dx * dx + dy * dy) <= EPSILON * EPSILON {
+                    // vertical or zero-length line
+                    *degenerate = true;
+                    return;
+                }
+                *residual0 = ay - py - dy * dx.recip() * (ax - px) - desired_distance;
+            }
+            Constraint::HorizontalPointLineDistance(point, line, desired_distance) => {
+                // See notebook:
+                // https://github.com/KittyCAD/ezpz-sympy/blob/main/main.py
+                // Residual:
+                // m = (qx - px) / (qy - py)
+                // actual = ax - px - m * (ay - py)
+                // residual = actual - desired_distance
+                let ax = current_assignments[layout.index_of(point.id_x())];
+                let ay = current_assignments[layout.index_of(point.id_y())];
+                let px = current_assignments[layout.index_of(line.p0.id_x())];
+                let py = current_assignments[layout.index_of(line.p0.id_y())];
+                let qx = current_assignments[layout.index_of(line.p1.id_x())];
+                let qy = current_assignments[layout.index_of(line.p1.id_y())];
+                let dx = qx - px;
+                let dy = qy - py;
+                if dy.abs() <= EPSILON || (dx * dx + dy * dy) <= EPSILON * EPSILON {
                     // horizontal or zero-length line
                     *degenerate = true;
                     return;
                 }
-                let residual = ax - d - px - (ay - py) * (-px + qx) * (-py + qy).recip();
+                let residual = ax - px - dx * dy.recip() * (ay - py) - desired_distance;
                 *residual0 = residual;
             }
             Constraint::Symmetric(line, a, b) => {
@@ -1025,7 +1024,7 @@ impl Constraint {
     ) {
         match self {
             Constraint::LineTangentToCircle(line, circle, side) => {
-                // Residual: R = cross(u, v) / |u| - r
+                // Residual: R = cross(u, v) / |u| - |r|
                 // where u = p1 - p0 and v = c - p0.
                 let p0 = V::new(
                     current_assignments[layout.index_of(line.p0.id_x())],
@@ -1067,7 +1066,11 @@ impl Constraint {
                 let dr_dy1 = dr_du_y;
                 let dr_dxc = dr_dv_x;
                 let dr_dyc = dr_dv_y;
-                let dr_dr = -1.0;
+
+                // The residual uses |radius| to guard against negative values, so we have to
+                // differentiate through the abs
+                let radius = current_assignments[layout.index_of(circle.radius.id)];
+                let dr_dr = -radius.signum();
 
                 let coeffs = [
                     JacobianVar {
@@ -1129,10 +1132,17 @@ impl Constraint {
                 let dr_dbx = -u_d.x;
                 let dr_dby = -u_d.y;
 
+                // The residual uses |a_r| and |b_r| to guard against negative values so we have to
+                // differentiate through the abs
+                let a_sign = a_r.signum();
+                let b_sign = b_r.signum();
                 let (dr_dar, dr_dbr) = if *side == CircleSide::Interior {
-                    if a_r > b_r { (1.0, -1.0) } else { (-1.0, 1.0) }
+                    // r = ||a_r| - |b_r|| - dist
+                    let inner = (a_r.abs() - b_r.abs()).signum();
+                    (inner * a_sign, -inner * b_sign)
                 } else {
-                    (1.0, 1.0)
+                    // r = |a_r| + |b_r| - dist
+                    (a_sign, b_sign)
                 };
 
                 let coeffs = [
@@ -1649,8 +1659,7 @@ impl Constraint {
                 row0.extend(partial_derivatives);
             }
             Constraint::VerticalPointLineDistance(point, line, _distance) => {
-                // See notebook:
-                // https://github.com/KittyCAD/ezpz-sympy/blob/main/main.py
+                // Mirrors `HorizontalPointLineDistance` with x and y swapped
                 let id_ax = point.id_x();
                 let id_ay = point.id_y();
                 let id_px = line.p0.id_x();
@@ -1658,26 +1667,28 @@ impl Constraint {
                 let id_qx = line.p1.id_x();
                 let id_qy = line.p1.id_y();
                 let ax = current_assignments[layout.index_of(id_ax)];
-                let ay = current_assignments[layout.index_of(id_ay)];
                 let px = current_assignments[layout.index_of(id_px)];
                 let py = current_assignments[layout.index_of(id_py)];
                 let qx = current_assignments[layout.index_of(id_qx)];
                 let qy = current_assignments[layout.index_of(id_qy)];
+
                 let dx = qx - px;
                 let dy = qy - py;
-                if dx.abs() < EPSILON || (dx * dx + dy * dy) < EPSILON {
+                if dx.abs() <= EPSILON || (dx * dx + dy * dy) <= EPSILON * EPSILON {
                     // vertical or zero-length line
                     *degenerate = true;
                     return;
                 }
-                // Residual is scaled by dx: r = (ay - py - d) * dx - dy * (ax - px)
-                // Partial derivatives for the scaled residual:
-                let dax = -dy;
-                let day = dx;
-                let dpx = qy - ay;
-                let dpy = ax - qx;
-                let dqx = ay - py;
-                let dqy = -(ax - px);
+
+                let dpx = (ax - qx) * (py - qy) * libm::pow(px - qx, -2.0);
+                let dpy = (-ax + qx) * (px - qx).recip();
+
+                let dqx = -(ax - px) * (py - qy) * libm::pow(px - qx, -2.0);
+                let dqy = (ax - px) * (px - qx).recip();
+
+                let dax = (-py + qy) * (px - qx).recip();
+                let day = 1.0;
+
                 row0.extend([
                     JacobianVar {
                         id: id_ax,
@@ -1714,7 +1725,6 @@ impl Constraint {
                 let id_py = line.p0.id_y();
                 let id_qx = line.p1.id_x();
                 let id_qy = line.p1.id_y();
-                // let ax = current_assignments[layout.index_of(id_ax)];
                 let ay = current_assignments[layout.index_of(id_ay)];
                 let px = current_assignments[layout.index_of(id_px)];
                 let py = current_assignments[layout.index_of(id_py)];
@@ -1722,7 +1732,7 @@ impl Constraint {
                 let qy = current_assignments[layout.index_of(id_qy)];
                 let dx = qx - px;
                 let dy = qy - py;
-                if dy.abs() < EPSILON || (dx * dx + dy * dy) < EPSILON {
+                if dy.abs() < EPSILON || (dx * dx + dy * dy) < EPSILON * EPSILON {
                     // vertical or zero-length line
                     *degenerate = true;
                     return;
