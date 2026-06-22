@@ -1,3 +1,9 @@
+# 0.2.27
+
+## Changed
+
+ - Change the core numeric solver loop (adaptive damping, scale-covariance) (#270)
+
 # 0.2.26
 
 ## Added
