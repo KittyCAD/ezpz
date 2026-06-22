@@ -14,10 +14,12 @@ mod newton;
 // May as well round up to the nearest power of 2.
 const NONZEROES_PER_ROW: usize = 8;
 
-// Tikhonov regularization configuration. Note that some texts use lambda^2 as their
-// scaling parameter, but it's a magic constant we have to tune either way so who cares.
+// Initial value of the Levenberg-Marquardt damping parameter λ. This is adapted
+// during the solve (scaled down on accepted steps, up on rejected ones), so it's
+// only a starting point. Some texts use lambda^2 as their scaling parameter, but
+// it's a magic constant we have to tune either way so who cares.
 // Ref: https://people.csail.mit.edu/jsolomon/share/book/numerical_book.pdf, 4.1.3
-const REGULARIZATION_LAMBDA: f64 = 1e-9;
+const DEFAULT_INITIAL_LAMBDA: f64 = 1e-9;
 
 /// Configuration for how to solve a system.
 /// ```
@@ -32,9 +34,11 @@ pub struct Config {
     max_iterations: usize,
     /// How close can the residual be to 0 before we declare the system is solved?
     /// Smaller number means more precise solves.
-    convergence_tolerance: f64,
+    residual_tolerance: f64,
     /// Stop iterating if the step size becomes negligible (relative infinity norm).
     step_tolerance: f64,
+    /// Initial value of the Levenberg-Marquardt damping parameter λ.
+    initial_lambda: f64,
 }
 
 impl Config {
@@ -47,7 +51,7 @@ impl Config {
     /// How close can the residual be to 0 before we declare the system is solved?
     /// Smaller number means more precise solves.
     pub fn with_convergence_tolerance(mut self, value: f64) -> Self {
-        self.convergence_tolerance = value;
+        self.residual_tolerance = value;
         self
     }
 
@@ -56,14 +60,21 @@ impl Config {
         self.step_tolerance = value;
         self
     }
+
+    /// Initial value of the Levenberg-Marquardt damping parameter λ.
+    pub fn with_initial_lambda(mut self, value: f64) -> Self {
+        self.initial_lambda = value;
+        self
+    }
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
             max_iterations: 35,
-            convergence_tolerance: 1e-8,
+            residual_tolerance: 1e-8,
             step_tolerance: 1e-12,
+            initial_lambda: DEFAULT_INITIAL_LAMBDA,
         }
     }
 }
@@ -247,17 +258,13 @@ impl<'c> Model<'c> {
             &nonzero_cells_j,
         )?;
 
-        // Preallocate this so we can use it whenever we run a newton solve.
-        // This 'damps' the jacobian matrix, ensuring that as its coefficients get smaller,
-        // the solver takes smaller and smaller steps.
-        let lambda_i = build_lambda_i(layout.num_variables);
-
         let jc = JacobianCache {
             vals: vec![0.0; sym.compute_nnz()], // We have a nonzero count util.
             sym,
         };
 
         // Precompute the symbolic LU of A = JᵀJ + λI so we can reuse it inside the Newton loop.
+        let lambda_i = build_lambda_i(layout.num_variables, config.initial_lambda);
         let lu_symbolic = Self::precompute_symbolic_lu(&jc.sym, &lambda_i)?;
 
         // All done.
@@ -291,12 +298,12 @@ impl<'c> Model<'c> {
     }
 }
 
-fn build_lambda_i(num_variables: usize) -> faer::sparse::SparseColMat<usize, f64> {
+fn build_lambda_i(num_variables: usize, lambda: f64) -> faer::sparse::SparseColMat<usize, f64> {
     faer::sparse::SparseColMat::<usize, f64>::try_new_from_triplets(
         num_variables,
         num_variables,
         &(0..num_variables)
-            .map(|i| faer::sparse::Triplet::new(i, i, REGULARIZATION_LAMBDA))
+            .map(|i| faer::sparse::Triplet::new(i, i, lambda))
             .collect::<Vec<_>>(),
     )
     .unwrap()
