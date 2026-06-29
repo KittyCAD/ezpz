@@ -1,7 +1,7 @@
 use faer::{
-    ColRef,
+    ColRef, Side,
     prelude::Solve,
-    sparse::{SparseColMatRef, linalg::solvers::Lu},
+    sparse::{SparseColMatRef, linalg::solvers::Llt},
 };
 
 use crate::{Config, NonLinearSystemError};
@@ -80,8 +80,9 @@ impl Model<'_> {
             let a = jtj + &self.lambda_i;
             let b = j.transpose() * -ColRef::from_slice(&global_residual);
 
-            // Solve the linear system for the step `d`.
-            let factored = Lu::try_new_with_symbolic(self.lu_symbolic.clone(), a.as_ref())?;
+            // Solve the linear system for the step `d`
+            let factored =
+                Llt::try_new_with_symbolic(self.llt_symbolic.clone(), a.as_ref(), Side::Lower)?;
             let d = factored.solve(&b);
             assert_eq!(
                 d.nrows(),
@@ -177,7 +178,8 @@ impl Model<'_> {
             let b = j.transpose() * -ColRef::from_slice(&global_residual);
 
             // Solve linear system
-            let factored = Lu::try_new_with_symbolic(self.lu_symbolic.clone(), a.as_ref())?;
+            let factored =
+                Llt::try_new_with_symbolic(self.llt_symbolic.clone(), a.as_ref(), Side::Lower)?;
             let d = factored.solve(&b);
             assert_eq!(
                 d.nrows(),

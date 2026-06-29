@@ -1,6 +1,6 @@
 use faer::{
     linalg::svd::SvdError,
-    sparse::{CreationError, FaerError, linalg::LuError},
+    sparse::{CreationError, FaerError, linalg::LltError},
 };
 
 use crate::Id;
@@ -75,7 +75,7 @@ pub enum NonLinearSystemError {
     FaerSolve {
         /// Underlying error.
         #[from]
-        error: LuError,
+        error: LltError,
     },
     /// Faer: could not decompose Jacobian.
     #[error("Something went wrong doing SVD in faer")]
