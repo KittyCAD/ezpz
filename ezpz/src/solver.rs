@@ -1,6 +1,7 @@
 use std::sync::Mutex;
 
-use faer::sparse::{Pair, SparseColMatRef, SymbolicSparseColMat, linalg::solvers::SymbolicLu};
+use faer::Side;
+use faer::sparse::{Pair, SparseColMatRef, SymbolicSparseColMat, linalg::solvers::SymbolicLlt};
 
 use crate::{
     Constraint, ConstraintEntry, NonLinearSystemError, Warning, WarningContent,
@@ -135,7 +136,7 @@ pub(crate) struct Model<'c> {
     row2_scratch: Vec<JacobianVar>,
     pub(crate) warnings: Mutex<Vec<Warning>>,
     lambda_i: faer::sparse::SparseColMat<usize, f64>,
-    lu_symbolic: SymbolicLu<usize>,
+    llt_symbolic: SymbolicLlt<usize>,
 }
 
 fn validate_variables(
@@ -263,9 +264,10 @@ impl<'c> Model<'c> {
             sym,
         };
 
-        // Precompute the symbolic LU of A = JᵀJ + λI so we can reuse it inside the Newton loop.
+        // Precompute the symbolic Cholesky factorization of A = JᵀJ + λI so we can reuse it inside
+        // the Newton loop
         let lambda_i = build_lambda_i(layout.num_variables, config.initial_lambda);
-        let lu_symbolic = Self::precompute_symbolic_lu(&jc.sym, &lambda_i)?;
+        let llt_symbolic = Self::precompute_symbolic_cholesky(&jc.sym, &lambda_i)?;
 
         // All done.
         Ok(Self {
@@ -277,24 +279,24 @@ impl<'c> Model<'c> {
             row1_scratch: Vec::with_capacity(NONZEROES_PER_ROW),
             row2_scratch: Vec::with_capacity(NONZEROES_PER_ROW),
             lambda_i,
-            lu_symbolic,
+            llt_symbolic,
         })
     }
 
     /// This is used in the core Newton solving, but it can be calculated entirely from
     /// the symbolic structure of the constraints. So let's do it here, before running
     /// the newton loop, to keep that loop fast.
-    fn precompute_symbolic_lu(
+    fn precompute_symbolic_cholesky(
         jc_sym: &SymbolicSparseColMat<usize>,
         lambda_i: &faer::sparse::SparseColMat<usize, f64>,
-    ) -> Result<SymbolicLu<usize>, NonLinearSystemError> {
+    ) -> Result<SymbolicLlt<usize>, NonLinearSystemError> {
         // Any non-zero values will do; we only care about the sparsity pattern of JᵀJ + λI.
         let ones = vec![1.0; jc_sym.compute_nnz()];
         let j = SparseColMatRef::new(jc_sym.as_ref(), &ones);
         let jt = j.transpose().to_col_major()?;
         let jtj = jt * j;
         let a = jtj + lambda_i;
-        Ok(SymbolicLu::try_new(a.symbolic())?)
+        Ok(SymbolicLlt::try_new(a.symbolic(), Side::Lower)?)
     }
 }
 

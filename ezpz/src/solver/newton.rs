@@ -1,7 +1,10 @@
 use faer::{
-    ColRef,
+    ColRef, Side,
     prelude::Solve,
-    sparse::{SparseColMatRef, linalg::solvers::Lu},
+    sparse::{
+        SparseColMatRef,
+        linalg::{LltError, solvers::Llt},
+    },
 };
 
 use crate::{Config, NonLinearSystemError};
@@ -80,8 +83,22 @@ impl Model<'_> {
             let a = jtj + &self.lambda_i;
             let b = j.transpose() * -ColRef::from_slice(&global_residual);
 
-            // Solve the linear system for the step `d`.
-            let factored = Lu::try_new_with_symbolic(self.lu_symbolic.clone(), a.as_ref())?;
+            // Solve the linear system for the step `d`
+            let factored = match Llt::try_new_with_symbolic(
+                self.llt_symbolic.clone(),
+                a.as_ref(),
+                Side::Lower,
+            ) {
+                Ok(factored) => factored,
+                // A is SPD for λ > 0, so a numeric failure means λ has decayed enough that A is no
+                // longer numerically positive-definite. Treat it like a rejected step: increase λ
+                // and retry next iteration.
+                Err(LltError::Numeric(_)) => {
+                    lambda *= LM_LAMBDA_INCR;
+                    continue;
+                }
+                Err(e) => return Err(e.into()),
+            };
             let d = factored.solve(&b);
             assert_eq!(
                 d.nrows(),
@@ -177,7 +194,8 @@ impl Model<'_> {
             let b = j.transpose() * -ColRef::from_slice(&global_residual);
 
             // Solve linear system
-            let factored = Lu::try_new_with_symbolic(self.lu_symbolic.clone(), a.as_ref())?;
+            let factored =
+                Llt::try_new_with_symbolic(self.llt_symbolic.clone(), a.as_ref(), Side::Lower)?;
             let d = factored.solve(&b);
             assert_eq!(
                 d.nrows(),
