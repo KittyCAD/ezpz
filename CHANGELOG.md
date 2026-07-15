@@ -1,3 +1,9 @@
+# 0.2.28
+
+## Changed
+
+ - Use Cholesky decomp instead of LU, it's faster (#272)
+
 # 0.2.27
 
 ## Changed
