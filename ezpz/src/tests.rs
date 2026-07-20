@@ -1774,13 +1774,15 @@ fn points_at_angle_degenerate() {
     let constraints = [ConstraintRequest::highest_priority(
         Constraint::PointsAtAngle(vertex, p1, p2, AngleKind::Other(Angle::from_degrees(180.0))),
     )];
+    // The vertex coincides with `p1`, so the first arm has zero length and its
+    // direction (hence the angle) is undefined.
     let initial_guesses = vec![
-        (0, 0.0),
-        (1, 0.0),
+        (0, 13.0),
+        (1, 13.0),
         (2, 13.0),
         (3, 13.0),
-        (4, 13.0),
-        (5, 13.0),
+        (4, 0.0),
+        (5, 0.0),
     ];
     let outcome = solve(
         &constraints,

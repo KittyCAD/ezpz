@@ -5,7 +5,7 @@ use crate::{
     solver::Layout,
     vector::{Rotation2, V},
 };
-use std::f64::consts::PI;
+use std::f64::consts::{FRAC_PI_2, PI};
 
 /// Constructors for constraints which are a composition of
 /// existing constraints.
@@ -483,9 +483,6 @@ impl Constraint {
                 row0.extend(p0.all_variables());
                 row0.extend(p1.all_variables());
                 row0.extend(p2.all_variables());
-                row1.extend(p0.all_variables());
-                row1.extend(p1.all_variables());
-                row1.extend(p2.all_variables());
             }
         }
     }
@@ -937,14 +934,12 @@ impl Constraint {
                     return;
                 }
 
-                let rot = rotation_for_angle_kind(*expected_angle);
+                let target = target_angle_radians(*expected_angle);
                 let s = (len_u + len_v) * 0.5;
 
-                // Residual: r = (|u| v - |v| R u) / ((|u| + |v|)/2)
-                let res = (v * len_u - rot.apply(u) * len_v) * (1.0 / s);
-
-                *residual0 = res.x;
-                *residual1 = res.y;
+                // Residual: r = ((|u| + |v|) / 2) * wrap(angle(u, v) - target)
+                let delta = wrap(u.signed_angle(v) - target, -PI, PI);
+                *residual0 = s * delta;
             }
         }
     }
@@ -988,7 +983,7 @@ impl Constraint {
                 AngleKind::Other(*angle),
             )
             .residual_dim(),
-            Constraint::PointsAtAngle(..) => 2,
+            Constraint::PointsAtAngle(..) => 1,
         }
     }
 
@@ -1394,7 +1389,10 @@ impl Constraint {
                         ∂s/∂u = û/2
                         ∂r/∂u = ((∂a/∂u) - (a/s)·(∂s/∂u)) / s
 
-                    Symmetric for v with ∂a/∂v = perp_ccw(R u), ∂s/∂v = v̂/2
+                    Symmetric for v with
+
+                        ∂s/∂v = v̂/2
+                        ∂a/∂v = perp_ccw(R u)
                 */
                 let a = u.cross_2d(rot.inverse().apply(v));
                 let inv_s = 1.0 / s;
@@ -2197,41 +2195,37 @@ impl Constraint {
                     return;
                 }
 
-                let inv_len_u = 1.0 / len_u;
-                let inv_len_v = 1.0 / len_v;
-                let u_hat = u * inv_len_u;
-                let v_hat = v * inv_len_v;
+                let u_hat = u * (1.0 / len_u);
+                let v_hat = v * (1.0 / len_v);
 
-                let rot = rotation_for_angle_kind(*expected_angle);
+                let target = target_angle_radians(*expected_angle);
                 let s = (len_u + len_v) * 0.5;
-
-                // Columns of R: R*e1 = (ca, sa), R*e2 = (-sa, ca)
-                let rot_e1 = rot.apply(V::new(1.0, 0.0));
-                let rot_e2 = rot.apply(V::new(0.0, 1.0));
 
                 /*
                     Residual
 
-                        r = a / s
-                        a := (|u| v - |v| R u)
+                        r = s δ
+                        δ := wrap(angle(u, v) - target)
                         s := (|u| + |v|) / 2
 
-                    Differentiate in u and v (via quotient/chain rule)
+                    Differentiate in u
 
-                        ∂a/∂u = v ûᵀ - |v| R
-                        ∂r/∂u = (∂a/∂u - r (∂s/∂u)ᵀ) / s = ((v - r/2) ûᵀ - |v| R) / s
+                        ∂s/∂u = û/2
+                        ∂δ/∂u = -perp_ccw(û)/|u|
+                        ∂r/∂u = (∂s/∂u) δ + s (∂δ/∂u) = (û/2) δ - (s/|u|) perp_ccw(û)
 
-                        ∂a/∂v = |u| I - (R u) v̂ᵀ
-                        ∂r/∂v = (∂a/∂v - r (∂s/∂v)ᵀ) / s = (|u| I - (R u + r/2) v̂ᵀ) / s
+                    Symmetric in v with
+
+                        ∂s/∂v = v̂/2
+                        ∂δ/∂v = perp_ccw(v̂)/|v|
                 */
-                let inv_s = 1.0 / s;
-                let rot_u = rot.apply(u);
-                let res = (v * len_u - rot_u * len_v) * inv_s;
-                let half_res = res * 0.5;
-                let dr_du0 = ((v - half_res) * u_hat.x - rot_e1 * len_v) * inv_s;
-                let dr_du1 = ((v - half_res) * u_hat.y - rot_e2 * len_v) * inv_s;
-                let dr_dv0 = (V::new(len_u, 0.0) - (rot_u + half_res) * v_hat.x) * inv_s;
-                let dr_dv1 = (V::new(0.0, len_u) - (rot_u + half_res) * v_hat.y) * inv_s;
+
+                let delta = wrap(u.signed_angle(v) - target, -PI, PI);
+                let s_u = s / len_u;
+                let s_v = s / len_v;
+                let half_delta = 0.5 * delta;
+                let dr_du = u_hat * half_delta - u_hat.perp_ccw() * s_u;
+                let dr_dv = v_hat * half_delta + v_hat.perp_ccw() * s_v;
 
                 // ∂r/∂p0 = -(∂r/∂u + ∂r/∂v)
                 // ∂r/∂p1 = ∂r/∂u
@@ -2239,53 +2233,27 @@ impl Constraint {
                 row0.extend([
                     JacobianVar {
                         id: p0.id_x(),
-                        partial_derivative: -(dr_du0.x + dr_dv0.x),
+                        partial_derivative: -(dr_du.x + dr_dv.x),
                     },
                     JacobianVar {
                         id: p0.id_y(),
-                        partial_derivative: -(dr_du1.x + dr_dv1.x),
+                        partial_derivative: -(dr_du.y + dr_dv.y),
                     },
                     JacobianVar {
                         id: p1.id_x(),
-                        partial_derivative: dr_du0.x,
+                        partial_derivative: dr_du.x,
                     },
                     JacobianVar {
                         id: p1.id_y(),
-                        partial_derivative: dr_du1.x,
+                        partial_derivative: dr_du.y,
                     },
                     JacobianVar {
                         id: p2.id_x(),
-                        partial_derivative: dr_dv0.x,
+                        partial_derivative: dr_dv.x,
                     },
                     JacobianVar {
                         id: p2.id_y(),
-                        partial_derivative: dr_dv1.x,
-                    },
-                ]);
-                row1.extend([
-                    JacobianVar {
-                        id: p0.id_x(),
-                        partial_derivative: -(dr_du0.y + dr_dv0.y),
-                    },
-                    JacobianVar {
-                        id: p0.id_y(),
-                        partial_derivative: -(dr_du1.y + dr_dv1.y),
-                    },
-                    JacobianVar {
-                        id: p1.id_x(),
-                        partial_derivative: dr_du0.y,
-                    },
-                    JacobianVar {
-                        id: p1.id_y(),
-                        partial_derivative: dr_du1.y,
-                    },
-                    JacobianVar {
-                        id: p2.id_x(),
-                        partial_derivative: dr_dv0.y,
-                    },
-                    JacobianVar {
-                        id: p2.id_y(),
-                        partial_derivative: dr_dv1.y,
+                        partial_derivative: dr_dv.y,
                     },
                 ]);
             }
@@ -2644,6 +2612,19 @@ fn rotation_for_angle_kind(angle_kind: AngleKind) -> Rotation2 {
         AngleKind::Perpendicular => Rotation2::from_sincos(1.0, 0.0),
         AngleKind::Other(angle) => Rotation2::from_angle_radians(angle.to_radians()),
     }
+}
+
+fn target_angle_radians(angle_kind: AngleKind) -> f64 {
+    match angle_kind {
+        AngleKind::Parallel => 0.0,
+        AngleKind::Perpendicular => FRAC_PI_2,
+        AngleKind::Other(angle) => angle.to_radians(),
+    }
+}
+
+/// Wrap `x` into the half-open interval `[lo, hi)`.
+fn wrap(x: f64, lo: f64, hi: f64) -> f64 {
+    (x - lo).rem_euclid(hi - lo) + lo
 }
 
 #[cfg(test)]
