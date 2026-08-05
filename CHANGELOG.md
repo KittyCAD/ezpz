@@ -1,3 +1,9 @@
+# 0.2.29
+
+## Changed
+
+ - `PointsAtAngle` constraint improved stability (#274)
+
 # 0.2.28
 
 ## Changed
