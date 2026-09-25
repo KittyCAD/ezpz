@@ -7,7 +7,7 @@ use faer::{
     sparse::SparseColMatRef,
 };
 
-use crate::{FreedomAnalysis, NonLinearSystemError, solver::Model};
+use crate::{ConstraintEntry, FreedomAnalysis, NonLinearSystemError, solver::Model};
 
 const TOLERANCE_BASE: f64 = 1E-8;
 
@@ -25,8 +25,78 @@ impl Model<'_> {
 
         let nullspace = orthonormal_nullspace(j_dense.as_mat_ref(), nvars)?;
         let underconstrained = underconstrained_variables(nullspace.as_mat_ref(), nvars);
-        Ok(FreedomAnalysis::new(underconstrained))
+
+        let mut redundant = Vec::new();
+        let rank = dependent_constraints(j_dense.as_mat_ref(), self.constraints, &mut redundant);
+        Ok(FreedomAnalysis::new(
+            underconstrained,
+            redundant,
+            rank,
+            j_dense.nrows(),
+        ))
     }
+}
+
+/// Walks the Jacobian's rows in constraint order and keeps each row that is
+/// linearly independent of the rows kept before it. A row that adds nothing is
+/// dependent, and its constraint goes into `redundant`.
+/// Returns the rank of the Jacobian, which is the number of rows kept.
+///
+/// Going in order, rather than taking the pivots of a QR of Jᵀ, means that of two
+/// constraints which say the same thing, the later one is reported. That is
+/// usually the one the user just added, so it's the one they'd expect to hear about.
+fn dependent_constraints(
+    jacobian: MatRef<'_, f64>,
+    constraints: &[ConstraintEntry<'_>],
+    redundant: &mut Vec<usize>,
+) -> usize {
+    let nvars = jacobian.ncols();
+    let largest_row_norm = jacobian
+        .row_iter()
+        .map(|row| row.norm_l2())
+        .fold(0.0, libm::fmax);
+    // Same relative tolerance as the rank in `orthonormal_nullspace`, so that
+    // both halves of the analysis agree on what "independent" means.
+    let tolerance = TOLERANCE_BASE * largest_row_norm;
+
+    // Orthonormal basis of the rows kept so far, one per column.
+    let mut basis = Mat::<f64>::zeros(nvars, jacobian.nrows().min(nvars));
+    let mut rank = 0;
+    let mut candidate = vec![0.0; nvars];
+    let mut row = 0;
+    for constraint in constraints {
+        let mut dependent = false;
+        for _ in 0..constraint.constraint.residual_dim() {
+            for (c, &j) in candidate.iter_mut().zip(jacobian.row(row).iter()) {
+                *c = j;
+            }
+            row += 1;
+            // Gram-Schmidt, twice: one pass loses orthogonality when the
+            // candidate is nearly in the span, which is exactly the case we're testing.
+            for _ in 0..2 {
+                for k in 0..rank {
+                    let q = basis.col(k);
+                    let dot: f64 = candidate.iter().zip(q.iter()).map(|(c, q)| c * q).sum();
+                    for (c, q) in candidate.iter_mut().zip(q.iter()) {
+                        *c -= dot * q;
+                    }
+                }
+            }
+            let norm = candidate.iter().map(|c| c * c).sum::<f64>().sqrt();
+            if norm <= tolerance || rank == nvars {
+                dependent = true;
+                continue;
+            }
+            for (k, c) in candidate.iter().enumerate() {
+                basis[(k, rank)] = c / norm;
+            }
+            rank += 1;
+        }
+        if dependent {
+            redundant.push(constraint.id);
+        }
+    }
+    rank
 }
 
 fn orthonormal_nullspace(

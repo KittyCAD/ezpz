@@ -1917,3 +1917,142 @@ fn points_at_angle_sign_distinguishable() {
         );
     }
 }
+
+/// A 600 x 300 rectangle drawn as four separate lines joined by coincident endpoints,
+/// with its bottom-left corner fixed at the origin. `extra` is appended after
+/// the constraints which already make it well-constrained.
+fn separate_line_rectangle(
+    extra: impl FnOnce(&[DatumLineSegment; 4]) -> Vec<Constraint>,
+) -> SolveOutcomeFreedomAnalysis {
+    let mut ids = IdGenerator::default();
+    let mut line = || DatumLineSegment::new(DatumPoint::new(&mut ids), DatumPoint::new(&mut ids));
+    let [bottom, right, top, left] = [line(), line(), line(), line()];
+    let mut constraints = vec![
+        Constraint::PointsCoincident(bottom.p1, right.p0),
+        Constraint::PointsCoincident(right.p1, top.p0),
+        Constraint::PointsCoincident(top.p1, left.p0),
+        Constraint::PointsCoincident(left.p1, bottom.p0),
+        Constraint::Horizontal(bottom),
+        Constraint::Horizontal(top),
+        Constraint::Vertical(right),
+        Constraint::Vertical(left),
+        Constraint::Fixed(bottom.p0.id_x(), 0.0),
+        Constraint::Fixed(bottom.p0.id_y(), 0.0),
+        Constraint::Distance(bottom.p0, bottom.p1, 600.0),
+        Constraint::Distance(right.p0, right.p1, 300.0),
+    ];
+    constraints.extend(extra(&[bottom, right, top, left]));
+    let requests: Vec<_> = constraints
+        .into_iter()
+        .map(ConstraintRequest::highest_priority)
+        .collect();
+
+    // Roughly the rectangle, with every endpoint a little off.
+    let corners = [(0.0, 0.0), (590.0, 5.0), (605.0, 310.0), (-4.0, 295.0)];
+    let mut guesses = Vec::new();
+    for (i, l) in [bottom, right, top, left].iter().enumerate() {
+        let (x0, y0) = corners[i];
+        let (x1, y1) = corners[(i + 1) % 4];
+        guesses.extend([
+            (l.p0.id_x(), x0 + 1.0),
+            (l.p0.id_y(), y0 - 1.0),
+            (l.p1.id_x(), x1 - 2.0),
+            (l.p1.id_y(), y1 + 2.0),
+        ]);
+    }
+    solve_analysis(&requests, guesses, Config::default()).unwrap()
+}
+
+#[test]
+fn well_constrained_rectangle_has_no_redundancy() {
+    let solved = separate_line_rectangle(|_| Vec::new());
+    assert!(solved.outcome.is_satisfied());
+    assert!(!solved.analysis.is_underconstrained());
+    // Horizontal and Vertical share variables with the coincidences,
+    // but none of their equations is implied by the others.
+    assert!(!solved.analysis.has_redundant_constraints());
+    assert_eq!(solved.analysis.redundant(), &[] as &[usize]);
+    // 4 coincidences of 2 equations each, then 8 single-equation constraints.
+    assert_eq!(solved.analysis.num_equations(), 16);
+    assert_eq!(solved.analysis.rank(), 16);
+}
+
+#[test]
+fn repeated_width_is_redundant() {
+    // The bottom is already 600, and the top is parallel to it between the same verticals.
+    let solved =
+        separate_line_rectangle(|[_, _, top, _]| vec![Constraint::Distance(top.p0, top.p1, 600.0)]);
+    assert!(solved.outcome.is_satisfied());
+    assert!(!solved.analysis.is_underconstrained());
+    assert!(solved.analysis.has_redundant_constraints());
+    // Of the two widths, the later one is reported.
+    assert_eq!(solved.analysis.redundant(), &[12]);
+    assert_eq!(solved.analysis.num_equations(), 17);
+    assert_eq!(solved.analysis.rank(), 16);
+}
+
+#[test]
+fn every_repeated_constraint_is_reported() {
+    // The rectangle already puts its top-right corner at (600, 300), so pinning
+    // either coordinate of that corner again repeats it.
+    let solved = separate_line_rectangle(|[_, right, top, _]| {
+        vec![
+            Constraint::Fixed(top.p0.id_y(), 300.0),
+            Constraint::Fixed(right.p1.id_x(), 600.0),
+        ]
+    });
+    assert!(solved.outcome.is_satisfied());
+    // Both are reported, in request order.
+    assert_eq!(solved.analysis.redundant(), &[12, 13]);
+    assert_eq!(solved.analysis.rank(), 16);
+    assert_eq!(solved.analysis.num_equations(), 18);
+}
+
+#[test]
+fn multi_equation_constraint_with_one_dependent_equation_is_redundant() {
+    let mut ids = IdGenerator::default();
+    let p = DatumPoint::new(&mut ids);
+    let q = DatumPoint::new(&mut ids);
+    let requests = [
+        ConstraintRequest::highest_priority(Constraint::Fixed(p.id_x(), 1.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(p.id_y(), 2.0)),
+        ConstraintRequest::highest_priority(Constraint::Fixed(q.id_x(), 1.0)),
+        // Its x equation repeats the two Fixed x's; its y equation is new.
+        ConstraintRequest::highest_priority(Constraint::PointsCoincident(p, q)),
+    ];
+    let guesses = vec![
+        (p.id_x(), 0.0),
+        (p.id_y(), 0.0),
+        (q.id_x(), 3.0),
+        (q.id_y(), 4.0),
+    ];
+    let solved = solve_analysis(&requests, guesses, Config::default()).unwrap();
+    assert!(solved.outcome.is_satisfied());
+    assert!(!solved.analysis.is_underconstrained());
+    assert_eq!(solved.analysis.redundant(), &[3]);
+    assert_eq!(solved.analysis.num_equations(), 5);
+    assert_eq!(solved.analysis.rank(), 4);
+}
+
+#[test]
+fn redundancy_uses_request_indices_across_priorities() {
+    let mut ids = IdGenerator::default();
+    let var = ids.next_id();
+    let requests = [
+        ConstraintRequest::new(Constraint::Fixed(var, 1.0), 1),
+        ConstraintRequest::new(Constraint::Fixed(var, 1.0), 0),
+    ];
+    let solved = solve_analysis(&requests, vec![(var, 0.0)], Config::default()).unwrap();
+    assert!(solved.outcome.is_satisfied());
+    // Both priorities were solved together, in request order, so the second repeats the first.
+    assert_eq!(solved.analysis.redundant(), &[1]);
+    assert_eq!(solved.analysis.rank(), 1);
+}
+
+#[test]
+fn no_constraints_have_no_redundancy() {
+    let solved = solve_analysis(&[], vec![(0, 1.0)], Config::default()).unwrap();
+    assert!(!solved.analysis.has_redundant_constraints());
+    assert_eq!(solved.analysis.rank(), 0);
+    assert_eq!(solved.analysis.num_equations(), 0);
+}

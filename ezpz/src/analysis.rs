@@ -29,6 +29,13 @@ pub struct FreedomAnalysis {
     /// add more constraints so that their positions are properly specified and don't
     /// depend on the initial guesses.
     underconstrained: Vec<crate::Id>,
+    /// Constraints with an equation that is linearly dependent on earlier constraints'
+    /// at the final solution, identified by their index in the request list.
+    redundant: Vec<usize>,
+    /// Rank of the Jacobian at the final solution.
+    rank: usize,
+    /// Number of equations (Jacobian rows) in the system.
+    num_equations: usize,
 }
 
 impl Analysis for FreedomAnalysis {
@@ -38,15 +45,23 @@ impl Analysis for FreedomAnalysis {
 
     #[mutants::skip]
     fn no_constraints() -> Self {
-        Self {
-            underconstrained: Vec::new(),
-        }
+        Self::default()
     }
 }
 
 impl FreedomAnalysis {
-    pub(crate) fn new(underconstrained: Vec<crate::Id>) -> Self {
-        Self { underconstrained }
+    pub(crate) fn new(
+        underconstrained: Vec<crate::Id>,
+        redundant: Vec<usize>,
+        rank: usize,
+        num_equations: usize,
+    ) -> Self {
+        Self {
+            underconstrained,
+            redundant,
+            rank,
+            num_equations,
+        }
     }
 
     /// Is any variable in the system underconstrained?
@@ -64,6 +79,36 @@ impl FreedomAnalysis {
     /// Just like [`FreedomAnalysis::underconstrained`] except it consumes the struct to take ownership.
     pub fn into_underconstrained(self) -> Vec<crate::Id> {
         self.underconstrained
+    }
+
+    /// Does any constraint repeat what other constraints already say?
+    /// Equivalent to `self.rank() < self.num_equations()`.
+    pub fn has_redundant_constraints(&self) -> bool {
+        !self.redundant.is_empty()
+    }
+
+    /// Constraints which repeat, at least in part, what earlier constraints say:
+    /// at the final solution, one or more of their equations is linearly dependent
+    /// on the equations before it. Each is the constraint's index in the request
+    /// list, the same numbering as [`crate::SolveOutcome::unsatisfied`].
+    ///
+    /// When two constraints say the same thing, the later one in the request list is
+    /// reported. If the system is unsatisfied, a constraint listed here may be in
+    /// conflict with earlier ones rather than merely repeating them.
+    pub fn redundant(&self) -> &[usize] {
+        &self.redundant
+    }
+
+    /// Rank of the Jacobian at the final solution: how many of the system's
+    /// equations are independent.
+    pub fn rank(&self) -> usize {
+        self.rank
+    }
+
+    /// Number of equations in the system. Most constraints contribute one;
+    /// some, like [`crate::Constraint::PointsCoincident`], contribute more.
+    pub fn num_equations(&self) -> usize {
+        self.num_equations
     }
 }
 
