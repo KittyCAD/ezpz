@@ -1985,8 +1985,10 @@ fn repeated_width_is_redundant() {
     assert!(solved.outcome.is_satisfied());
     assert!(!solved.analysis.is_underconstrained());
     assert!(solved.analysis.has_redundant_constraints());
-    // Of the two widths, the later one is reported.
-    assert_eq!(solved.analysis.redundant(), &[12]);
+    // Either width could go. So could either vertical: the two widths already put the
+    // ends of the right side at the same x. The horizontals and the height could not,
+    // and neither could a coincidence, whose y equation nothing else implies.
+    assert_eq!(solved.analysis.redundant(), &[6, 7, 10, 12]);
     assert_eq!(solved.analysis.num_equations(), 17);
     assert_eq!(solved.analysis.rank(), 16);
 }
@@ -1994,7 +1996,7 @@ fn repeated_width_is_redundant() {
 #[test]
 fn every_repeated_constraint_is_reported() {
     // The rectangle already puts its top-right corner at (600, 300), so pinning
-    // either coordinate of that corner again repeats it.
+    // both its coordinates again says everything twice around that corner.
     let solved = separate_line_rectangle(|[_, right, top, _]| {
         vec![
             Constraint::Fixed(top.p0.id_y(), 300.0),
@@ -2002,8 +2004,15 @@ fn every_repeated_constraint_is_reported() {
         ]
     });
     assert!(solved.outcome.is_satisfied());
-    // Both are reported, in request order.
-    assert_eq!(solved.analysis.redundant(), &[12, 13]);
+    // Both pins are reported, and so is whatever they now duplicate: the corner can
+    // be reached from the origin along the bottom, or pinned directly, so the bottom's
+    // horizontal and width, the origin, the right side and even the bottom-right
+    // coincidence could each go. The top's horizontal, the left side, and the three
+    // other coincidences could not.
+    assert_eq!(
+        solved.analysis.redundant(),
+        &[0, 4, 6, 8, 9, 10, 11, 12, 13]
+    );
     assert_eq!(solved.analysis.rank(), 16);
     assert_eq!(solved.analysis.num_equations(), 18);
 }
@@ -2017,7 +2026,8 @@ fn multi_equation_constraint_with_one_dependent_equation_is_redundant() {
         ConstraintRequest::highest_priority(Constraint::Fixed(p.id_x(), 1.0)),
         ConstraintRequest::highest_priority(Constraint::Fixed(p.id_y(), 2.0)),
         ConstraintRequest::highest_priority(Constraint::Fixed(q.id_x(), 1.0)),
-        // Its x equation repeats the two Fixed x's; its y equation is new.
+        // Its x equation repeats the two Fixed x's; its y equation is new, so the
+        // coincidence cannot go, but either Fixed x could.
         ConstraintRequest::highest_priority(Constraint::PointsCoincident(p, q)),
     ];
     let guesses = vec![
@@ -2029,7 +2039,7 @@ fn multi_equation_constraint_with_one_dependent_equation_is_redundant() {
     let solved = solve_analysis(&requests, guesses, Config::default()).unwrap();
     assert!(solved.outcome.is_satisfied());
     assert!(!solved.analysis.is_underconstrained());
-    assert_eq!(solved.analysis.redundant(), &[3]);
+    assert_eq!(solved.analysis.redundant(), &[0, 2]);
     assert_eq!(solved.analysis.num_equations(), 5);
     assert_eq!(solved.analysis.rank(), 4);
 }
@@ -2044,8 +2054,8 @@ fn redundancy_uses_request_indices_across_priorities() {
     ];
     let solved = solve_analysis(&requests, vec![(var, 0.0)], Config::default()).unwrap();
     assert!(solved.outcome.is_satisfied());
-    // Both priorities were solved together, in request order, so the second repeats the first.
-    assert_eq!(solved.analysis.redundant(), &[1]);
+    // Both priorities were solved together, and either Fixed could go.
+    assert_eq!(solved.analysis.redundant(), &[0, 1]);
     assert_eq!(solved.analysis.rank(), 1);
 }
 

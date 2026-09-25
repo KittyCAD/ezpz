@@ -29,8 +29,8 @@ pub struct FreedomAnalysis {
     /// add more constraints so that their positions are properly specified and don't
     /// depend on the initial guesses.
     underconstrained: Vec<crate::Id>,
-    /// Constraints with an equation that is linearly dependent on earlier constraints'
-    /// at the final solution, identified by their index in the request list.
+    /// Constraints which could each be removed without freeing anything,
+    /// identified by their index in the request list.
     redundant: Vec<usize>,
     /// Rank of the Jacobian at the final solution.
     rank: usize,
@@ -81,20 +81,21 @@ impl FreedomAnalysis {
         self.underconstrained
     }
 
-    /// Does any constraint repeat what other constraints already say?
-    /// Equivalent to `self.rank() < self.num_equations()`.
+    /// Could any constraint be removed without freeing anything?
     pub fn has_redundant_constraints(&self) -> bool {
         !self.redundant.is_empty()
     }
 
-    /// Constraints which repeat, at least in part, what earlier constraints say:
-    /// at the final solution, one or more of their equations is linearly dependent
-    /// on the equations before it. Each is the constraint's index in the request
-    /// list, the same numbering as [`crate::SolveOutcome::unsatisfied`].
+    /// Constraints which could each be removed without freeing anything, because at
+    /// the final solution what they say is implied by the other constraints. Removing
+    /// any one of them is safe; removing several at once may not be. Each is the
+    /// constraint's index in the request list, the same numbering as
+    /// [`crate::SolveOutcome::unsatisfied`], in request order.
     ///
-    /// When two constraints say the same thing, the later one in the request list is
-    /// reported. If the system is unsatisfied, a constraint listed here may be in
-    /// conflict with earlier ones rather than merely repeating them.
+    /// A constraint with several equations is listed only if all of them are implied
+    /// by the others, so [`Self::rank`] can be below [`Self::num_equations`] with
+    /// nothing listed here. If the system is unsatisfied, a constraint listed here may
+    /// be in conflict with the others rather than merely repeating them.
     pub fn redundant(&self) -> &[usize] {
         &self.redundant
     }

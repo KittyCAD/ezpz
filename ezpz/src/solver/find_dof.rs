@@ -27,7 +27,7 @@ impl Model<'_> {
         let underconstrained = underconstrained_variables(nullspace.as_mat_ref(), nvars);
 
         let mut redundant = Vec::new();
-        let rank = dependent_constraints(j_dense.as_mat_ref(), self.constraints, &mut redundant);
+        let rank = redundant_constraints(j_dense.as_mat_ref(), self.constraints, &mut redundant)?;
         Ok(FreedomAnalysis::new(
             underconstrained,
             redundant,
@@ -37,66 +37,73 @@ impl Model<'_> {
     }
 }
 
-/// Walks the Jacobian's rows in constraint order and keeps each row that is
-/// linearly independent of the rows kept before it. A row that adds nothing is
-/// dependent, and its constraint goes into `redundant`.
-/// Returns the rank of the Jacobian, which is the number of rows kept.
+/// How much of a constraint's rows must lie in the left null space for it to count as
+/// taking part in a dependency. Entries of an orthonormal null-space basis are O(1) on
+/// the rows of a genuine dependency, and at the level of the solver's final error on the
+/// rest, so anything between the two separates them.
+const PARTICIPATION_TOLERANCE: f64 = 1E-6;
+
+/// Finds the constraints which could each be removed without lowering the rank of the
+/// Jacobian, i.e. without freeing anything, and pushes their ids onto `redundant`.
+/// Returns the rank of the Jacobian.
 ///
-/// Going in order, rather than taking the pivots of a QR of Jᵀ, means that of two
-/// constraints which say the same thing, the later one is reported. That is
-/// usually the one the user just added, so it's the one they'd expect to hear about.
-fn dependent_constraints(
+/// With N an orthonormal basis of the left null space of J (the dependencies between
+/// its rows), removing a constraint's rows R leaves the rank at
+/// `rank(J) - |R| + rank(N[R, :])`. So a constraint is redundant exactly when its block
+/// of N has full row rank. For a one-row constraint, that is "the row appears in some
+/// dependency". A multi-row constraint can take part in a dependency and still not be
+/// redundant: `PointsCoincident` whose x is implied by the rest but whose y is not.
+fn redundant_constraints(
     jacobian: MatRef<'_, f64>,
     constraints: &[ConstraintEntry<'_>],
     redundant: &mut Vec<usize>,
-) -> usize {
-    let nvars = jacobian.ncols();
-    let largest_row_norm = jacobian
-        .row_iter()
-        .map(|row| row.norm_l2())
-        .fold(0.0, libm::fmax);
-    // Same relative tolerance as the rank in `orthonormal_nullspace`, so that
-    // both halves of the analysis agree on what "independent" means.
-    let tolerance = TOLERANCE_BASE * largest_row_norm;
+) -> Result<usize, NonLinearSystemError> {
+    let (neqs, nvars) = (jacobian.nrows(), jacobian.ncols());
 
-    // Orthonormal basis of the rows kept so far, one per column.
-    let mut basis = Mat::<f64>::zeros(nvars, jacobian.nrows().min(nvars));
-    let mut rank = 0;
-    let mut candidate = vec![0.0; nvars];
+    // Which rows depend on which doesn't change with their scale, but the SVD's
+    // tolerance does: a weighted constraint, or one in radians next to ones in
+    // millimetres, would otherwise dominate it. A zero row stays zero, and is its own
+    // dependency. Not EPSILON: a small gradient is still a direction (an angle between
+    // long lines has one of about 1/length), and dividing by it is harmless.
+    let mut rows = jacobian.to_owned();
+    for row in rows.row_iter_mut() {
+        let norm = row.norm_l2();
+        if norm > 0.0 {
+            for x in row.iter_mut() {
+                *x /= norm;
+            }
+        }
+    }
+
+    let svd = rows.svd().map_err(NonLinearSystemError::FaerSvd)?;
+    let singular = svd.S().column_vector();
+    let largest = singular.iter().copied().fold(0.0, libm::fmax);
+    let tolerance = TOLERANCE_BASE * largest;
+    let rank = singular.iter().filter(|&&s| s > tolerance).count();
+    let nullity = neqs - rank;
+    debug_assert!(rank <= nvars);
+    if nullity == 0 {
+        return Ok(rank);
+    }
+    // U is neqs x neqs, and its columns past the rank span the left null space.
+    let left_null = svd.U().subcols(rank, nullity);
+
     let mut row = 0;
     for constraint in constraints {
-        let mut dependent = false;
-        for _ in 0..constraint.constraint.residual_dim() {
-            for (c, &j) in candidate.iter_mut().zip(jacobian.row(row).iter()) {
-                *c = j;
-            }
-            row += 1;
-            // Gram-Schmidt, twice: one pass loses orthogonality when the
-            // candidate is nearly in the span, which is exactly the case we're testing.
-            for _ in 0..2 {
-                for k in 0..rank {
-                    let q = basis.col(k);
-                    let dot: f64 = candidate.iter().zip(q.iter()).map(|(c, q)| c * q).sum();
-                    for (c, q) in candidate.iter_mut().zip(q.iter()) {
-                        *c -= dot * q;
-                    }
-                }
-            }
-            let norm = candidate.iter().map(|c| c * c).sum::<f64>().sqrt();
-            if norm <= tolerance || rank == nvars {
-                dependent = true;
-                continue;
-            }
-            for (k, c) in candidate.iter().enumerate() {
-                basis[(k, rank)] = c / norm;
-            }
-            rank += 1;
-        }
-        if dependent {
+        let dim = constraint.constraint.residual_dim();
+        let block = left_null.subrows(row, dim);
+        row += dim;
+        let block_rank = block
+            .singular_values()
+            .map_err(NonLinearSystemError::FaerSvd)?
+            .iter()
+            .filter(|&&s| s > PARTICIPATION_TOLERANCE)
+            .count();
+        if block_rank == dim {
             redundant.push(constraint.id);
         }
     }
-    rank
+    Ok(rank)
 }
 
 fn orthonormal_nullspace(
